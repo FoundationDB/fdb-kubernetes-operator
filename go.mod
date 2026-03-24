@@ -3,8 +3,8 @@ module github.com/FoundationDB/fdb-kubernetes-operator/v2
 go 1.25.0
 
 require (
-	// Binding version for 7.1.67
-	github.com/apple/foundationdb/bindings/go v0.0.0-20250115161953-f1ab8147ed1c
+	// Binding version for 7.3.63
+	github.com/apple/foundationdb/bindings/go v0.0.0-20250702211439-37fcf1c8ce08
 	// fdbkubernetesmonitor version for 7.1.67
 	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20250115161953-f1ab8147ed1c
 	github.com/fatih/color v1.18.0

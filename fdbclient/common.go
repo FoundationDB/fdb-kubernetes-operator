@@ -101,7 +101,8 @@ func parseMachineReadableStatus(
 	return status, nil
 }
 
-// getFDBDatabase opens an FDB database.
+// getFDBDatabase opens an FDB database. Caller should make sure to close the
+// database with [fdb.Database.Close] when done with it.
 func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
 	clusterFile, err := ensureClusterFileIsPresent(
 		path.Join(os.TempDir(), string(cluster.UID)),
