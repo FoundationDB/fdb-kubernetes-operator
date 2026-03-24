@@ -44,6 +44,7 @@ func loadData(ctx context.Context, keys int, batchSize int, valueSize int, clust
 	if err != nil {
 		log.Fatalf("could not open database: %s", err)
 	}
+	defer db.Close()
 
 	err = db.Options().SetTransactionTimeout(10 * time.Second.Milliseconds())
 	if err != nil {
@@ -79,7 +80,6 @@ func loadData(ctx context.Context, keys int, batchSize int, valueSize int, clust
 
 				return nil, nil
 			})
-
 			if err != nil {
 				log.Printf("could not write data: %s\n", err)
 			}
