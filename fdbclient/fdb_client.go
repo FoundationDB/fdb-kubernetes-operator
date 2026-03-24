@@ -361,8 +361,8 @@ func setCommonOptions(
 		return err
 	}
 
-	// TODO (johscheuer): We should add an option to allow read and writes to a locked database. Right now
-	// only the management API calls will be allowed in a locked database.
+	// TODO (https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2445): We should add an option to allow read
+	// and writes to a locked database. Right now only the management API calls will be allowed in a locked database.
 
 	// We set a low retry limit as the operator will retry the reconciliation process anyway.
 	return tr.Options().SetRetryLimit(1)
