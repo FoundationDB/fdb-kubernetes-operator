@@ -361,15 +361,11 @@ func setCommonOptions(
 		return err
 	}
 
-	// We set a low retry limit as the operator will retry the reconciliation process anyways.
-	err = tr.Options().SetRetryLimit(1)
-	if err != nil {
-		return err
-	}
+	// TODO (johscheuer): We should add an option to allow read and writes to a locked database. Right now
+	// only the management API calls will be allowed in a locked database.
 
-	// Allow the operator to read from a locked database e.g. in cases where a restore is ongoing. This allows
-	// the operator to read from the FDB cluster.
-	return tr.Options().SetReadLockAware()
+	// We set a low retry limit as the operator will retry the reconciliation process anyway.
+	return tr.Options().SetRetryLimit(1)
 }
 
 func (fdbClient *realFdbLibClient) executeTransaction(
@@ -414,7 +410,15 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 		if err != nil {
 			return nil, err
 		}
+
 		err = tr.Options().SetSpecialKeySpaceEnableWrites()
+		if err != nil {
+			return nil, err
+		}
+
+		// Allow the operator to read and write from/to a locked database e.g. in cases where a restore is ongoing.
+		// This allows the operator to read and write from/to the FDB cluster.
+		err = tr.Options().SetLockAware()
 		if err != nil {
 			return nil, err
 		}
