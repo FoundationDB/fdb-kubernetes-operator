@@ -173,6 +173,7 @@ FoundationDBLiveBackupStatus describes the live status of the backup for a clust
 | BackupAgentsPaused | BackupAgentsPaused describes whether the backup agents are paused. | bool | false |
 | Restorable | Restorable if true, the backup can be restored | *bool | false |
 | LatestRestorablePoint | LatestRestorablePoint contains information about the latest restorable point if any exists. | *[LatestRestorablePoint](#latestrestorablepoint) | false |
+| UID | UID is the unique identifier of the backup. | *string | false |
 
 [Back to TOC](#table-of-contents)
 
