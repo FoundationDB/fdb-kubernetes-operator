@@ -273,42 +273,41 @@ func (fdbBackup *FdbBackup) Pause() {
 	fdbBackup.setState(fdbv1beta2.BackupStatePaused)
 }
 
-// RunDescribeCommand runs the describe command on the backup pod.
-func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
-	backupURL, err := fdbBackup.backup.BackupURL()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+// RunCommandOnBackupPod runs command on the backup pod.
+func (fdbBackup *FdbBackup) RunCommandOnBackupPod(command string) string {
 	backupPod := fdbBackup.GetBackupPod()
-	command := fmt.Sprintf(
-		"fdbbackup describe -d \"%s\" --json", backupURL,
-	)
 	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
 		*backupPod,
 		fdbv1beta2.MainContainerName,
 		command,
 		false)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	return out
+}
 
+// RunDescribeCommand runs the describe command on the backup pod.
+func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
+	backupURL, err := fdbBackup.backup.BackupURL()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	command := fmt.Sprintf("fdbbackup describe -d \"%s\" --json", backupURL)
+	out := fdbBackup.RunCommandOnBackupPod(command)
 	desc := &fdbv1beta2.FDBBackupDescribe{}
 	gomega.Expect(json.Unmarshal([]byte(out), desc)).To(gomega.Succeed())
 	return desc
 }
 
+// RunStatusCommand runs the status command on the backup pod.
+func (fdbBackup *FdbBackup) RunStatusCommand() *fdbv1beta2.FoundationDBLiveBackupStatus {
+	out := fdbBackup.RunCommandOnBackupPod("fdbbackup status --json")
+	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
+	gomega.Expect(json.Unmarshal([]byte(out), status)).To(gomega.Succeed())
+	return status
+}
+
 // RunModifyCommand runs the modify command on a backup pod to change the snapshot period.
-func (fdbBackup *FdbBackup) RunModifyCommand(snapshotPeriodSeconds int) {
-	backupURL, err := fdbBackup.backup.BackupURL()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	backupPod := fdbBackup.GetBackupPod()
-	command := fmt.Sprintf(
-		"fdbbackup modify -s %d -d \"%s\"",
-		snapshotPeriodSeconds,
-		backupURL,
-	)
-	_, _, err = fdbBackup.fdbCluster.ExecuteCmdOnPod(
-		*backupPod,
-		fdbv1beta2.MainContainerName,
-		command,
-		true)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+func (fdbBackup *FdbBackup) RunModifyCommand(snapshotPeriodSeconds int, tag string) {
+	command := fmt.Sprintf("fdbbackup modify -s %d -t %s", snapshotPeriodSeconds, tag)
+	fdbBackup.RunCommandOnBackupPod(command)
 }
 
 // RunListCommand runs the list command on a backup pod.
@@ -316,13 +315,7 @@ func (fdbBackup *FdbBackup) RunListCommand() []string {
 	backupURL, err := fdbBackup.backup.BaseURL()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	command := fmt.Sprintf("fdbbackup list -b \"%s\"", backupURL)
-	backupPod := fdbBackup.GetBackupPod()
-	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
-		*backupPod,
-		fdbv1beta2.MainContainerName,
-		command,
-		false)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	out := fdbBackup.RunCommandOnBackupPod(command)
 	return strings.Split(out, "\\n")
 }
 
@@ -351,18 +344,7 @@ func (fdbBackup *FdbBackup) WaitForReconciliation() {
 func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
 	var restorableVersion uint64
 	gomega.Eventually(func(g gomega.Gomega) uint64 {
-		backupPod := fdbBackup.GetBackupPod()
-		out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
-			*backupPod,
-			fdbv1beta2.MainContainerName,
-			"fdbbackup status --json",
-			false,
-		)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-
-		status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
-		g.Expect(json.Unmarshal([]byte(out), status)).NotTo(gomega.HaveOccurred())
-
+		status := fdbBackup.RunStatusCommand()
 		var latestRestorableVersion uint64
 		if status.LatestRestorablePoint != nil {
 			latestRestorableVersion = ptr.Deref(status.LatestRestorablePoint.Version, 0)

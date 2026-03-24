@@ -102,7 +102,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 		})
 
 		When("the default backup system is used", func() {
-			var useRestorableVersion, skipRestore bool
+			var useRestorableVersion, skipRestore, shouldPauseBackup bool
 			var backupConfiguration *fixtures.FdbBackupConfiguration
 			var currentRestorableVersion *uint64
 
@@ -127,7 +127,11 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						restorableVersion = backup.WaitForRestorableVersion(
 							fdbCluster.GetClusterVersion(),
 						)
-						backup.Stop()
+						if shouldPauseBackup {
+							backup.Pause()
+						} else {
+							backup.Stop()
+						}
 					}
 				case fdbv1beta2.BackupModeOneTime:
 					// In case of the one time backup we have to first write the keys and then do the backup.
@@ -212,18 +216,28 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					When("running fdbbackup commands", func() {
 						BeforeEach(func() {
 							skipRestore = true
+							shouldPauseBackup = true
 						})
 
 						JustBeforeEach(func() {
+							// running status command
+							statusCommandOutput := backup.RunStatusCommand()
+							Expect(statusCommandOutput.SnapshotIntervalSeconds).To(Equal(864000))
+							backupUid := *statusCommandOutput.UID
+
 							// running list command
 							listCommandOutput := backup.RunListCommand()
 							Expect(listCommandOutput).To(HaveLen(1))
 
 							// running modify command to change the snapshot period
-							// restart the backup before modifying since the backup is stopped
+							// restart the backup before modifying since the backup is paused
+							modifiedSnapshotPeriod := 900000
 							backup.Start()
-							modifiedSnapshotPeriod := 7200
-							backup.RunModifyCommand(modifiedSnapshotPeriod)
+							backup.RunModifyCommand(modifiedSnapshotPeriod, "default")
+							// validating snapshot interval changed and the backup UID is same
+							statusCommandOutput = backup.RunStatusCommand()
+							Expect(statusCommandOutput.SnapshotIntervalSeconds).To(Equal(modifiedSnapshotPeriod))
+							Expect(*statusCommandOutput.UID).To(Equal(backupUid))
 							backup.Stop()
 
 							// running describe command

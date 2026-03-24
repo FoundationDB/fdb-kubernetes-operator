@@ -388,6 +388,9 @@ type FoundationDBLiveBackupStatus struct {
 
 	// LatestRestorablePoint contains information about the latest restorable point if any exists.
 	LatestRestorablePoint *LatestRestorablePoint `json:"LatestRestorablePoint,omitempty"`
+
+	// UID is the unique identifier of the backup.
+	UID *string `json:"UID,omitempty"`
 }
 
 // FoundationDBLiveBackupStatusState provides the state of a backup in the
