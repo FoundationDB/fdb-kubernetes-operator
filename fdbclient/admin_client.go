@@ -494,7 +494,6 @@ func (client *cliAdminClient) ExcludeProcessesWithNoWait(
 
 			return nil
 		})
-
 		if err != nil {
 			return err
 		}
@@ -708,6 +707,7 @@ func (client *cliAdminClient) killWithManagementAPI(addresses []fdbv1beta2.Proce
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
 	return db.RebootWorker(fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, ","), false, 0)
 }
@@ -767,7 +767,6 @@ func (client *cliAdminClient) ChangeCoordinators(
 			)
 			return nil
 		})
-
 		if err != nil {
 			return "", err
 		}
@@ -964,7 +963,6 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBac
 			"--json",
 		},
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -1118,7 +1116,6 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 		}
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
