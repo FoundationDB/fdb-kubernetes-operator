@@ -964,8 +964,6 @@ func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup
 		args = append(args, "--encryption-key-file", encryptionKeyPath)
 	}
 
-	client.log.V(1).Info("running backup modify", "command", args)
-
 	_, err = client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args:   args,
