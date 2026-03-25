@@ -44,10 +44,6 @@ var DefaultTimeout = 10 * time.Second
 // MaxTimeout is the maximum timeout that will be used for requests that might be slower to respond.
 var MaxTimeout = 40 * time.Second
 
-const (
-	defaultTransactionTimeout = 5 * time.Second
-)
-
 func parseMachineReadableStatus(
 	logger logr.Logger,
 	contents []byte,
@@ -116,7 +112,14 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 		return fdb.Database{}, err
 	}
 
-	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout.Milliseconds())
+	// Sets the default timeout for transaction to the default timeout provided byt the user.
+	err = database.Options().SetTransactionTimeout(getDefaultTimeout(0).Milliseconds())
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	// We set a low retry limit as the operator will retry the reconciliation process anyway.
+	err = database.Options().SetTransactionRetryLimit(1)
 	if err != nil {
 		return fdb.Database{}, err
 	}
@@ -225,6 +228,27 @@ func cleanConnectionStringOutput(input string) string {
 	}
 
 	return input[startIdx+1 : endIdx]
+}
+
+// getDefaultTimeout will return the timeout that is specified for the client or otherwise the maximum of the DefaultTimeout and MaxTimeout.
+// If the provided timeout is higher than MaxTimeout, MaxTimeout will be returned.
+func getDefaultTimeout(timeout time.Duration) time.Duration {
+	result := timeout
+	if result == 0 {
+		result = DefaultTimeout
+	}
+
+	return min(result, MaxTimeout)
+}
+
+// getMaxTimeout will return the timeout that is specified for the client or otherwise the MaxTimeout.
+// If the provided timeout is higher than MaxTimeout, MaxTimeout will be returned.
+func getMaxTimeout(timeout time.Duration) time.Duration {
+	if timeout == 0 {
+		return MaxTimeout
+	}
+
+	return min(timeout, MaxTimeout)
 }
 
 type realDatabaseClientProvider struct {

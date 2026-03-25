@@ -46,20 +46,8 @@ type realLockClient struct {
 	// we will issue the actual requests against FDB. In the mock runner we will return predefined output.
 	fdbLibClient fdbLibClient
 
-	// timeout defines the timeout that should be used for interacting with FDB.
-	timeout time.Duration
-
 	// log implementation for logging output
 	log logr.Logger
-}
-
-// getTimeout returns the timeout for the transactions with FDB.
-func (client *realLockClient) getTimeout() time.Duration {
-	if client.timeout == 0 {
-		return DefaultTimeout
-	}
-
-	return client.timeout
 }
 
 // Disabled determines if the client should automatically grant locks.
@@ -75,7 +63,7 @@ func (client *realLockClient) TakeLock() error {
 
 	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
 		return client.takeLockInTransaction(tr)
-	}, client.getTimeout())
+	})
 }
 
 // takeLockInTransaction attempts to acquire a lock using an open transaction.
@@ -195,7 +183,7 @@ func (client *realLockClient) AddPendingUpgrades(
 			tr.Set(key, []byte(processGroupID))
 		}
 		return nil
-	}, client.getTimeout())
+	})
 }
 
 // GetPendingUpgrades returns the stored information about which process
@@ -219,7 +207,7 @@ func (client *realLockClient) GetPendingUpgrades(
 		}
 
 		return nil
-	}, client.getTimeout())
+	})
 
 	return upgrades, err
 }
@@ -236,7 +224,7 @@ func (client *realLockClient) ClearPendingUpgrades() error {
 
 		tr.ClearRange(keyRange)
 		return nil
-	}, client.getTimeout())
+	})
 }
 
 // GetDenyList retrieves the current deny list from the database.
@@ -255,7 +243,7 @@ func (client *realLockClient) GetDenyList() ([]string, error) {
 		}
 
 		return nil
-	}, client.getTimeout())
+	})
 
 	return list, err
 }
@@ -282,7 +270,7 @@ func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntr
 			}
 		}
 		return nil
-	}, client.getTimeout())
+	})
 }
 
 // getDenyListKeyRange defines a key range containing the full deny list.
@@ -361,7 +349,7 @@ func (client *realLockClient) ReleaseLock() error {
 		tr.Clear(lockKey)
 
 		return nil
-	}, client.getTimeout())
+	})
 }
 
 // invalidLockValue is an error we can return when we cannot parse the existing
@@ -397,7 +385,6 @@ func NewRealLockClient(
 			cluster: cluster,
 			logger:  logger,
 		},
-		timeout: 10 * time.Second,
-		log:     logger,
+		log: logger,
 	}, nil
 }
