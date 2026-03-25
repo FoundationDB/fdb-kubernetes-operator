@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
@@ -43,6 +44,21 @@ func (s modifyBackup) reconcile(
 
 	if backup.Status.BackupDetails == nil || !backup.ShouldRun() {
 		return nil
+	}
+
+	// Modifying backups with encryption is only supported on versions that support backup encryption.
+	// See FoundationDB issue: https://github.com/apple/foundationdb/issues/12544
+	fdbVersion, err := fdbv1beta2.ParseFdbVersion(backup.Spec.Version)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	if backup.Spec.EncryptionKeyPath != "" && !fdbVersion.SupportsBackupEncryption() {
+		return &requeue{
+			curError: fmt.Errorf(
+				"modifying encrypted backups is not supported on FDB version %s",
+				backup.Spec.Version,
+			),
+		}
 	}
 
 	// The modify command is only required for continuous backups.

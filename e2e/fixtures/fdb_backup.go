@@ -273,21 +273,21 @@ func (fdbBackup *FdbBackup) Pause() {
 	fdbBackup.setState(fdbv1beta2.BackupStatePaused)
 }
 
-// SetSnapshotInterval updates the snapshot interval of the current backup
+// SetSnapshotInterval updates the snapshot interval of the current backup.
 func (fdbBackup *FdbBackup) SetSnapshotInterval(snapshotPeriodSeconds int) {
 	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
 	foundationDBBackup := &fdbv1beta2.FoundationDBBackup{}
 	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
-		Get(context.Background(), objectKey, foundationDBBackup)).NotTo(gomega.HaveOccurred())
+		Get(context.Background(), objectKey, foundationDBBackup)).To(gomega.Succeed())
 
 	foundationDBBackup.Spec.SnapshotPeriodSeconds = &snapshotPeriodSeconds
 	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
-		Update(context.Background(), foundationDBBackup)).NotTo(gomega.HaveOccurred())
+		Update(context.Background(), foundationDBBackup)).To(gomega.Succeed())
 	fdbBackup.backup = foundationDBBackup
 	fdbBackup.WaitForReconciliation()
 }
 
-// RunCommandOnBackupPod runs command on the backup pod.
+// RunCommandOnBackupPod runs the provided command on a randomly chosen backup pod.
 func (fdbBackup *FdbBackup) RunCommandOnBackupPod(command string) string {
 	backupPod := fdbBackup.GetBackupPod()
 	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
@@ -295,14 +295,14 @@ func (fdbBackup *FdbBackup) RunCommandOnBackupPod(command string) string {
 		fdbv1beta2.MainContainerName,
 		command,
 		false)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(err).To(gomega.Succeed())
 	return out
 }
 
-// RunDescribeCommand runs the describe command on the backup pod.
+// RunDescribeCommand runs the describe command on a randomly chosen backup pod.
 func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
 	backupURL, err := fdbBackup.backup.BackupURL()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(err).To(gomega.Succeed())
 	command := fmt.Sprintf("fdbbackup describe -d \"%s\" --json", backupURL)
 	out := fdbBackup.RunCommandOnBackupPod(command)
 	desc := &fdbv1beta2.FDBBackupDescribe{}
@@ -310,7 +310,7 @@ func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
 	return desc
 }
 
-// RunStatusCommand runs the status command on the backup pod.
+// RunStatusCommand runs the status command on a randomly chosen backup pod.
 func (fdbBackup *FdbBackup) RunStatusCommand() *fdbv1beta2.FoundationDBLiveBackupStatus {
 	out := fdbBackup.RunCommandOnBackupPod("fdbbackup status --json")
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
@@ -318,13 +318,12 @@ func (fdbBackup *FdbBackup) RunStatusCommand() *fdbv1beta2.FoundationDBLiveBacku
 	return status
 }
 
-// RunListCommand runs the list command on a backup pod.
+// RunListCommand runs the list command on a randomly chosen backup pod.
 func (fdbBackup *FdbBackup) RunListCommand() []string {
 	backupURL, err := fdbBackup.backup.BaseURL()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(err).To(gomega.Succeed())
 	command := fmt.Sprintf("fdbbackup list -b \"%s\"", backupURL)
-	out := fdbBackup.RunCommandOnBackupPod(command)
-	return strings.Split(out, "\\n")
+	return strings.Split(fdbBackup.RunCommandOnBackupPod(command), "\\n")
 }
 
 // WaitForReconciliation waits until the FdbBackup resource is fully reconciled.

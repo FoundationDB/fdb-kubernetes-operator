@@ -831,7 +831,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			status := FoundationDBLiveBackupStatus{}
 			err = statusDecoder.Decode(&status)
 			Expect(err).NotTo(HaveOccurred())
-			UID := "3874300eea1e154e4079530b381f71c3"
 			Expect(status).To(Equal(FoundationDBLiveBackupStatus{
 				DestinationURL:          "blobstore://minio@minio-service:9000/sample-cluster?bucket=fdb-backups",
 				SnapshotIntervalSeconds: 864000,
@@ -839,7 +838,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Running: true,
 				},
 				Restorable: ptr.To(false),
-				UID:        &UID,
+				UID:        ptr.To("3874300eea1e154e4079530b381f71c3"),
 			}))
 		})
 	})

@@ -103,6 +103,10 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 		})
 
 		When("the default backup system is used", func() {
+			// shouldPauseBackup controls whether the backup is paused or stopped after reaching a restorable version.
+			// Use pause when the test needs to resume the same backup (e.g. to run modify), since pause suspends
+			// the backup agents while keeping the backup active. Use stop (the default) when the backup is complete
+			// and a new backup would be acceptable, since stop terminates the backup via fdbbackup discontinue.
 			var useRestorableVersion, skipRestore, shouldPauseBackup bool
 			var backupConfiguration *fixtures.FdbBackupConfiguration
 			var currentRestorableVersion *uint64
@@ -241,6 +245,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							Expect(
 								statusCommandOutput.SnapshotIntervalSeconds,
 							).To(Equal(modifiedSnapshotPeriod))
+							Expect(statusCommandOutput.UID).NotTo(BeNil())
 							Expect(*statusCommandOutput.UID).To(Equal(backupUID))
 							backup.Stop()
 
