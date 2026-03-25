@@ -48,11 +48,11 @@ func (s modifyBackup) reconcile(
 
 	// Modifying backups with encryption is only supported on versions that support backup encryption.
 	// See FoundationDB issue: https://github.com/apple/foundationdb/issues/12544
-	fdbVersion, err := fdbv1beta2.ParseFdbVersion(backup.Spec.Version)
+	encryptionKeyPath, err := backup.GetEncryptionKey()
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	if backup.Spec.EncryptionKeyPath != "" && !fdbVersion.SupportsBackupEncryption() {
+	if encryptionKeyPath != "" {
 		return &requeue{
 			curError: fmt.Errorf(
 				"modifying encrypted backups is not supported on FDB version %s",
