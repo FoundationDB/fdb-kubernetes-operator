@@ -273,6 +273,20 @@ func (fdbBackup *FdbBackup) Pause() {
 	fdbBackup.setState(fdbv1beta2.BackupStatePaused)
 }
 
+// SetSnapshotInterval updates the snapshot interval of the current backup
+func (fdbBackup *FdbBackup) SetSnapshotInterval(snapshotPeriodSeconds int) {
+	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
+	foundationDBBackup := &fdbv1beta2.FoundationDBBackup{}
+	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
+		Get(context.Background(), objectKey, foundationDBBackup)).NotTo(gomega.HaveOccurred())
+
+	foundationDBBackup.Spec.SnapshotPeriodSeconds = &snapshotPeriodSeconds
+	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
+		Update(context.Background(), foundationDBBackup)).NotTo(gomega.HaveOccurred())
+	fdbBackup.backup = foundationDBBackup
+	fdbBackup.WaitForReconciliation()
+}
+
 // RunCommandOnBackupPod runs command on the backup pod.
 func (fdbBackup *FdbBackup) RunCommandOnBackupPod(command string) string {
 	backupPod := fdbBackup.GetBackupPod()
@@ -302,12 +316,6 @@ func (fdbBackup *FdbBackup) RunStatusCommand() *fdbv1beta2.FoundationDBLiveBacku
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 	gomega.Expect(json.Unmarshal([]byte(out), status)).To(gomega.Succeed())
 	return status
-}
-
-// RunModifyCommand runs the modify command on a backup pod to change the snapshot period.
-func (fdbBackup *FdbBackup) RunModifyCommand(snapshotPeriodSeconds int, tag string) {
-	command := fmt.Sprintf("fdbbackup modify -s %d -t %s", snapshotPeriodSeconds, tag)
-	fdbBackup.RunCommandOnBackupPod(command)
 }
 
 // RunListCommand runs the list command on a backup pod.

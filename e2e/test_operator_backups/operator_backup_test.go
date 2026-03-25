@@ -224,6 +224,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							// running status command
 							statusCommandOutput := backup.RunStatusCommand()
 							Expect(statusCommandOutput.SnapshotIntervalSeconds).To(Equal(864000))
+							Expect(statusCommandOutput.UID).NotTo(BeNil())
 							backupUID := *statusCommandOutput.UID
 
 							// running list command
@@ -234,7 +235,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							// restart the backup before modifying since the backup is paused
 							modifiedSnapshotPeriod := 900000
 							backup.Start()
-							backup.RunModifyCommand(modifiedSnapshotPeriod, "default")
+							backup.SetSnapshotInterval(modifiedSnapshotPeriod)
 							// validating snapshot interval changed and the backup UID is same
 							statusCommandOutput = backup.RunStatusCommand()
 							Expect(
