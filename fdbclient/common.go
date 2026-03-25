@@ -38,11 +38,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DefaultCLITimeout is the default timeout for CLI commands.
-var DefaultCLITimeout = 10 * time.Second
+// DefaultTimeout is the default timeout for any FDB interactions.
+var DefaultTimeout = 10 * time.Second
 
-// MaxCliTimeout is the maximum CLI timeout that will be used for requests that might be slower to respond.
-var MaxCliTimeout = 40 * time.Second
+// MaxTimeout is the maximum timeout that will be used for requests that might be slower to respond.
+var MaxTimeout = 40 * time.Second
 
 const (
 	defaultTransactionTimeout = 5 * time.Second

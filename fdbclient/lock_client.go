@@ -42,11 +42,24 @@ type realLockClient struct {
 	// Whether we should disable locking completely.
 	disableLocks bool
 
-	// The connection to the database.
-	database fdb.Database
+	// fdbLibClient is an interface to interact with a FDB cluster over the FDB client libraries. In the real fdb lib client
+	// we will issue the actual requests against FDB. In the mock runner we will return predefined output.
+	fdbLibClient fdbLibClient
+
+	// timeout defines the timeout that should be used for interacting with FDB.
+	timeout time.Duration
 
 	// log implementation for logging output
 	log logr.Logger
+}
+
+// getTimeout returns the timeout for the transactions with FDB.
+func (client *realLockClient) getTimeout() time.Duration {
+	if client.timeout == 0 {
+		return DefaultTimeout
+	}
+
+	return client.timeout
 }
 
 // Disabled determines if the client should automatically grant locks.
@@ -60,21 +73,13 @@ func (client *realLockClient) TakeLock() error {
 		return nil
 	}
 
-	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		lockErr := client.takeLockInTransaction(transaction)
-		return nil, lockErr
-	})
-
-	return err
+	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
+		return client.takeLockInTransaction(tr)
+	}, client.getTimeout())
 }
 
 // takeLockInTransaction attempts to acquire a lock using an open transaction.
 func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction) error {
-	err := transaction.Options().SetAccessSystemKeys()
-	if err != nil {
-		return err
-	}
-
 	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
 	lockValue := transaction.Get(lockKey).MustGet()
 
@@ -177,11 +182,7 @@ func (client *realLockClient) AddPendingUpgrades(
 	version fdbv1beta2.Version,
 	processGroupIDs []fdbv1beta2.ProcessGroupID,
 ) error {
-	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		err := tr.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
+	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
 		for _, processGroupID := range processGroupIDs {
 			key := fdb.Key(
 				fmt.Sprintf(
@@ -193,9 +194,8 @@ func (client *realLockClient) AddPendingUpgrades(
 			)
 			tr.Set(key, []byte(processGroupID))
 		}
-		return nil, nil
-	})
-	return err
+		return nil
+	}, client.getTimeout())
 }
 
 // GetPendingUpgrades returns the stored information about which process
@@ -203,104 +203,69 @@ func (client *realLockClient) AddPendingUpgrades(
 func (client *realLockClient) GetPendingUpgrades(
 	version fdbv1beta2.Version,
 ) (map[fdbv1beta2.ProcessGroupID]bool, error) {
-	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		err := tr.Options().SetReadSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
+	var upgrades map[fdbv1beta2.ProcessGroupID]bool
+	err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
 		keyPrefix := []byte(
 			fmt.Sprintf("%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String()),
 		)
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
-		upgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(results))
+		upgrades = make(map[fdbv1beta2.ProcessGroupID]bool, len(results))
 		for _, result := range results {
 			upgrades[fdbv1beta2.ProcessGroupID(result.Value)] = true
 		}
 
-		return upgrades, nil
-	})
+		return nil
+	}, client.getTimeout())
 
-	if err != nil {
-		return nil, err
-	}
-
-	upgradeMap, isMap := upgrades.(map[fdbv1beta2.ProcessGroupID]bool)
-	if !isMap {
-		return nil, fmt.Errorf(
-			"invalid return value from transaction in GetPendingUpgrades: %v",
-			upgrades,
-		)
-	}
-
-	return upgradeMap, nil
+	return upgrades, err
 }
 
 // ClearPendingUpgrades clears any stored information about pending
 // upgrades.
 func (client *realLockClient) ClearPendingUpgrades() error {
-	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		err := tr.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
+	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
 		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/", client.cluster.GetLockPrefix()))
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		tr.ClearRange(keyRange)
-		return nil, nil
-	})
-
-	return err
+		return nil
+	}, client.getTimeout())
 }
 
 // GetDenyList retrieves the current deny list from the database.
 func (client *realLockClient) GetDenyList() ([]string, error) {
-	list, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		err := tr.Options().SetReadSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
+	var list []string
+	err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
 		keyRange, err := client.getDenyListKeyRange()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		values := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
-		list := make([]string, len(values))
+		list = make([]string, len(values))
 		for index, value := range values {
 			list[index] = string(value.Value)
 		}
-		return list, nil
-	})
 
-	if err != nil {
-		return nil, err
-	}
+		return nil
+	}, client.getTimeout())
 
-	return list.([]string), nil
+	return list, err
 }
 
 // UpdateDenyList updates the deny list to match a list of entries.
 func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error {
-	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		err := tr.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
+	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
 		keyRange, err := client.getDenyListKeyRange()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		values := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
@@ -316,10 +281,8 @@ func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntr
 				tr.Set(client.getDenyListKey(entry.ID), []byte(entry.ID))
 			}
 		}
-		return nil, nil
-	})
-
-	return err
+		return nil
+	}, client.getTimeout())
 }
 
 // getDenyListKeyRange defines a key range containing the full deny list.
@@ -341,36 +304,31 @@ func (client *realLockClient) ReleaseLock() error {
 	}
 
 	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
-	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetAccessSystemKeys()
-		if err != nil {
-			return false, err
-		}
-
-		lockValue := transaction.Get(lockKey).MustGet()
+	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
+		lockValue := tr.Get(lockKey).MustGet()
 		// The lock value is not set, so no action is required.
 		if len(lockValue) == 0 {
-			return false, nil
+			return nil
 		}
 
 		lockTuple, err := tuple.Unpack(lockValue)
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		currentLockOwnerID, valid := lockTuple[0].(string)
 		if !valid {
-			return false, invalidLockValue{key: lockKey, value: lockValue}
+			return invalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		currentLockStartTimestamp, valid := lockTuple[1].(int64)
 		if !valid {
-			return false, invalidLockValue{key: lockKey, value: lockValue}
+			return invalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		currentLockEndTimestamp, valid := lockTuple[2].(int64)
 		if !valid {
-			return false, invalidLockValue{key: lockKey, value: lockValue}
+			return invalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		ownerID := client.cluster.GetLockID()
@@ -383,7 +341,7 @@ func (client *realLockClient) ReleaseLock() error {
 
 		if currentLockOwnerID != ownerID {
 			logger.Info("cannot release lock from other owner")
-			return false, nil
+			return nil
 		}
 
 		// Check the timestamp of the logs and make sure to only release locks when the timestamps are valid.
@@ -391,21 +349,19 @@ func (client *realLockClient) ReleaseLock() error {
 		now := time.Now()
 		if currentLockStartTimestamp > now.Unix() {
 			logger.Info("cannot release lock that is taken in the future")
-			return false, nil
+			return nil
 		}
 
 		if currentLockEndTimestamp < now.Unix() {
 			logger.Info("cannot release a lock that is expired")
-			return false, nil
+			return nil
 		}
 
 		logger.Info("releasing lock")
-		transaction.Clear(lockKey)
+		tr.Clear(lockKey)
 
-		return nil, nil
-	})
-
-	return err
+		return nil
+	}, client.getTimeout())
 }
 
 // invalidLockValue is an error we can return when we cannot parse the existing
@@ -429,18 +385,19 @@ func NewRealLockClient(
 		return &realLockClient{disableLocks: true}, nil
 	}
 
-	database, err := getFDBDatabase(cluster)
-	if err != nil {
-		return nil, err
-	}
+	logger := log.WithValues(
+		"namespace", cluster.Namespace,
+		"cluster", cluster.Name,
+		"ownerID", cluster.GetLockID(),
+	)
 
 	return &realLockClient{
-		cluster:  cluster,
-		database: database,
-		log: log.WithValues(
-			"namespace", cluster.Namespace,
-			"cluster", cluster.Name,
-			"ownerID", cluster.GetLockID(),
-		),
+		cluster: cluster,
+		fdbLibClient: &realFdbLibClient{
+			cluster: cluster,
+			logger:  logger,
+		},
+		timeout: 10 * time.Second,
+		log:     logger,
 	}, nil
 }

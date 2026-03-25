@@ -160,7 +160,7 @@ func (command cliCommand) getTimeout() time.Duration {
 		return command.timeout
 	}
 
-	return DefaultCLITimeout
+	return DefaultTimeout
 }
 
 // getVersion returns the versions defined in the command or if not present returns the running version of the
@@ -504,7 +504,7 @@ func (client *cliAdminClient) ExcludeProcessesWithNoWait(
 		}
 
 		// Ensure we are stopping the check after the timeout time.
-		timeout := time.Now().Add(client.timeout)
+		timeout := time.Now().Add(client.getTimeout())
 		for {
 			err = client.executeTransactionForManagementAPI(func(tr fdb.Transaction) error {
 				inProgressKeyRange, err := fdb.PrefixRange(
@@ -1071,10 +1071,10 @@ func (client *cliAdminClient) SetTimeout(timeout time.Duration) {
 	client.timeout = timeout
 }
 
-// getTimeout will return the timeout that is specified for the admin client or otherwise the MaxCliTimeout.
+// getTimeout will return the timeout that is specified for the admin client or otherwise the MaxTimeout.
 func (client *cliAdminClient) getTimeout() time.Duration {
 	if client.timeout == 0 {
-		return MaxCliTimeout
+		return MaxTimeout
 	}
 
 	return client.timeout
@@ -1221,7 +1221,7 @@ func (client *cliAdminClient) UpdatePendingForRemoval(
 	return client.fdbLibClient.updateGlobalCoordinationKeys(
 		pendingForRemoval,
 		updates,
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1232,7 +1232,7 @@ func (client *cliAdminClient) UpdatePendingForExclusion(
 	return client.fdbLibClient.updateGlobalCoordinationKeys(
 		pendingForExclusion,
 		updates,
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1243,7 +1243,7 @@ func (client *cliAdminClient) UpdatePendingForInclusion(
 	return client.fdbLibClient.updateGlobalCoordinationKeys(
 		pendingForInclusion,
 		updates,
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1254,7 +1254,7 @@ func (client *cliAdminClient) UpdatePendingForRestart(
 	return client.fdbLibClient.updateGlobalCoordinationKeys(
 		pendingForRestart,
 		updates,
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1265,7 +1265,7 @@ func (client *cliAdminClient) UpdateReadyForExclusion(
 	return client.fdbLibClient.updateGlobalCoordinationKeys(
 		readyForExclusion,
 		updates,
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1276,7 +1276,7 @@ func (client *cliAdminClient) UpdateReadyForInclusion(
 	return client.fdbLibClient.updateGlobalCoordinationKeys(
 		readyForInclusion,
 		updates,
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1287,7 +1287,7 @@ func (client *cliAdminClient) UpdateReadyForRestart(
 	return client.fdbLibClient.updateGlobalCoordinationKeys(
 		readyForRestart,
 		updates,
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1297,7 +1297,7 @@ func (client *cliAdminClient) GetPendingForRemoval(
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(
 		path.Join(pendingForRemoval, prefix),
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1307,7 +1307,7 @@ func (client *cliAdminClient) GetPendingForExclusion(
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(
 		path.Join(pendingForExclusion, prefix),
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1317,7 +1317,7 @@ func (client *cliAdminClient) GetPendingForInclusion(
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(
 		path.Join(pendingForInclusion, prefix),
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1327,7 +1327,7 @@ func (client *cliAdminClient) GetPendingForRestart(
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(
 		path.Join(pendingForRestart, prefix),
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1337,7 +1337,7 @@ func (client *cliAdminClient) GetReadyForExclusion(
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(
 		path.Join(readyForExclusion, prefix),
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1347,7 +1347,7 @@ func (client *cliAdminClient) GetReadyForInclusion(
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(
 		path.Join(readyForInclusion, prefix),
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
@@ -1357,37 +1357,37 @@ func (client *cliAdminClient) GetReadyForRestart(
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(
 		path.Join(readyForRestart, prefix),
-		client.timeout,
+		client.getTimeout(),
 	)
 }
 
 // ClearReadyForRestart removes all the process group IDs for all the process groups that are ready to be restarted.
 func (client *cliAdminClient) ClearReadyForRestart() error {
-	return client.fdbLibClient.clearGlobalCoordinationKeys(readyForRestart, client.timeout)
+	return client.fdbLibClient.clearGlobalCoordinationKeys(readyForRestart, client.getTimeout())
 }
 
 func (client *cliAdminClient) UpdateProcessAddresses(
 	updates map[fdbv1beta2.ProcessGroupID][]string,
 ) error {
-	return client.fdbLibClient.updateProcessAddresses(updates, client.timeout)
+	return client.fdbLibClient.updateProcessAddresses(updates, client.getTimeout())
 }
 
 func (client *cliAdminClient) GetProcessAddresses(
 	prefix string,
 ) (map[fdbv1beta2.ProcessGroupID][]string, error) {
-	return client.fdbLibClient.getProcessAddresses(prefix, client.timeout)
+	return client.fdbLibClient.getProcessAddresses(prefix, client.getTimeout())
 }
 
 // executeTransactionForManagementAPI will run an operation for the management API. This method handles all the common options.
 func (client *cliAdminClient) executeTransactionForManagementAPI(
 	operation func(transaction fdb.Transaction) error,
 ) error {
-	return client.fdbLibClient.executeTransactionForManagementAPI(operation, client.timeout)
+	return client.fdbLibClient.executeTransactionForManagementAPI(operation, client.getTimeout())
 }
 
 // executeTransaction will run a transaction for the target cluster. This method will handle all the common options.
 func (client *cliAdminClient) executeTransaction(
 	operation func(transaction fdb.Transaction) error,
 ) error {
-	return client.fdbLibClient.executeTransaction(operation, client.timeout)
+	return client.fdbLibClient.executeTransaction(operation, client.getTimeout())
 }
