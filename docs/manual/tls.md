@@ -99,6 +99,15 @@ You must always ensure that the peer verification rules allow access from the cl
 
 If you want to run any clusters with TLS, you must configure the operator to support FDB's mutual TLS. This requires setting the same environment variables that you set on the fdbserver processes: `FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, and `FDB_TLS_CA_FILE`. You will probably want to use the same certificate mechanism that you use for the FDB certs for the operator certs as well. This certificate configuration will only be used for connections to FoundationDB and to the sidecar process.
 
+You can configure how often the operator refreshes TLS certificates by setting the `FDB_NETWORK_OPTION_KNOB` environment variable with the `tls_cert_refresh_delay_seconds` option. This controls the delay between certificate refresh checks in seconds. If not set, FoundationDB uses its default refresh interval (which is to refresh every 12 hours).
+
+```yaml
+# In your operator deployment
+env:
+  - name: FDB_NETWORK_OPTION_KNOB
+    value: "tls_cert_refresh_delay_seconds=3600"
+```
+
 Connections to FDB will use the peer verification logic provided by the FDB client, which can be configured with peer verification rules in the same way as we support for the server. However, there is no mechanism to set these rules on a per-cluster basis, so it may not be beneficial to define them on the operator's side of the connection.
 
 Connections to the sidecar will use the peer verification logic provided by go's tls library. This means that the sidecar's certificate must be valid for the pod's IP. You can disable verification for the connections to the sidecar by setting the environment variable `DISABLE_SIDECAR_TLS_CHECK=1` on the operator, but this will also disable the validation of the certificate chain, so it is not recommended to use this in real environments.
