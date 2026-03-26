@@ -161,7 +161,10 @@ func getDataForMonitorConf(
 	pClass fdbv1beta2.ProcessClass,
 	serversPerPod int,
 ) (string, []byte, error) {
-	config := GetMonitorProcessConfiguration(cluster, pClass, serversPerPod, imageType, nil)
+	config, err := GetMonitorProcessConfiguration(cluster, pClass, serversPerPod, imageType, nil)
+	if err != nil {
+		return "", nil, err
+	}
 	jsonData, err := json.Marshal(config)
 	if err != nil {
 		return "", nil, err

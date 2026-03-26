@@ -74,13 +74,17 @@ func GetStartCommandWithSubstitutions(
 		return "", nil
 	}
 
-	config := GetMonitorProcessConfiguration(
+	config, err := GetMonitorProcessConfiguration(
 		cluster,
 		processClass,
 		processCount,
 		imageType,
 		getIPFamilyFromPodIfPresent(currentPod),
 	)
+	if err != nil {
+		return "", err
+	}
+
 	extractPlaceholderEnvVars(substitutions, config.Arguments)
 
 	config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions[fdbv1beta2.EnvNameBinaryDir])
@@ -189,13 +193,16 @@ func getMonitorConfStartCommandLines(
 ) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
-	config := GetMonitorProcessConfiguration(
+	config, err := GetMonitorProcessConfiguration(
 		cluster,
 		processClass,
 		processCount,
 		fdbv1beta2.ImageTypeSplit,
 		podIPFamily,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	if substitutions == nil {
 		substitutions = make(map[string]string)
@@ -233,10 +240,10 @@ func GetMonitorProcessConfiguration(
 	processCount int,
 	imageType fdbv1beta2.ImageType,
 	podIPFamily *int,
-) monitorapi.ProcessConfiguration {
+) (monitorapi.ProcessConfiguration, error) {
 	version, err := monitorapi.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
-		return monitorapi.ProcessConfiguration{}
+		return monitorapi.ProcessConfiguration{}, err
 	}
 
 	configuration := monitorapi.ProcessConfiguration{
@@ -435,7 +442,7 @@ func GetMonitorProcessConfiguration(
 		)
 	}
 
-	return configuration
+	return configuration, nil
 }
 
 // Generate the monitor API configuration based on the provided custom parameter
