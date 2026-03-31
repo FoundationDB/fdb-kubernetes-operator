@@ -2583,6 +2583,95 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with a custom trace log volume mount", func() {
+			BeforeEach(func() {
+				cluster = CreateDefaultCluster()
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "fdb-trace-logs",
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
+											Path: "/var/log/fdb-trace-logs",
+											Type: ptr.To(corev1.HostPathDirectoryOrCreate),
+										},
+									},
+								},
+							},
+							Containers: []corev1.Container{
+								{
+									Name: fdbv1beta2.MainContainerName,
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:         "fdb-trace-logs",
+											MountPath:    "/var/log/fdb-trace-logs",
+											SubPathExpr: "$(MY_POD_NAME)",
+										},
+									},
+								},
+								{
+									Name: fdbv1beta2.SidecarContainerName,
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:         "fdb-trace-logs",
+											MountPath:    "/var/log/fdb-trace-logs",
+											SubPathExpr: "$(MY_POD_NAME)",
+										},
+									},
+								},
+							},
+						},
+					}},
+				}
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should preserve the custom volume mount with subPathExpr", func() {
+				mainContainer := spec.Containers[0]
+
+				traceMountCount := 0
+				var traceMount *corev1.VolumeMount
+				for idx := range mainContainer.VolumeMounts {
+					if mainContainer.VolumeMounts[idx].Name == "fdb-trace-logs" {
+						traceMountCount++
+						traceMount = &mainContainer.VolumeMounts[idx]
+					}
+				}
+
+				Expect(traceMountCount).To(Equal(1))
+				Expect(traceMount).NotTo(BeNil())
+				Expect(traceMount.MountPath).To(Equal("/var/log/fdb-trace-logs"))
+				Expect(traceMount.SubPathExpr).To(Equal("$(MY_POD_NAME)"))
+			})
+
+			It("should preserve the custom sidecar volume mount with subPathExpr", func() {
+				sidecarContainer := spec.Containers[1]
+
+				traceMountCount := 0
+				var traceMount *corev1.VolumeMount
+				for idx := range sidecarContainer.VolumeMounts {
+					if sidecarContainer.VolumeMounts[idx].Name == "fdb-trace-logs" {
+						traceMountCount++
+						traceMount = &sidecarContainer.VolumeMounts[idx]
+					}
+				}
+
+				Expect(traceMountCount).To(Equal(1))
+				Expect(traceMount).NotTo(BeNil())
+				Expect(traceMount.MountPath).To(Equal("/var/log/fdb-trace-logs"))
+				Expect(traceMount.SubPathExpr).To(Equal("$(MY_POD_NAME)"))
+			})
+		})
+
 		Context("with TLS for the sidecar", func() {
 			BeforeEach(func() {
 				cluster.Spec.SidecarContainer.EnableTLS = true
