@@ -790,7 +790,7 @@ func (client *cliAdminClient) ChangeCoordinators(
 	// Increment the coordinator changes counter for this cluster
 	metrics.CoordinatorChangesCounter.WithLabelValues(client.Cluster.Namespace, client.Cluster.Name).
 		Inc()
-	return getConnectionStringFromDB(client.fdbLibClient, getDefaultTimeout(client.timeout))
+	return getConnectionStringFromDB(client.fdbLibClient)
 }
 
 // VersionSupported reports whether we can support a cluster with a given
@@ -1083,10 +1083,10 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 	maintenancePrefix := client.Cluster.GetMaintenancePrefix() + "/"
 
 	var upgrades map[fdbv1beta2.ProcessGroupID]int64
-	err := client.executeTransaction(func(tr fdb.Transaction) error {
+	_, err := client.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		keyRange, err := fdb.PrefixRange([]byte(client.Cluster.GetMaintenancePrefix()))
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
@@ -1113,7 +1113,7 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 
 			upgrades[fdbv1beta2.ProcessGroupID(processGroupID)] = timestamp
 		}
-		return nil
+		return nil, nil
 	})
 
 	if err != nil {
@@ -1128,7 +1128,7 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 func (client *cliAdminClient) RemoveProcessesUnderMaintenance(
 	processGroupIDs []fdbv1beta2.ProcessGroupID,
 ) error {
-	return client.executeTransaction(func(tr fdb.Transaction) error {
+	_, err := client.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		for _, processGroupID := range processGroupIDs {
 			strKey := path.Join(client.Cluster.GetMaintenancePrefix(), string(processGroupID))
 			client.log.V(1).
@@ -1136,8 +1136,9 @@ func (client *cliAdminClient) RemoveProcessesUnderMaintenance(
 			tr.Clear(fdb.Key(strKey))
 		}
 
-		return nil
+		return nil, nil
 	})
+	return err
 }
 
 // SetProcessesUnderMaintenance will add the provided process groups to the list of processes that will be taken
@@ -1152,15 +1153,17 @@ func (client *cliAdminClient) SetProcessesUnderMaintenance(
 		return err
 	}
 
-	return client.executeTransaction(func(tr fdb.Transaction) error {
+	_, err = client.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		for _, processGroupID := range processGroupIDs {
 			strKey := fmt.Sprintf("%s/%s", client.Cluster.GetMaintenancePrefix(), processGroupID)
 			client.log.V(1).
 				Info("adding process to maintenance list", "processGroupID", processGroupID, "timestamp", timestamp, "key", strKey)
 			tr.Set(fdb.Key(strKey), timestampByteBuffer.Bytes())
 		}
-		return nil
+		return nil, nil
 	})
+
+	return err
 }
 
 // GetVersionFromReachableCoordinators will return the running version based on the reachable coordinators. This method
@@ -1370,7 +1373,7 @@ func (client *cliAdminClient) executeTransactionForManagementAPI(
 
 // executeTransaction will run a transaction for the target cluster. This method will handle all the common options.
 func (client *cliAdminClient) executeTransaction(
-	operation func(transaction fdb.Transaction) error,
-) error {
+	operation func(transaction fdb.Transaction) (any, error),
+) (any, error) {
 	return client.fdbLibClient.executeTransaction(operation)
 }

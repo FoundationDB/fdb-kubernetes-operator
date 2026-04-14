@@ -187,15 +187,28 @@ func createClusterFileForCommandLine(cluster *fdbv1beta2.FoundationDBCluster) (*
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
-func getConnectionStringFromDB(libClient fdbLibClient, timeout time.Duration) (string, error) {
-	outputBytes, err := libClient.getValueFromDBUsingKey("\xff/coordinators", timeout)
+func getConnectionStringFromDB(libClient fdbLibClient) (string, error) {
+	result, err := libClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
+		contents, trErr := tr.Get(fdb.Key("\xff/coordinators")).Get()
+		// If the value is empty return an empty byte slice. Otherwise, an error will be thrown.
+		if len(contents) == 0 {
+			contents = []byte{}
+		}
+
+		return contents, trErr
+	})
+
 	if err != nil {
 		return "", err
 	}
 
+	contents, ok := result.([]byte)
+	if !ok {
+		return "", fmt.Errorf("could not convert result to []byte")
+	}
 	var connectionString fdbv1beta2.ConnectionString
 	connectionString, err = fdbv1beta2.ParseConnectionString(
-		cleanConnectionStringOutput(string(outputBytes)),
+		cleanConnectionStringOutput(string(contents)),
 	)
 	if err != nil {
 		return "", err
@@ -210,9 +223,28 @@ func getStatusFromDB(
 	logger logr.Logger,
 	timeout time.Duration,
 ) (*fdbv1beta2.FoundationDBStatus, error) {
-	contents, err := libClient.getValueFromDBUsingKey("\xff\xff/status/json", timeout)
+	result, err := libClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
+		trErr := tr.Options().SetTimeout(timeout.Milliseconds())
+		if trErr != nil {
+			return nil, trErr
+		}
+
+		contents, trErr := tr.Get(fdb.Key("\xff\xff/status/json")).Get()
+		// If the value is empty return an empty byte slice. Otherwise, an error will be thrown.
+		if len(contents) == 0 {
+			contents = []byte{}
+		}
+
+		return contents, trErr
+	})
+
 	if err != nil {
 		return nil, err
+	}
+
+	contents, ok := result.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("could not convert result to []byte")
 	}
 
 	return parseMachineReadableStatus(logger, contents, true)

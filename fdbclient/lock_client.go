@@ -61,9 +61,10 @@ func (client *realLockClient) TakeLock() error {
 		return nil
 	}
 
-	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
-		return client.takeLockInTransaction(tr)
+	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
+		return nil, client.takeLockInTransaction(tr)
 	})
+	return err
 }
 
 // takeLockInTransaction attempts to acquire a lock using an open transaction.
@@ -170,7 +171,7 @@ func (client *realLockClient) AddPendingUpgrades(
 	version fdbv1beta2.Version,
 	processGroupIDs []fdbv1beta2.ProcessGroupID,
 ) error {
-	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
+	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		for _, processGroupID := range processGroupIDs {
 			key := fdb.Key(
 				fmt.Sprintf(
@@ -182,8 +183,9 @@ func (client *realLockClient) AddPendingUpgrades(
 			)
 			tr.Set(key, []byte(processGroupID))
 		}
-		return nil
+		return nil, nil
 	})
+	return err
 }
 
 // GetPendingUpgrades returns the stored information about which process
@@ -192,13 +194,13 @@ func (client *realLockClient) GetPendingUpgrades(
 	version fdbv1beta2.Version,
 ) (map[fdbv1beta2.ProcessGroupID]bool, error) {
 	var upgrades map[fdbv1beta2.ProcessGroupID]bool
-	err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
+	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		keyPrefix := []byte(
 			fmt.Sprintf("%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String()),
 		)
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
 		upgrades = make(map[fdbv1beta2.ProcessGroupID]bool, len(results))
@@ -206,7 +208,7 @@ func (client *realLockClient) GetPendingUpgrades(
 			upgrades[fdbv1beta2.ProcessGroupID(result.Value)] = true
 		}
 
-		return nil
+		return nil, nil
 	})
 
 	return upgrades, err
@@ -215,25 +217,26 @@ func (client *realLockClient) GetPendingUpgrades(
 // ClearPendingUpgrades clears any stored information about pending
 // upgrades.
 func (client *realLockClient) ClearPendingUpgrades() error {
-	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
+	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/", client.cluster.GetLockPrefix()))
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		tr.ClearRange(keyRange)
-		return nil
+		return nil, nil
 	})
+	return err
 }
 
 // GetDenyList retrieves the current deny list from the database.
 func (client *realLockClient) GetDenyList() ([]string, error) {
 	var list []string
-	err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
+	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		keyRange, err := client.getDenyListKeyRange()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		values := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
@@ -242,7 +245,7 @@ func (client *realLockClient) GetDenyList() ([]string, error) {
 			list[index] = string(value.Value)
 		}
 
-		return nil
+		return nil, nil
 	})
 
 	return list, err
@@ -250,10 +253,10 @@ func (client *realLockClient) GetDenyList() ([]string, error) {
 
 // UpdateDenyList updates the deny list to match a list of entries.
 func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error {
-	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
+	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		keyRange, err := client.getDenyListKeyRange()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		values := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
@@ -269,8 +272,9 @@ func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntr
 				tr.Set(client.getDenyListKey(entry.ID), []byte(entry.ID))
 			}
 		}
-		return nil
+		return nil, nil
 	})
+	return err
 }
 
 // getDenyListKeyRange defines a key range containing the full deny list.
@@ -292,31 +296,31 @@ func (client *realLockClient) ReleaseLock() error {
 	}
 
 	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
-	return client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) error {
+	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
 		lockValue := tr.Get(lockKey).MustGet()
 		// The lock value is not set, so no action is required.
 		if len(lockValue) == 0 {
-			return nil
+			return nil, nil
 		}
 
 		lockTuple, err := tuple.Unpack(lockValue)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		currentLockOwnerID, valid := lockTuple[0].(string)
 		if !valid {
-			return invalidLockValue{key: lockKey, value: lockValue}
+			return nil, invalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		currentLockStartTimestamp, valid := lockTuple[1].(int64)
 		if !valid {
-			return invalidLockValue{key: lockKey, value: lockValue}
+			return nil, invalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		currentLockEndTimestamp, valid := lockTuple[2].(int64)
 		if !valid {
-			return invalidLockValue{key: lockKey, value: lockValue}
+			return nil, invalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		ownerID := client.cluster.GetLockID()
@@ -329,7 +333,7 @@ func (client *realLockClient) ReleaseLock() error {
 
 		if currentLockOwnerID != ownerID {
 			logger.Info("cannot release lock from other owner")
-			return nil
+			return nil, nil
 		}
 
 		// Check the timestamp of the logs and make sure to only release locks when the timestamps are valid.
@@ -337,19 +341,20 @@ func (client *realLockClient) ReleaseLock() error {
 		now := time.Now()
 		if currentLockStartTimestamp > now.Unix() {
 			logger.Info("cannot release lock that is taken in the future")
-			return nil
+			return nil, nil
 		}
 
 		if currentLockEndTimestamp < now.Unix() {
 			logger.Info("cannot release a lock that is expired")
-			return nil
+			return nil, nil
 		}
 
 		logger.Info("releasing lock")
 		tr.Clear(lockKey)
 
-		return nil
+		return nil, nil
 	})
+	return err
 }
 
 // invalidLockValue is an error we can return when we cannot parse the existing
