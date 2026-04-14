@@ -73,7 +73,7 @@ var _ = AfterSuite(func() {
 	factory.Shutdown()
 })
 
-var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-nightly"), func() {
+var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func() {
 	When("a cluster has backups enabled and then restored", func() {
 		var keyValues []fixtures.KeyValue
 		var prefix byte = 'a'
