@@ -530,7 +530,7 @@ type RedisCommonSpec struct {
 }
 
 type RedisExpirationSpec struct {
-	RedisCommonSpec `       json:",inline"`
+	RedisCommonSpec `json:",inline"`
 	// The expiration of the keys
 	Expiration string `json:"expiration,omitempty"`
 	// The keys to be expired
@@ -540,13 +540,13 @@ type RedisExpirationSpec struct {
 }
 
 type RedisPenetrationSpec struct {
-	RedisCommonSpec `    json:",inline"`
+	RedisCommonSpec `json:",inline"`
 	// The number of requests to be sent
 	RequestNum int `json:"requestNum,omitempty"`
 }
 
 type RedisCacheLimitSpec struct {
-	RedisCommonSpec `       json:",inline"`
+	RedisCommonSpec `json:",inline"`
 	// The size of `maxmemory`
 	Size string `json:"cacheSize,omitempty"`
 	// Specifies maxmemory as a percentage of the original value
@@ -554,7 +554,7 @@ type RedisCacheLimitSpec struct {
 }
 
 type RedisSentinelRestartSpec struct {
-	RedisCommonSpec `       json:",inline"`
+	RedisCommonSpec `json:",inline"`
 	// The path of Sentinel conf
 	Conf string `json:"conf,omitempty"`
 	// The control flag determines whether to flush config
@@ -564,7 +564,7 @@ type RedisSentinelRestartSpec struct {
 }
 
 type RedisSentinelStopSpec struct {
-	RedisCommonSpec `       json:",inline"`
+	RedisCommonSpec `json:",inline"`
 	// The path of Sentinel conf
 	Conf string `json:"conf,omitempty"`
 	// The control flag determines whether to flush config
@@ -587,7 +587,7 @@ type KafkaCommonSpec struct {
 }
 
 type KafkaFillSpec struct {
-	KafkaCommonSpec `       json:",inline"`
+	KafkaCommonSpec `json:",inline"`
 	// The size of each message
 	MessageSize uint `json:"messageSize,omitempty"`
 	// The max bytes to fill
@@ -597,7 +597,7 @@ type KafkaFillSpec struct {
 }
 
 type KafkaFloodSpec struct {
-	KafkaCommonSpec `     json:",inline"`
+	KafkaCommonSpec `json:",inline"`
 	// The size of each message
 	MessageSize uint `json:"messageSize,omitempty"`
 	// The number of worker threads
@@ -635,7 +635,7 @@ type HTTPAbortSpec struct {
 }
 
 type HTTPDelaySpec struct {
-	HTTPCommonSpec `       json:",inline"`
+	HTTPCommonSpec `json:",inline"`
 	// Delay represents the delay of the target request/response
 	Delay string `json:"delay"`
 }

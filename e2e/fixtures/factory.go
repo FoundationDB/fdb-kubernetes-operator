@@ -715,16 +715,20 @@ func (factory *Factory) DumpStateWithLogsSince(fdbCluster *FdbCluster, logsSince
 	buffer.WriteString(cluster.GetNamespace())
 	buffer.WriteString(" ----------\n")
 
-	fmt.Fprintf(&buffer, "%s\tGENERATION: %d\tRECONCILED: %d\tAVAILABLE: %t\tFULLREPLICATION: %t\tRUNNING_VERSION: %s\tDESIRED_VERSION: %s\t Age: %s\nConnection String: %s\n",
-		cluster.GetName(),
-		cluster.Generation,
-		cluster.Status.Generations.Reconciled,
-		cluster.Status.Health.Available,
-		cluster.Status.Health.FullReplication,
-		cluster.Status.RunningVersion,
-		cluster.Spec.Version,
-		duration.HumanDuration(time.Since(cluster.CreationTimestamp.Time)),
-		cluster.Status.ConnectionString)
+	buffer.WriteString(
+		fmt.Sprintf(
+			"%s\tGENERATION: %d\tRECONCILED: %d\tAVAILABLE: %t\tFULLREPLICATION: %t\tRUNNING_VERSION: %s\tDESIRED_VERSION: %s\t Age: %s\nConnection String: %s\n",
+			cluster.GetName(),
+			cluster.Generation,
+			cluster.Status.Generations.Reconciled,
+			cluster.Status.Health.Available,
+			cluster.Status.Health.FullReplication,
+			cluster.Status.RunningVersion,
+			cluster.Spec.Version,
+			duration.HumanDuration(time.Since(cluster.CreationTimestamp.Time)),
+			cluster.Status.ConnectionString,
+		),
+	)
 	// Printout all Pods for this namespace
 	pods := &corev1.PodList{}
 	err := factory.controllerRuntimeClient.List(
