@@ -2605,8 +2605,8 @@ var _ = Describe("pod_models", func() {
 									Name: fdbv1beta2.MainContainerName,
 									VolumeMounts: []corev1.VolumeMount{
 										{
-											Name:         "fdb-trace-logs",
-											MountPath:    "/var/log/fdb-trace-logs",
+											Name:        "fdb-trace-logs",
+											MountPath:   "/var/log/fdb-trace-logs",
 											SubPathExpr: "$(MY_POD_NAME)",
 										},
 									},
@@ -2615,8 +2615,8 @@ var _ = Describe("pod_models", func() {
 									Name: fdbv1beta2.SidecarContainerName,
 									VolumeMounts: []corev1.VolumeMount{
 										{
-											Name:         "fdb-trace-logs",
-											MountPath:    "/var/log/fdb-trace-logs",
+											Name:        "fdb-trace-logs",
+											MountPath:   "/var/log/fdb-trace-logs",
 											SubPathExpr: "$(MY_POD_NAME)",
 										},
 									},

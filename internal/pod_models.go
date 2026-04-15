@@ -237,10 +237,22 @@ func configureContainersForUnifiedImages(
 		)
 	}
 
-	addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"})
-	addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "config-map", MountPath: "/var/dynamic-conf"})
-	addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"})
-	addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"})
+	addVolumeMountIfMissing(
+		mainContainer,
+		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+	)
+	addVolumeMountIfMissing(
+		mainContainer,
+		corev1.VolumeMount{Name: "config-map", MountPath: "/var/dynamic-conf"},
+	)
+	addVolumeMountIfMissing(
+		mainContainer,
+		corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
+	)
+	addVolumeMountIfMissing(
+		mainContainer,
+		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+	)
 
 	mainContainerEnv = append(mainContainerEnv,
 		corev1.EnvVar{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
@@ -289,8 +301,14 @@ func configureContainersForUnifiedImages(
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 	}
 
-	addVolumeMountIfMissing(sidecarContainer, corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"})
-	addVolumeMountIfMissing(sidecarContainer, corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"})
+	addVolumeMountIfMissing(
+		sidecarContainer,
+		corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
+	)
+	addVolumeMountIfMissing(
+		sidecarContainer,
+		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+	)
 
 	for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 		for _, pid := range crashObjs.Targets {
@@ -851,8 +869,14 @@ func configureSidecarContainer(
 		container.Args = sidecarArgs
 	}
 
-	addVolumeMountIfMissing(container, corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"})
-	addVolumeMountIfMissing(container, corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"})
+	addVolumeMountIfMissing(
+		container,
+		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
+	)
+	addVolumeMountIfMissing(
+		container,
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
+	)
 
 	image, err := GetImage(container.Image, overrides.ImageConfigs, versionString, allowTagOverride)
 	if err != nil {
@@ -1233,8 +1257,14 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		},
 	)
 
-	addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "logs", MountPath: "/var/log/fdb-trace-logs"})
-	addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"})
+	addVolumeMountIfMissing(
+		mainContainer,
+		corev1.VolumeMount{Name: "logs", MountPath: "/var/log/fdb-trace-logs"},
+	)
+	addVolumeMountIfMissing(
+		mainContainer,
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+	)
 
 	if mainContainer.Resources.Requests == nil {
 		mainContainer.Resources.Requests = corev1.ResourceList{
