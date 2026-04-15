@@ -140,12 +140,17 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
 	)
 	fs.StringVar(&o.LogFile, "log-file", "", "The path to a file to write logs to.")
-	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands in seconds.")
+	fs.IntVar(
+		&o.CliTimeout,
+		"cli-timeout",
+		10,
+		"The timeout to use for interactions with FDB in seconds.",
+	)
 	fs.IntVar(
 		&o.MaxCliTimeout,
 		"max-cli-timeout",
 		40,
-		"The maximum timeout to use for CLI commands in seconds. This timeout is used for CLI requests that are known to be potentially slow like get status or exclude.",
+		"The maximum timeout to use for interactions with FDB in seconds. This timeout is used for requests that are known to be potentially slow like get status or exclude.",
 	)
 	fs.IntVar(
 		&o.MaxConcurrentReconciles,
@@ -390,8 +395,8 @@ func StartManager(
 	klog.SetLogger(logger)
 
 	setupLog := logger.WithName("setup")
-	fdbclient.DefaultCLITimeout = time.Duration(operatorOpts.CliTimeout) * time.Second
-	fdbclient.MaxCliTimeout = time.Duration(operatorOpts.MaxCliTimeout) * time.Second
+	fdbclient.DefaultTimeout = time.Duration(operatorOpts.CliTimeout) * time.Second
+	fdbclient.MaxTimeout = time.Duration(operatorOpts.MaxCliTimeout) * time.Second
 
 	// Define the cache options for the client cache used by the operator. If no label selector is defined, the
 	// default cache configuration will be used.
