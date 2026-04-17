@@ -46,13 +46,21 @@ func (d deleteTerminalPods) reconcile(
 ) *requeue {
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
-			logger.Info("Ignore process group stuck in terminating", "processGroupID", processGroup.ProcessGroupID)
+			logger.Info(
+				"Ignore process group stuck in terminating",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
 			continue
 		}
 
 		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
 		if err != nil {
-			logger.Info("Could not find Pod for process group ID", "processGroupID", processGroup.ProcessGroupID)
+			logger.Info(
+				"Could not find Pod for process group ID",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
 			continue
 		}
 
