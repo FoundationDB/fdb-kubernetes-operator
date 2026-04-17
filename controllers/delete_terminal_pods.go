@@ -44,6 +44,8 @@ func (d deleteTerminalPods) reconcile(
 	_ *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
+	var requeueDelay time.Duration
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
 			logger.Info(
@@ -87,6 +89,11 @@ func (d deleteTerminalPods) reconcile(
 				"phase", phase,
 				"reason", reason,
 				"minimumAge", minimumAge)
+
+			remaining := time.Until(pod.CreationTimestamp.Add(minimumAge))
+			if requeueDelay == 0 || remaining < requeueDelay {
+				requeueDelay = remaining
+			}
 			continue
 		}
 
@@ -99,5 +106,13 @@ func (d deleteTerminalPods) reconcile(
 			return &requeue{curError: err}
 		}
 	}
+
+	if requeueDelay > 0 {
+		return &requeue{
+			message: "waiting for terminal pods to reach minimum age before deletion",
+			delay:   requeueDelay,
+		}
+	}
+
 	return nil
 }
