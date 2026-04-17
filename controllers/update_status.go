@@ -875,16 +875,12 @@ func validateProcessGroup(
 		return nil
 	}
 
-	failing := false
+	failing := pod.Status.Phase == corev1.PodFailed
 	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
 			failing = true
 			break
 		}
-	}
-
-	if pod.Status.Phase == corev1.PodFailed {
-		failing = true
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.PodFailing, failing)

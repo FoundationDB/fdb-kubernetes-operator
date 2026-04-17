@@ -1,5 +1,5 @@
 /*
- * delete_failed_pods.go
+ * delete_terminal_pods.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -74,7 +74,7 @@ func (d deleteTerminalPods) reconcile(
 		var minimumAge time.Duration
 		if phase == corev1.PodFailed && reason == "NodeAffinity" {
 			// The desired node is not available. Give it some time to be brought
-			// rather than recreating the pod multiple times.
+			// up rather than recreating the pod multiple times.
 			// See https://github.com/kubernetes/kubernetes/issues/92067
 			minimumAge = 5 * time.Minute
 		} else {
