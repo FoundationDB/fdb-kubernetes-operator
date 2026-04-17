@@ -71,6 +71,7 @@ var subReconcilers = []clusterSubReconciler{
 	updateConfigMap{},
 	checkClientCompatibility{},
 	deletePodsForBuggification{},
+	deleteTerminalPods{},
 	replaceMisconfiguredProcessGroups{},
 	replaceFailedProcessGroups{},
 	addProcessGroups{},
