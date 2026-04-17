@@ -595,9 +595,18 @@ func GetPodSpec(
 		}
 
 		mainContainer.Args = []string{args}
-		addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"})
-		addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"})
-		addVolumeMountIfMissing(mainContainer, corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"})
+		addVolumeMountIfMissing(
+			mainContainer,
+			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+		)
+		addVolumeMountIfMissing(
+			mainContainer,
+			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+		)
+		addVolumeMountIfMissing(
+			mainContainer,
+			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+		)
 
 		err = configureSidecarContainerForCluster(
 			cluster,
