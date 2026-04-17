@@ -82,12 +82,12 @@ func (d deleteTerminalPods) reconcile(
 			continue
 		}
 
+		logger.Info("Deleting pod that is stuck in a terminal state",
+			"processGroupID", processGroup.ProcessGroupID,
+			"phase", phase,
+			"reason", reason)
 		err = r.PodLifecycleManager.DeletePod(logr.NewContext(ctx, logger), r, pod)
 		if err != nil {
-			logger.Info("Deleting pod that is stuck in a terminal state",
-				"processGroupID", processGroup.ProcessGroupID,
-				"phase", phase,
-				"reason", reason)
 			return &requeue{curError: err}
 		}
 	}
