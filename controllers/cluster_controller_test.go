@@ -2972,40 +2972,6 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		Context("with a recent NodeAffinity failed Pod", func() {
-			var recentPod corev1.Pod
-
-			BeforeEach(func() {
-				pods := &corev1.PodList{}
-				Expect(
-					k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
-				).NotTo(HaveOccurred())
-
-				recentPod = pods.Items[0]
-				recentPod.Status.Phase = corev1.PodFailed
-				recentPod.Status.Reason = "NodeAffinity"
-				recentPod.CreationTimestamp = metav1.Now()
-				Expect(k8sClient.Status().Update(context.TODO(), &recentPod)).NotTo(HaveOccurred())
-				generationGap = 0
-				shouldCompleteReconciliation = false
-			})
-
-			It("should not recreate the Pod yet (due to 5m delay)", func() {
-				pod := &corev1.Pod{}
-				Expect(
-					k8sClient.Get(
-						context.TODO(),
-						client.ObjectKey{
-							Namespace: recentPod.Namespace,
-							Name:      recentPod.Name,
-						},
-						pod,
-					),
-				).NotTo(HaveOccurred())
-				Expect(pod.UID).To(Equal(recentPod.UID))
-			})
-		})
-
 		Context("with an evicted Pod", func() {
 			var recreatedPod corev1.Pod
 

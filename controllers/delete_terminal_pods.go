@@ -44,6 +44,7 @@ func (d deleteTerminalPods) reconcile(
 	_ *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
+	var minRemaining time.Duration
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
 			logger.Info(
@@ -81,12 +82,16 @@ func (d deleteTerminalPods) reconcile(
 			minimumAge = 30 * time.Second
 		}
 
-		if pod.CreationTimestamp.Add(minimumAge).After(time.Now()) {
+		remaining := time.Until(pod.CreationTimestamp.Add(minimumAge))
+		if remaining > 0 {
 			logger.Info("Pod in terminal state is too young to be deleted",
 				"processGroupID", processGroup.ProcessGroupID,
 				"phase", phase,
 				"reason", reason,
 				"minimumAge", minimumAge)
+			if minRemaining == 0 || remaining < minRemaining {
+				minRemaining = remaining
+			}
 			continue
 		}
 
@@ -97,6 +102,14 @@ func (d deleteTerminalPods) reconcile(
 		err = r.PodLifecycleManager.DeletePod(logr.NewContext(ctx, logger), r, pod)
 		if err != nil {
 			return &requeue{curError: err}
+		}
+	}
+
+	if minRemaining > 0 {
+		return &requeue{
+			message:        "pod in terminal state is too young to be deleted",
+			delay:          minRemaining,
+			delayedRequeue: true,
 		}
 	}
 	return nil
