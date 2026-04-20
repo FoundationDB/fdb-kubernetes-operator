@@ -246,8 +246,6 @@ func (client *MockClient) List(
 	list ctrlClient.ObjectList,
 	options ...ctrlClient.ListOption,
 ) error {
-	// TODO (johscheuer): Once https://github.com/kubernetes-sigs/controller-runtime/pull/2025 is merged and we update the
-	// controller-runtime we will support field selectors.
 	return client.fakeClient.List(ctx, list, options...)
 }
 

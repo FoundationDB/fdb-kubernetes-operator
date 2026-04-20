@@ -39,7 +39,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdb
 // +kubebuilder:subresource:status
-// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.24.0"
+// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.26.0"
 // +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Available",type="boolean",JSONPath=".status.health.available",description="Database available",priority=0
@@ -1351,6 +1351,7 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// UseManagementAPI defines if the operator should make use of the management API instead of
 	// using fdbcli to interact with the FoundationDB cluster.
+	// Deprecated: Use DatabaseInteractionMode instead.
 	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
 
 	// MaintenanceModeOptions contains options for maintenance mode related settings.

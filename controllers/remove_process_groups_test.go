@@ -783,82 +783,82 @@ var _ = Describe("remove_process_groups", func() {
 					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "storage-1",
-							ProcessClass:   "storage",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
 							Addresses:      []string{"1.1.1.1"},
 						},
 						{
 							ProcessGroupID: "storage-2",
-							ProcessClass:   "storage",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
 							Addresses:      []string{"1.1.1.2"},
 						},
 						{
 							ProcessGroupID: "storage-3",
-							ProcessClass:   "storage",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
 							Addresses:      []string{"1.1.1.3"},
 						},
 						{
 							ProcessGroupID: "stateless-1",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.1.4"},
 						},
 						{
 							ProcessGroupID: "stateless-2",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.1.5"},
 						},
 						{
 							ProcessGroupID: "stateless-3",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.1.6"},
 						},
 						{
 							ProcessGroupID: "stateless-4",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.1.7"},
 						},
 						{
 							ProcessGroupID: "stateless-5",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.1.8"},
 						},
 						{
 							ProcessGroupID: "stateless-6",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.1.9"},
 						},
 						{
 							ProcessGroupID: "stateless-7",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.2.1"},
 						},
 						{
 							ProcessGroupID: "stateless-8",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.2.2"},
 						},
 						{
 							ProcessGroupID: "stateless-9",
-							ProcessClass:   "stateless",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
 							Addresses:      []string{"1.1.2.3"},
 						},
 						{
-							ProcessGroupID: "globalControllerLogger-1",
-							ProcessClass:   "globalControllerLogger",
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
 							Addresses:      []string{"1.1.2.4"},
 						},
 						{
-							ProcessGroupID: "globalControllerLogger-2",
-							ProcessClass:   "globalControllerLogger",
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
 							Addresses:      []string{"1.1.2.5"},
 						},
 						{
-							ProcessGroupID: "globalControllerLogger-3",
-							ProcessClass:   "globalControllerLogger",
+							ProcessGroupID: "log-3",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
 							Addresses:      []string{"1.1.2.6"},
 						},
 						{
-							ProcessGroupID: "globalControllerLogger-4",
-							ProcessClass:   "globalControllerLogger",
+							ProcessGroupID: "log-4",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
 							Addresses:      []string{"1.1.2.7"},
 						},
 					},
@@ -1096,6 +1096,132 @@ var _ = Describe("remove_process_groups", func() {
 						readyForInclusionUpdates,
 					).To(HaveKeyWithValue(fdbv1beta2.ProcessGroupID("storage-2"), fdbv1beta2.UpdateActionAdd))
 				})
+			})
+		})
+
+		When("the cluster has additional tester processes", func() {
+			BeforeEach(func() {
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups,
+					&fdbv1beta2.ProcessGroupStatus{
+						ProcessGroupID: "test-1",
+						ProcessClass:   fdbv1beta2.ProcessClassTest,
+						Addresses:      []string{"1.1.3.1"},
+					},
+					&fdbv1beta2.ProcessGroupStatus{
+						ProcessGroupID: "test-2",
+						ProcessClass:   fdbv1beta2.ProcessClassTest,
+						Addresses:      []string{"1.1.3.2"},
+					},
+					&fdbv1beta2.ProcessGroupStatus{
+						ProcessGroupID: "test-3",
+						ProcessClass:   fdbv1beta2.ProcessClassTest,
+						Addresses:      []string{"1.1.3.3"},
+					})
+
+			})
+
+			When("including no process", func() {
+				It("should not include any process", func() {
+					processesToInclude, newProcessGroups := getProcessesToInclude(
+						logr.Logger{},
+						cluster,
+						removedProcessGroups,
+						exclusions,
+						readyForInclusion,
+						readyForInclusionUpdates,
+					)
+					Expect(processesToInclude).To(BeEmpty())
+					Expect(newProcessGroups).To(ConsistOf(cluster.Status.ProcessGroups))
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(19))
+				})
+			})
+
+			When("including one test process", func() {
+				BeforeEach(func() {
+					processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1]
+					Expect(
+						processGroup.ProcessGroupID,
+					).To(Equal(fdbv1beta2.ProcessGroupID("test-3")))
+					processGroup.MarkForRemoval()
+					for _, address := range processGroup.Addresses {
+						adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
+					}
+					removedProcessGroups[processGroup.ProcessGroupID] = true
+				})
+
+				When("the process is missing in the readyForInclusion map", func() {
+					It("shouldn't include the test process and add it to the update list", func() {
+						processesToInclude, newProcessGroups := getProcessesToInclude(
+							logr.Logger{},
+							cluster,
+							removedProcessGroups,
+							exclusions,
+							readyForInclusion,
+							readyForInclusionUpdates,
+						)
+						Expect(processesToInclude).To(BeEmpty())
+						Expect(
+							fdbv1beta2.ProcessAddressesString(processesToInclude, " "),
+						).To(BeEmpty())
+						Expect(newProcessGroups).To(HaveLen(18))
+						Expect(cluster.Status.ProcessGroups).To(HaveLen(19))
+					})
+				})
+			})
+
+			When("including one test process and a storage process", func() {
+				BeforeEach(func() {
+					processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1]
+					Expect(
+						processGroup.ProcessGroupID,
+					).To(Equal(fdbv1beta2.ProcessGroupID("test-3")))
+					processGroup.MarkForRemoval()
+					for _, address := range processGroup.Addresses {
+						adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
+					}
+					removedProcessGroups[processGroup.ProcessGroupID] = true
+
+					// Remove a storage process
+					processGroup = cluster.Status.ProcessGroups[0]
+					Expect(
+						processGroup.ProcessGroupID,
+					).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+					processGroup.MarkForRemoval()
+					for _, address := range processGroup.Addresses {
+						adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
+					}
+					removedProcessGroups[processGroup.ProcessGroupID] = true
+				})
+
+				When(
+					"the test process is missing in the readyForInclusion map and the storage process is present",
+					func() {
+						It(
+							"should only include the storage process and add it to the update list",
+							func() {
+								processesToInclude, newProcessGroups := getProcessesToInclude(
+									logr.Logger{},
+									cluster,
+									removedProcessGroups,
+									exclusions,
+									readyForInclusion,
+									readyForInclusionUpdates,
+								)
+								Expect(processesToInclude).To(HaveLen(1))
+								Expect(
+									fdbv1beta2.ProcessAddressesString(processesToInclude, " "),
+								).To(Equal("1.1.1.1"))
+								// The storage and the test process should be removed.
+								Expect(newProcessGroups).To(HaveLen(17))
+								Expect(cluster.Status.ProcessGroups).To(HaveLen(19))
+								Expect(readyForInclusionUpdates).To(HaveLen(1))
+								Expect(
+									readyForInclusionUpdates,
+								).To(HaveKeyWithValue(fdbv1beta2.ProcessGroupID("storage-1"), fdbv1beta2.UpdateActionAdd))
+							},
+						)
+					},
+				)
 			})
 		})
 	})

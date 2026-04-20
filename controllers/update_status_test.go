@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -1699,6 +1700,270 @@ var _ = Describe("update_status", func() {
 				for _, processGroup := range status.ProcessGroups {
 					Expect(processGroup.FaultDomain).To(BeEmpty())
 				}
+			})
+		})
+	})
+
+	When("refreshing process group status", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var clusterStatus fdbv1beta2.FoundationDBClusterStatus
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
+			clusterStatus = *cluster.Status.DeepCopy()
+		})
+
+		It("should not add any process groups when all are already tracked", func() {
+			initialCount := len(clusterStatus.ProcessGroups)
+			Expect(refreshProcessGroupStatus(
+				context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+			)).To(Succeed())
+			Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount))
+		})
+
+		When("a pod with an unknown process group ID exists", func() {
+			var unknownID fdbv1beta2.ProcessGroupID
+
+			BeforeEach(func() {
+				unknownID = "storage-99"
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
+						Namespace: cluster.Namespace,
+						Labels: internal.GetPodMatchLabels(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							string(unknownID),
+						),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), pod)).To(Succeed())
+			})
+
+			It("should add the process group from the pod", func() {
+				initialCount := len(clusterStatus.ProcessGroups)
+				Expect(refreshProcessGroupStatus(
+					context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+				)).To(Succeed())
+				Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount + 1))
+				ids := make([]fdbv1beta2.ProcessGroupID, 0, len(clusterStatus.ProcessGroups))
+				for _, pg := range clusterStatus.ProcessGroups {
+					ids = append(ids, pg.ProcessGroupID)
+				}
+				Expect(ids).To(ContainElement(unknownID))
+			})
+		})
+
+		When("a pod with an unknown process group ID is being deleted", func() {
+			BeforeEach(func() {
+				unknownID := fdbv1beta2.ProcessGroupID("storage-99")
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
+						Namespace: cluster.Namespace,
+						Labels: internal.GetPodMatchLabels(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							string(unknownID),
+						),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), pod)).To(Succeed())
+				Expect(k8sClient.MockStuckTermination(pod, true)).To(Succeed())
+				Expect(k8sClient.Delete(context.TODO(), pod)).To(Succeed())
+			})
+
+			It("should not add the process group", func() {
+				initialCount := len(clusterStatus.ProcessGroups)
+				Expect(refreshProcessGroupStatus(
+					context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+				)).To(Succeed())
+				Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount))
+			})
+		})
+
+		When("a PVC with an unknown process group ID exists", func() {
+			var unknownID fdbv1beta2.ProcessGroupID
+
+			BeforeEach(func() {
+				unknownID = "storage-99"
+				pvc := &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
+						Namespace: cluster.Namespace,
+						Labels: internal.GetPodMatchLabels(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							string(unknownID),
+						),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), pvc)).To(Succeed())
+			})
+
+			It("should add the process group from the PVC", func() {
+				initialCount := len(clusterStatus.ProcessGroups)
+				Expect(refreshProcessGroupStatus(
+					context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+				)).To(Succeed())
+				Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount + 1))
+				ids := make([]fdbv1beta2.ProcessGroupID, 0, len(clusterStatus.ProcessGroups))
+				for _, pg := range clusterStatus.ProcessGroups {
+					ids = append(ids, pg.ProcessGroupID)
+				}
+				Expect(ids).To(ContainElement(unknownID))
+			})
+		})
+
+		When("a PVC with an unknown process group ID is being deleted", func() {
+			BeforeEach(func() {
+				unknownID := fdbv1beta2.ProcessGroupID("storage-99")
+				pvc := &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
+						Namespace: cluster.Namespace,
+						Labels: internal.GetPodMatchLabels(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							string(unknownID),
+						),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), pvc)).To(Succeed())
+				Expect(k8sClient.MockStuckTermination(pvc, true)).To(Succeed())
+				Expect(k8sClient.Delete(context.TODO(), pvc)).To(Succeed())
+			})
+
+			It("should not add the process group", func() {
+				initialCount := len(clusterStatus.ProcessGroups)
+				Expect(refreshProcessGroupStatus(
+					context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+				)).To(Succeed())
+				Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount))
+			})
+		})
+
+		When("a service with an unknown process group ID exists", func() {
+			var unknownID fdbv1beta2.ProcessGroupID
+
+			BeforeEach(func() {
+				unknownID = "storage-99"
+				svc := &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
+						Namespace: cluster.Namespace,
+						Labels: internal.GetPodMatchLabels(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							string(unknownID),
+						),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), svc)).To(Succeed())
+			})
+
+			It("should add the process group from the service", func() {
+				initialCount := len(clusterStatus.ProcessGroups)
+				Expect(refreshProcessGroupStatus(
+					context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+				)).To(Succeed())
+				Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount + 1))
+				ids := make([]fdbv1beta2.ProcessGroupID, 0, len(clusterStatus.ProcessGroups))
+				for _, pg := range clusterStatus.ProcessGroups {
+					ids = append(ids, pg.ProcessGroupID)
+				}
+				Expect(ids).To(ContainElement(unknownID))
+			})
+		})
+
+		When("a service without a process group ID label exists", func() {
+			BeforeEach(func() {
+				svc := &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cluster.Name + "-headless",
+						Namespace: cluster.Namespace,
+						Labels:    cluster.GetMatchLabels(),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), svc)).To(Succeed())
+			})
+
+			It("should not add any process group", func() {
+				initialCount := len(clusterStatus.ProcessGroups)
+				Expect(refreshProcessGroupStatus(
+					context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+				)).To(Succeed())
+				Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount))
+			})
+		})
+
+		When("a service with an unknown process group ID is being deleted", func() {
+			BeforeEach(func() {
+				unknownID := fdbv1beta2.ProcessGroupID("storage-99")
+				svc := &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
+						Namespace: cluster.Namespace,
+						Labels: internal.GetPodMatchLabels(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							string(unknownID),
+						),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), svc)).To(Succeed())
+				Expect(k8sClient.MockStuckTermination(svc, true)).To(Succeed())
+				Expect(k8sClient.Delete(context.TODO(), svc)).To(Succeed())
+			})
+
+			It("should not add the process group", func() {
+				initialCount := len(clusterStatus.ProcessGroups)
+				Expect(refreshProcessGroupStatus(
+					context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+				)).To(Succeed())
+				Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount))
+			})
+		})
+
+		When("the same unknown process group ID appears in both a pod and a PVC", func() {
+			var unknownID fdbv1beta2.ProcessGroupID
+
+			BeforeEach(func() {
+				unknownID = "storage-99"
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
+						Namespace: cluster.Namespace,
+						Labels: internal.GetPodMatchLabels(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							string(unknownID),
+						),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), pod)).To(Succeed())
+
+				pvc := &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("data-%s-%s", cluster.Name, unknownID),
+						Namespace: cluster.Namespace,
+						Labels: internal.GetPodMatchLabels(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							string(unknownID),
+						),
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), pvc)).To(Succeed())
+			})
+
+			It("should add the process group exactly once", func() {
+				initialCount := len(clusterStatus.ProcessGroups)
+				Expect(refreshProcessGroupStatus(
+					context.TODO(), clusterReconciler, logger, cluster, &clusterStatus,
+				)).To(Succeed())
+				Expect(clusterStatus.ProcessGroups).To(HaveLen(initialCount + 1))
 			})
 		})
 	})

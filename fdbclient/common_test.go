@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +35,26 @@ import (
 )
 
 var _ = Describe("common_test", func() {
+	DescribeTable("getDefaultTimeout returns the correct timeout",
+		func(input time.Duration, expected time.Duration) {
+			Expect(getDefaultTimeout(input)).To(Equal(expected))
+		},
+		Entry("zero returns DefaultTimeout", time.Duration(0), DefaultTimeout),
+		Entry("value below MaxTimeout is returned as-is", 5*time.Second, 5*time.Second),
+		Entry("value equal to MaxTimeout is returned as-is", MaxTimeout, MaxTimeout),
+		Entry("value above MaxTimeout is capped to MaxTimeout", MaxTimeout+time.Second, MaxTimeout),
+	)
+
+	DescribeTable("getMaxTimeout returns the correct timeout",
+		func(input time.Duration, expected time.Duration) {
+			Expect(getMaxTimeout(input)).To(Equal(expected))
+		},
+		Entry("zero returns MaxTimeout", time.Duration(0), MaxTimeout),
+		Entry("value below MaxTimeout is returned as-is", 20*time.Second, 20*time.Second),
+		Entry("value equal to MaxTimeout is returned as-is", MaxTimeout, MaxTimeout),
+		Entry("value above MaxTimeout is capped to MaxTimeout", MaxTimeout+time.Second, MaxTimeout),
+	)
+
 	When("creating the cluster file", func() {
 		var clusterFile string
 		var tmpDir string

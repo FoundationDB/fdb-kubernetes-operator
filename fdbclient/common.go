@@ -38,15 +38,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DefaultCLITimeout is the default timeout for CLI commands.
-var DefaultCLITimeout = 10 * time.Second
+// DefaultTimeout is the default timeout for any FDB interactions.
+var DefaultTimeout = 10 * time.Second
 
-// MaxCliTimeout is the maximum CLI timeout that will be used for requests that might be slower to respond.
-var MaxCliTimeout = 40 * time.Second
-
-const (
-	defaultTransactionTimeout = 5 * time.Second
-)
+// MaxTimeout is the maximum timeout that will be used for requests that might be slower to respond.
+var MaxTimeout = 40 * time.Second
 
 func parseMachineReadableStatus(
 	logger logr.Logger,
@@ -116,7 +112,14 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 		return fdb.Database{}, err
 	}
 
-	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout.Milliseconds())
+	// Sets the default timeout for transaction to the default timeout provided byt the user.
+	err = database.Options().SetTransactionTimeout(getDefaultTimeout(0).Milliseconds())
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	// We set a low retry limit as the operator will retry the reconciliation process anyway.
+	err = database.Options().SetTransactionRetryLimit(1)
 	if err != nil {
 		return fdb.Database{}, err
 	}
@@ -184,15 +187,28 @@ func createClusterFileForCommandLine(cluster *fdbv1beta2.FoundationDBCluster) (*
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
-func getConnectionStringFromDB(libClient fdbLibClient, timeout time.Duration) (string, error) {
-	outputBytes, err := libClient.getValueFromDBUsingKey("\xff/coordinators", timeout)
+func getConnectionStringFromDB(libClient fdbLibClient) (string, error) {
+	result, err := libClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
+		contents, trErr := tr.Get(fdb.Key("\xff/coordinators")).Get()
+		// If the value is empty return an empty byte slice. Otherwise, an error will be thrown.
+		if len(contents) == 0 {
+			contents = []byte{}
+		}
+
+		return contents, trErr
+	})
+
 	if err != nil {
 		return "", err
 	}
 
+	contents, ok := result.([]byte)
+	if !ok {
+		return "", fmt.Errorf("could not convert result to []byte")
+	}
 	var connectionString fdbv1beta2.ConnectionString
 	connectionString, err = fdbv1beta2.ParseConnectionString(
-		cleanConnectionStringOutput(string(outputBytes)),
+		cleanConnectionStringOutput(string(contents)),
 	)
 	if err != nil {
 		return "", err
@@ -207,9 +223,28 @@ func getStatusFromDB(
 	logger logr.Logger,
 	timeout time.Duration,
 ) (*fdbv1beta2.FoundationDBStatus, error) {
-	contents, err := libClient.getValueFromDBUsingKey("\xff\xff/status/json", timeout)
+	result, err := libClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
+		trErr := tr.Options().SetTimeout(timeout.Milliseconds())
+		if trErr != nil {
+			return nil, trErr
+		}
+
+		contents, trErr := tr.Get(fdb.Key("\xff\xff/status/json")).Get()
+		// If the value is empty return an empty byte slice. Otherwise, an error will be thrown.
+		if len(contents) == 0 {
+			contents = []byte{}
+		}
+
+		return contents, trErr
+	})
+
 	if err != nil {
 		return nil, err
+	}
+
+	contents, ok := result.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("could not convert result to []byte")
 	}
 
 	return parseMachineReadableStatus(logger, contents, true)
@@ -225,6 +260,27 @@ func cleanConnectionStringOutput(input string) string {
 	}
 
 	return input[startIdx+1 : endIdx]
+}
+
+// getDefaultTimeout will return the timeout that is specified for the client or otherwise the maximum of the DefaultTimeout and MaxTimeout.
+// If the provided timeout is higher than MaxTimeout, MaxTimeout will be returned.
+func getDefaultTimeout(timeout time.Duration) time.Duration {
+	result := timeout
+	if result == 0 {
+		result = DefaultTimeout
+	}
+
+	return min(result, MaxTimeout)
+}
+
+// getMaxTimeout will return the timeout that is specified for the client or otherwise the MaxTimeout.
+// If the provided timeout is higher than MaxTimeout, MaxTimeout will be returned.
+func getMaxTimeout(timeout time.Duration) time.Duration {
+	if timeout == 0 {
+		return MaxTimeout
+	}
+
+	return min(timeout, MaxTimeout)
 }
 
 type realDatabaseClientProvider struct {

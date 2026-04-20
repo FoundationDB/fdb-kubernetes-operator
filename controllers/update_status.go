@@ -180,7 +180,7 @@ func (c updateStatus) reconcile(
 	}
 
 	updateFaultDomains(logger, processMap, &clusterStatus)
-	err = refreshProcessGroupStatus(ctx, r, cluster, &clusterStatus)
+	err = refreshProcessGroupStatus(ctx, r, logger, cluster, &clusterStatus)
 	if err != nil {
 		return &requeue{
 			curError: fmt.Errorf(
@@ -596,7 +596,7 @@ func validateProcessGroups(
 				(ok || processGroup.ProcessClass == fdbv1beta2.ProcessClassTest) {
 				logger.V(1).
 					Info("Process group is being removed without exclusion", "ProcessGroupID", processGroup.ProcessGroupID)
-				processGroup.ExclusionSkipped = ok
+				processGroup.ExclusionSkipped = true
 				processGroup.SetExclude()
 			}
 		}
@@ -1044,6 +1044,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 func refreshProcessGroupStatus(
 	ctx context.Context,
 	r *FoundationDBClusterReconciler,
+	logger logr.Logger,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBClusterStatus,
 ) error {
@@ -1054,7 +1055,7 @@ func refreshProcessGroupStatus(
 	}
 
 	// Track all created resources this will ensure that we catch all resources that are created by the operator
-	// even if the process group is currently missing for some reasons.
+	// even if the process group is currently missing for some reason.
 	pods, err := r.PodLifecycleManager.GetPods(
 		ctx,
 		r,
@@ -1070,6 +1071,11 @@ func refreshProcessGroupStatus(
 			continue
 		}
 
+		if !pod.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		logger.Info("found pod with missing process group", "processGroupID", processGroupID)
 		// Since we found a new process group we have to add it to our map.
 		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(
@@ -1094,6 +1100,11 @@ func refreshProcessGroupStatus(
 			continue
 		}
 
+		if !pvc.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		logger.Info("found pvc with missing process group", "processGroupID", processGroupID)
 		// Since we found a new process group we have to add it to our map.
 		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(
@@ -1119,11 +1130,14 @@ func refreshProcessGroupStatus(
 		if processGroupID == "" {
 			continue
 		}
-
+		if !service.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if _, ok := knownProcessGroups[processGroupID]; ok {
 			continue
 		}
 
+		logger.Info("found service with missing process group", "processGroupID", processGroupID)
 		// Since we found a new process group we have to add it to our map.
 		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(
