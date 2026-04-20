@@ -71,24 +71,13 @@ func (d deleteTerminalPods) reconcile(
 			continue
 		}
 
-		var minimumAge time.Duration
-		if phase == corev1.PodFailed && reason == "NodeAffinity" {
-			// The desired node is not available. Give it some time to be brought
-			// up rather than recreating the pod multiple times.
-			// See https://github.com/kubernetes/kubernetes/issues/92067
-			minimumAge = 5 * time.Minute
-		} else {
-			// In case of a "crash loop", this wait serves to slow down pod recreation.
-			minimumAge = 30 * time.Second
-		}
-
-		remaining := time.Until(pod.CreationTimestamp.Add(minimumAge))
+		remaining := time.Until(pod.CreationTimestamp.Add(r.MinimumAgeForTerminalPodDeletion))
 		if remaining > 0 {
 			logger.Info("Pod in terminal state is too young to be deleted",
 				"processGroupID", processGroup.ProcessGroupID,
 				"phase", phase,
 				"reason", reason,
-				"minimumAge", minimumAge)
+				"minimumAge", r.MinimumAgeForTerminalPodDeletion)
 			if minRemaining == 0 || remaining < minRemaining {
 				minRemaining = remaining
 			}

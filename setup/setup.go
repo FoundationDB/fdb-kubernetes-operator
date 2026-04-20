@@ -111,6 +111,7 @@ type Options struct {
 	MinimumUptimeForCoordinatorChangeWithMissingProcess   time.Duration
 	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
 	MinimumUptimeForConfigurationChanges                  time.Duration
+	MinimumAgeForTerminalPodDeletion                         time.Duration
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -350,6 +351,12 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		1*time.Minute,
 		"the minimum uptime for the cluster before configuration changes are allowed.",
 	)
+	fs.DurationVar(
+		&o.MinimumAgeForTerminalPodDeletion,
+		"minimum-age-for-terminal-pod-deletion",
+		3*time.Minute,
+		"The minimum age of a terminal pod before it will be deleted.",
+	)
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -492,6 +499,7 @@ func StartManager(
 		clusterReconciler.MinimumUptimeForCoordinatorChangeWithMissingProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithMissingProcess
 		clusterReconciler.MinimumUptimeForCoordinatorChangeWithUndesiredProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithUndesiredProcess
 		clusterReconciler.MinimumUptimeForConfigurationChanges = operatorOpts.MinimumUptimeForConfigurationChanges
+		clusterReconciler.MinimumAgeForTerminalPodDeletion = operatorOpts.MinimumAgeForTerminalPodDeletion
 		// If the provided PodLifecycleManager supports the update method, we can set the desired update method, otherwise the
 		// update method will be ignored.
 		castedPodManager, ok := clusterReconciler.PodLifecycleManager.(podmanager.PodLifecycleManagerWithPodUpdateMethod)
