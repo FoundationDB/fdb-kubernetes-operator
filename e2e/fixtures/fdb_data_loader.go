@@ -305,7 +305,7 @@ type dataLoaderConfig struct {
 	// SecretName represents the Kubernetes secret that contains the certificates for communicating with the FoundationDB
 	// cluster.
 	SecretName string
-	// DataLoaderArguments defines the arguments that should be added to the
+	// DataLoaderArguments defines the arguments that should be passed to the DataLoader
 	DataLoaderArguments []string
 }
 
