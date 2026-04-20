@@ -111,7 +111,7 @@ type Options struct {
 	MinimumUptimeForCoordinatorChangeWithMissingProcess   time.Duration
 	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
 	MinimumUptimeForConfigurationChanges                  time.Duration
-	MinimumAgeForTerminalPodDeletion                         time.Duration
+	MinimumAgeForTerminalPodDeletion                      time.Duration
 }
 
 // BindFlags will parse the given flagset for the operator option flags
