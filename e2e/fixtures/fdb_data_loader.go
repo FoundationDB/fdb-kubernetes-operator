@@ -29,11 +29,10 @@ import (
 	"text/template"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,11 +63,14 @@ spec:
       - image: {{ .Image }}
         imagePullPolicy: Always
         name: {{ .Name }}
-        # This configuration will load ~1GB per data loader.
-        args:
-        - --keys=1000000
-        - --batch-size=50
-        - --value-size=1000
+{{- range .DataLoaderArguments }}
+          - {{ . }}
+{{- else }}
+          # This configuration will load ~1GB per data loader.
+          - --keys=1000000
+          - --batch-size=50
+          - --value-size=1000
+{{- end }}
         env:
           - name: FDB_CLUSTER_FILE
             value: /var/dynamic/fdb/fdb.cluster
@@ -184,11 +186,15 @@ spec:
       - image: {{ .Image }}
         imagePullPolicy: Always
         name: {{ .Name }}
-        # This configuration will load ~1GB per data loader.
         args:
-        - --keys=1000000
-        - --batch-size=50
-        - --value-size=1000
+{{- range .DataLoaderArguments }}
+          - {{ . }}
+{{- else }}
+          # This configuration will load ~1GB per data loader.
+          - --keys=1000000
+          - --batch-size=50
+          - --value-size=1000
+{{- end }}
         env:
           - name: FDB_CLUSTER_FILE
             value: /var/dynamic/fdb/fdb.cluster
@@ -284,7 +290,7 @@ spec:
             secretName: {{ .SecretName }}`
 )
 
-// dataLoaderConfig represents the configuration of the Dataloader Job.
+// dataLoaderConfig represents the configuration of the DataLoader Job.
 type dataLoaderConfig struct {
 	// Name of the data loader Job.
 	Name string
@@ -299,29 +305,63 @@ type dataLoaderConfig struct {
 	// SecretName represents the Kubernetes secret that contains the certificates for communicating with the FoundationDB
 	// cluster.
 	SecretName string
+	// DataLoaderArguments defines the arguments that should be passed to the DataLoader
+	DataLoaderArguments []string
 }
 
-func (factory *Factory) getDataLoaderConfig(cluster *FdbCluster) *dataLoaderConfig {
+func (factory *Factory) getDataLoaderConfig(
+	cluster *FdbCluster,
+	arguments []string,
+) *dataLoaderConfig {
 	return &dataLoaderConfig{
-		Name:            dataLoaderName,
-		Image:           factory.GetDataLoaderImage(),
-		Namespace:       cluster.Namespace(),
-		SidecarVersions: factory.GetSidecarConfigs(),
-		ClusterName:     cluster.Name(),
-		SecretName:      factory.GetSecretName(),
+		Name:                dataLoaderName,
+		Image:               factory.GetDataLoaderImage(),
+		Namespace:           cluster.Namespace(),
+		SidecarVersions:     factory.GetSidecarConfigs(),
+		ClusterName:         cluster.Name(),
+		SecretName:          factory.GetSecretName(),
+		DataLoaderArguments: arguments,
+	}
+}
+
+// DataLoaderOptions can be used to define custom options to start the data loader
+type DataLoaderOptions struct {
+	// Wait, if true the test suite will wait for the data loader to finish.
+	Wait bool
+	// DataLoaderArguments arguments to add to the data loader.
+	DataLoaderArguments []string
+}
+
+// getDefaultDataLoaderOptions will return the default data loader options.
+func getDefaultDataLoaderOptions() *DataLoaderOptions {
+	return &DataLoaderOptions{
+		Wait: true,
+		DataLoaderArguments: []string{
+			"--keys=1000000",
+			"--batch-size=50",
+			"--value-size=1000",
+		},
 	}
 }
 
 // CreateDataLoaderIfAbsent will create the data loader for the provided cluster and load some random data into the cluster.
 func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
-	factory.CreateDataLoaderIfAbsentWithWait(cluster, true)
+	factory.CreateDataLoaderIfAbsentWithOptions(cluster, getDefaultDataLoaderOptions())
 }
 
-// CreateDataLoaderIfAbsentWithWait will create the data loader for the provided cluster and load some random data into the cluster.
+// CreateDataLoaderIfAbsentWithOptions will create the data loader for the provided cluster and load some random data into the cluster.
 // If wait is true, the method will wait until the data loader has finished.
-func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wait bool) {
+func (factory *Factory) CreateDataLoaderIfAbsentWithOptions(
+	cluster *FdbCluster,
+	options *DataLoaderOptions,
+) {
 	if !factory.options.enableDataLoading {
 		return
+	}
+
+	// If the input options are nil, create a default option.
+	if options == nil {
+		options = getDefaultDataLoaderOptions()
 	}
 
 	dataLoaderJobTemplate := dataLoaderJob
@@ -331,11 +371,12 @@ func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wa
 	t, err := template.New("dataLoaderJob").Parse(dataLoaderJobTemplate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
-	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(cluster))).
+	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(cluster, options.DataLoaderArguments))).
 		NotTo(gomega.HaveOccurred())
 	decoder := yamlutil.NewYAMLOrJSONDecoder(&buf, 100000)
 	for {
 		var rawObj runtime.RawExtension
+
 		err := decoder.Decode(&rawObj)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -356,7 +397,7 @@ func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wa
 		).NotTo(gomega.HaveOccurred())
 	}
 
-	if !wait {
+	if !options.Wait {
 		return
 	}
 
