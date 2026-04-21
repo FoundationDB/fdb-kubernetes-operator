@@ -359,7 +359,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.DurationVar(
 		&o.MinimumAgeForTerminalPodDeletion,
 		"minimum-age-for-terminal-pod-deletion",
-		3*time.Minute,
+		30*time.Second,
 		"The minimum age of a terminal pod before it will be deleted.",
 	)
 }
