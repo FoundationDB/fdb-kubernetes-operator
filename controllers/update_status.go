@@ -875,31 +875,11 @@ func validateProcessGroup(
 		return nil
 	}
 
-	failing := false
+	failing := pod.Status.Phase == corev1.PodFailed
 	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
 			failing = true
 			break
-		}
-	}
-
-	// Fix for https://github.com/kubernetes/kubernetes/issues/92067
-	// This will delete the Pod that is stuck in the "NodeAffinity"
-	// at a later stage the Pod will be recreated by the operator.
-	if pod.Status.Phase == corev1.PodFailed {
-		failing = true
-
-		// Only recreate the Pod if it is already 5 minutes up (just to prevent to recreate the Pod multiple times
-		// and give the cluster some time to get the kubelet up
-		if pod.Status.Reason == "NodeAffinity" &&
-			pod.CreationTimestamp.Add(5*time.Minute).Before(time.Now()) {
-			logger.Info("Delete Pod that is stuck in NodeAffinity",
-				"processGroupID", processGroupStatus.ProcessGroupID)
-
-			err = r.PodLifecycleManager.DeletePod(logr.NewContext(ctx, logger), r, pod)
-			if err != nil {
-				return err
-			}
 		}
 	}
 

@@ -71,6 +71,7 @@ var subReconcilers = []clusterSubReconciler{
 	updateConfigMap{},
 	checkClientCompatibility{},
 	deletePodsForBuggification{},
+	deleteTerminalPods{},
 	replaceMisconfiguredProcessGroups{},
 	replaceFailedProcessGroups{},
 	addProcessGroups{},
@@ -153,6 +154,8 @@ type FoundationDBClusterReconciler struct {
 	ClusterLabelKeyForNodeTrigger string
 	decodingSerializer            runtime.Serializer
 	SimulationOptions             SimulationOptions
+	// MinimumAgeForTerminalPodDeletion defines the minimum age of a terminal pod before it will be deleted.
+	MinimumAgeForTerminalPodDeletion time.Duration
 	// Defines the threshold for the high run loop busy condition, the default is 1.0.
 	HighRunLoopBusyThreshold float64
 }
