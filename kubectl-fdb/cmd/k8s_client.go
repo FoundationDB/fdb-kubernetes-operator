@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	applyfdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2/applyconfiguration/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"k8s.io/client-go/rest"
 
@@ -774,9 +775,13 @@ func setSkipReconciliation(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	skip bool,
 ) error {
-	patch := client.MergeFrom(cluster.DeepCopy())
-	cluster.Spec.Skip = skip
-	return kubeClient.Patch(ctx, cluster, patch)
+	return kubeClient.Apply(ctx,
+		applyfdbv1beta2.FoundationDBCluster(cluster.Name, cluster.Namespace).
+			WithSpec(applyfdbv1beta2.FoundationDBClusterSpec().
+				WithSkip(skip),
+			),
+		client.FieldOwner("kubectl-fdb"),
+		client.ForceOwnership)
 }
 
 func updateConnectionString(
@@ -785,9 +790,13 @@ func updateConnectionString(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	connectionString string,
 ) error {
-	patch := client.MergeFrom(cluster.DeepCopy())
-	cluster.Status.ConnectionString = connectionString
-	err := kubeClient.Status().Patch(ctx, cluster, patch)
+	err := kubeClient.Status().Apply(ctx,
+		applyfdbv1beta2.FoundationDBCluster(cluster.Name, cluster.Namespace).
+			WithStatus(applyfdbv1beta2.FoundationDBClusterStatus().
+				WithConnectionString(connectionString),
+			),
+		client.FieldOwner("kubectl-fdb"),
+		client.ForceOwnership)
 	if err != nil {
 		return err
 	}

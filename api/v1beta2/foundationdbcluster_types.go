@@ -1,5 +1,5 @@
 /*
-Copyright 2020-2022 FoundationDB project authors.
+Copyright 2020-2026 FoundationDB project authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import (
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.runningVersion",description="Running version",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
+// +kubebuilder:ac:generate=true
 
 // FoundationDBCluster is the Schema for the foundationdbclusters API
 type FoundationDBCluster struct {

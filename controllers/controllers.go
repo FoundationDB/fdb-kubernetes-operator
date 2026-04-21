@@ -21,10 +21,15 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	sigyaml "sigs.k8s.io/yaml"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +39,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var globalControllerLogger = logf.Log.WithName("controller")
+var (
+	globalControllerLogger = logf.Log.WithName("controller")
+	// decodingSerializer is used in the applyResource method to convert a client.Object into an unstructured.Unstructured.
+	decodingSerializer = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+)
 
 const (
 	// podSchedulingDelayDuration determines how long we should delay a requeue
@@ -95,4 +104,29 @@ func processRequeue(
 	curLog.Info("Reconciliation terminated early", "message", requeue.message)
 
 	return ctrl.Result{RequeueAfter: requeue.delay}, nil
+}
+
+// applyResource converts the client.Object into an unstructured.Unstructured and uses the apply method to apply the patch.
+func applyResource(
+	ctx context.Context,
+	kubeClient client.Client,
+	resource client.Object,
+) error {
+	// We are converting the patch into an *unstructured.Unstructured to remove fields that use a default value.
+	// If we are not doing this, empty (nil) fields will be evaluated as if they were set by the default value.
+	// In some previous testing we discovered some issues with that behaviour. With the *unstructured.Unstructured
+	// we make sure that only fields that are actually set will be applied.
+	outBytes, err := sigyaml.Marshal(resource)
+	if err != nil {
+		return err
+	}
+
+	unstructuredPatch := &unstructured.Unstructured{}
+	_, _, err = decodingSerializer.Decode(outBytes, nil, unstructuredPatch)
+	if err != nil {
+		return err
+	}
+
+	return kubeClient.Status().
+		Apply(ctx, client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: unstructuredPatch.Object}), client.FieldOwner("fdb-operator"), client.ForceOwnership)
 }
