@@ -298,9 +298,14 @@ func checkError(err error) error {
 		var fdbError *fdb.Error
 		if errors.As(err, &fdbError) {
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
-			// 1031: Operation aborted because the transaction timed out
+			// 1031: Operation aborted because the transaction timed out.
 			if fdbError.Code == 1031 {
 				return fdbv1beta2.TimeoutError{Err: err}
+			}
+
+			// Api call through special keys failed. For more information, read the 0xff0xff/error_message key.
+			if fdbError.Code == 2117 {
+				return fdbv1beta2.SpecialKeysAPIFailureError{Err: err}
 			}
 		}
 
@@ -364,6 +369,46 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 
 		return nil, operation(tr)
 	})
+
+	// In case that the retuned error is SpecialKeysAPIFailureError we have to make another transaction to get the actual
+	// error message from FDB.
+	var specialKeysErr fdbv1beta2.SpecialKeysAPIFailureError
+	if errors.As(err, &specialKeysErr) {
+		message, trErr := fdbClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
+			// Allow the operator to read and write from/to a locked database e.g. in cases where a restore is ongoing.
+			// This allows the operator to read and write from/to the FDB cluster.
+			optErr := tr.Options().SetLockAware()
+			if optErr != nil {
+				return nil, optErr
+			}
+
+			// Api call through special keys failed. For more information, read the 0xff0xff/error_message key.
+			return tr.Get(fdb.Key("\xff\xff/error_message")).Get()
+		})
+
+		// If this transaction fails too, print out the additional information that 0xff0xff/error_message could not
+		// be read.
+		if trErr != nil {
+			return fdbv1beta2.SpecialKeysAPIFailureError{
+				Err: fmt.Errorf(
+					"could not read error from special key 0xff0xff/error_message got: %w, original error: %w",
+					trErr,
+					err,
+				),
+			}
+		}
+
+		fdbClient.logger.V(1).
+			Info("error message from special key 0xff0xff/error_message", "message", message, "err", err)
+		return fdbv1beta2.SpecialKeysAPIFailureError{
+			Err: fmt.Errorf(
+				"error from special key 0xff0xff/error_message is: %s, original error: %w",
+				message,
+				err,
+			),
+		}
+	}
+
 	return err
 }
 
