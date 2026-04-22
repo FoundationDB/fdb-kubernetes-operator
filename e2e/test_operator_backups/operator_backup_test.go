@@ -103,7 +103,11 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 		})
 
 		When("the default backup system is used", func() {
-			var useRestorableVersion, skipRestore bool
+			// shouldPauseBackup controls whether the backup is paused or stopped after reaching a restorable version.
+			// Use pause when the test needs to resume the same backup (e.g. to run modify), since pause suspends
+			// the backup agents while keeping the backup active. Use stop (the default) when the backup is complete
+			// and a new backup would be acceptable, since stop terminates the backup via fdbbackup discontinue.
+			var useRestorableVersion, skipRestore, shouldPauseBackup bool
 			var backupConfiguration *fixtures.FdbBackupConfiguration
 			var currentRestorableVersion *uint64
 
@@ -128,7 +132,11 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						restorableVersion = backup.WaitForRestorableVersion(
 							fdbCluster.GetClusterVersion(),
 						)
-						backup.Stop()
+						if shouldPauseBackup {
+							backup.Pause()
+						} else {
+							backup.Stop()
+						}
 					}
 				case fdbv1beta2.BackupModeOneTime:
 					// In case of the one time backup we have to first write the keys and then do the backup.
@@ -213,18 +221,39 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					When("running fdbbackup commands", func() {
 						BeforeEach(func() {
 							skipRestore = true
+							shouldPauseBackup = true
 						})
 
 						JustBeforeEach(func() {
+							// running status command
+							statusCommandOutput := backup.RunStatusCommand()
+							Expect(statusCommandOutput.SnapshotIntervalSeconds).To(Equal(864000))
+							Expect(statusCommandOutput.UID).NotTo(BeNil())
+							backupUID := *statusCommandOutput.UID
+
+							// running list command
+							listCommandOutput := backup.RunListCommand()
+							Expect(listCommandOutput).To(HaveLen(1))
+
+							// running modify command to change the snapshot period
+							// restart the backup before modifying since the backup is paused
+							modifiedSnapshotPeriod := 900000
+							backup.Start()
+							backup.SetSnapshotInterval(modifiedSnapshotPeriod)
+							// validating snapshot interval changed and the backup UID is same
+							statusCommandOutput = backup.RunStatusCommand()
+							Expect(
+								statusCommandOutput.SnapshotIntervalSeconds,
+							).To(Equal(modifiedSnapshotPeriod))
+							Expect(statusCommandOutput.UID).NotTo(BeNil())
+							Expect(*statusCommandOutput.UID).To(Equal(backupUID))
+							backup.Stop()
+
 							// running describe command
 							describeCommandOutput := backup.RunDescribeCommand()
 							Expect(*describeCommandOutput.FileLevelEncryption).To(BeTrue())
 							Expect(*describeCommandOutput.Restorable).To(BeTrue())
 							Expect(*describeCommandOutput.Partitioned).To(BeFalse())
-
-							// running list command
-							listCommandOutput := backup.RunListCommand()
-							Expect(listCommandOutput).To(HaveLen(1))
 						})
 
 						It(

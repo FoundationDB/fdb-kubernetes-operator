@@ -171,5 +171,5 @@ var Versions = struct {
 	SupportsLocalityBasedExclusions71: Version{api.Version{Major: 7, Minor: 1, Patch: 42}},
 	SupportsLocalityBasedExclusions:   Version{api.Version{Major: 7, Minor: 3, Patch: 26}},
 	SupportsBackupEncryption:          Version{api.Version{Major: 7, Minor: 4, Patch: 6}},
-	SupportsBackupEncryption73:        Version{api.Version{Major: 7, Minor: 3, Patch: 72}},
+	SupportsBackupEncryption73:        Version{api.Version{Major: 7, Minor: 3, Patch: 73}},
 }

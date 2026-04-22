@@ -838,6 +838,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Running: true,
 				},
 				Restorable: ptr.To(false),
+				UID:        ptr.To("3874300eea1e154e4079530b381f71c3"),
 			}))
 		})
 	})
