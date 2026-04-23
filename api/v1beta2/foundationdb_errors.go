@@ -23,6 +23,7 @@ package v1beta2
 import "fmt"
 
 // TimeoutError represents a timeout for either the fdb client library or fdbcli.
+// See: https://github.com/apple/foundationdb/blob/main/flow/include/flow/error_definitions.h
 // +k8s:deepcopy-gen=false
 type TimeoutError struct {
 	Err error
@@ -40,6 +41,14 @@ type BackupNotRunning struct {
 	Err error
 }
 
+// SpecialKeysAPIFailureError represents the error when an Api call through special keys failed.
+// For more information, call get on special key 0xff0xff/error_message to get a json string of the error message.
+// See: https://github.com/apple/foundationdb/blob/main/flow/include/flow/error_definitions.h
+// +k8s:deepcopy-gen=false
+type SpecialKeysAPIFailureError struct {
+	Err error
+}
+
 // Error returns the error message of the internal timeout error.
 func (err TimeoutError) Error() string {
 	return fmt.Sprintf("fdb timeout: %s", err.Err.Error())
@@ -53,4 +62,9 @@ func (err BackupDoesNotExist) Error() string {
 // Error returns the error message of the internal backup not running error.
 func (err BackupNotRunning) Error() string {
 	return fmt.Sprintf("fdb backup does not exist: %s", err.Err.Error())
+}
+
+// Error returns the error message from a failed Api call through special keys.
+func (err SpecialKeysAPIFailureError) Error() string {
+	return fmt.Sprintf("fdb special_keys_api_failure: %s", err.Err.Error())
 }
