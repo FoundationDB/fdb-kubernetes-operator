@@ -32,6 +32,7 @@ import (
 	applyfdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2/applyconfiguration/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
@@ -554,15 +555,14 @@ func chooseRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {
 		return nil, fmt.Errorf("no pods available")
 	}
 
-	var candidate *corev1.Pod
-
-	var tries int
-	for candidate == nil || !candidate.GetDeletionTimestamp().IsZero() || tries > 10 {
-		candidate = &items[rand.IntN(len(items))]
-		tries++
+	for tries := 0; tries < 10; tries++ {
+		candidate := items[rand.IntN(len(items))]
+		if candidate.GetDeletionTimestamp().IsZero() {
+			return ptr.To(candidate), nil
+		}
 	}
 
-	return candidate, nil
+	return nil, fmt.Errorf("could not find a pod without a deletion timestamp after 10 tries")
 }
 
 func fetchPodsOnNode(

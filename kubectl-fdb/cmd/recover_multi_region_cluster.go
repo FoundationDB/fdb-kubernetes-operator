@@ -278,6 +278,12 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoverMultiRegionClust
 	// Pick 5 new coordinators.
 	needsUpload := make([]*corev1.Pod, 0, cluster.DesiredCoordinatorCount())
 	for len(newCoordinators) < cluster.DesiredCoordinatorCount() {
+		if len(newCoordinators) >= len(candidates) {
+			return fmt.Errorf(
+				"not enough coordinator candidates: need %d, have %d",
+				cluster.DesiredCoordinatorCount(), len(candidates),
+			)
+		}
 		log.Println("Current coordinators:", len(newCoordinators))
 		candidate := candidates[len(newCoordinators)]
 
