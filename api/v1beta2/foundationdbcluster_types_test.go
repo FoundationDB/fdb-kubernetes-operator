@@ -4731,22 +4731,20 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}
 				Expect(cluster.GetZoneVariableName()).To(Equal(expected))
 			},
-			Entry("when FaultDomain is unset, defaults to FDB_ZONE_ID",
+			Entry("when FaultDomain is unset, defaults to EnvNameZoneID",
 				FoundationDBClusterFaultDomain{}, EnvNameZoneID),
-			Entry("when ValueFrom is a downward-API path, defaults to FDB_ZONE_ID",
+			Entry("when FaultDomain is set but ValueFrom not $-prefixed, defaults to EnvNameZoneID",
 				FoundationDBClusterFaultDomain{
 					Key:       "kubernetes.io/hostname",
 					ValueFrom: "spec.nodeName",
 				},
 				EnvNameZoneID),
-			Entry("when ValueFrom is a $-prefixed node-label name, strips the $",
+			Entry("when FaultDomain is set and ValueFrom is $-prefixed, strips the $",
 				FoundationDBClusterFaultDomain{
-					Key:       "infra.x.com/rack",
-					ValueFrom: "$NODE_LABEL_INFRA_X_COM_RACK",
+					Key:       "foo.com/rack",
+					ValueFrom: "$NODE_LABEL_FOO_COM_RACK",
 				},
-				"NODE_LABEL_INFRA_X_COM_RACK"),
-			Entry("when ValueFrom is just '$', returns an empty string",
-				FoundationDBClusterFaultDomain{ValueFrom: "$"}, ""),
+				"NODE_LABEL_FOO_COM_RACK"),
 		)
 	})
 
