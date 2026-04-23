@@ -2826,6 +2826,22 @@ func (cluster *FoundationDBCluster) GetDNSDomain() string {
 	return ptr.Deref(cluster.Spec.Routing.DNSDomain, "cluster.local")
 }
 
+// GetZoneVariableName returns the name of the environment variable that
+// carries the FDB zone ID for this cluster. When FaultDomain.ValueFrom is set
+// to a value prefixed with "$" (the convention used to source the zone from a
+// node label resolved by the fdb-kubernetes-monitor at runtime), the name of
+// that variable is returned with the "$" stripped. Otherwise the canonical
+// EnvNameZoneID ("FDB_ZONE_ID") is returned.
+//
+// Both monitor_conf generation and pod-update zone bucketing must agree on
+// this name; centralising the lookup keeps them consistent.
+func (cluster *FoundationDBCluster) GetZoneVariableName() string {
+	if src := cluster.Spec.FaultDomain.ValueFrom; strings.HasPrefix(src, "$") {
+		return src[1:]
+	}
+	return EnvNameZoneID
+}
+
 // GetRemovalMode returns the removal mode of the cluster or default to PodUpdateModeZone if unset.
 func (cluster *FoundationDBCluster) GetRemovalMode() PodUpdateMode {
 	if cluster.Spec.AutomationOptions.RemovalMode == "" {

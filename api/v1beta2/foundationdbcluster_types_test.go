@@ -4723,6 +4723,33 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
+	When("getting the zone variable name", func() {
+		DescribeTable("it returns the env var name that carries the zone ID",
+			func(faultDomain FoundationDBClusterFaultDomain, expected string) {
+				cluster := &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{FaultDomain: faultDomain},
+				}
+				Expect(cluster.GetZoneVariableName()).To(Equal(expected))
+			},
+			Entry("when FaultDomain is unset, defaults to FDB_ZONE_ID",
+				FoundationDBClusterFaultDomain{}, EnvNameZoneID),
+			Entry("when ValueFrom is a downward-API path, defaults to FDB_ZONE_ID",
+				FoundationDBClusterFaultDomain{
+					Key:       "kubernetes.io/hostname",
+					ValueFrom: "spec.nodeName",
+				},
+				EnvNameZoneID),
+			Entry("when ValueFrom is a $-prefixed node-label name, strips the $",
+				FoundationDBClusterFaultDomain{
+					Key:       "infra.x.com/rack",
+					ValueFrom: "$NODE_LABEL_INFRA_X_COM_RACK",
+				},
+				"NODE_LABEL_INFRA_X_COM_RACK"),
+			Entry("when ValueFrom is just '$', returns an empty string",
+				FoundationDBClusterFaultDomain{ValueFrom: "$"}, ""),
+		)
+	})
+
 	When("checking if the process group must be replaced", func() {
 		DescribeTable("it should return to correct update strategy",
 			func(cluster *FoundationDBCluster, processGroup *ProcessGroupStatus, expected bool) {
