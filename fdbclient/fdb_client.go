@@ -382,7 +382,7 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 				return nil, optErr
 			}
 
-			// Api call through special keys failed. For more information, read the 0xff0xff/error_message key.
+			// To get more information on why the Api call through special keys failed we need to read the 0xff0xff/error_message key.
 			return tr.Get(fdb.Key("\xff\xff/error_message")).Get()
 		})
 
