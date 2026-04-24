@@ -426,7 +426,7 @@ func getPodsToUpdate(
 			continue
 		}
 
-		zone := substitutions[fdbv1beta2.EnvNameZoneID]
+		zone := substitutions[cluster.GetZoneVariableName()]
 		if reconciler.SimulationOptions.SimulateZones {
 			zone = "simulation"
 		}
