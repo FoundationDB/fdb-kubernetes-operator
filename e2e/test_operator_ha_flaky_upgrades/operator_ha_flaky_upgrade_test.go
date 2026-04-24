@@ -96,7 +96,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 		factory.Shutdown()
 	})
 
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/172, debug why this test is flaky and how
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/172, debug why this test is flaky and how
 	// to make it stable.
 	DescribeTable(
 		"when no remote processes are restarted",

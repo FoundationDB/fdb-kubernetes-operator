@@ -76,7 +76,7 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 	config *FdbBackupConfiguration,
 ) *fdbv1beta2.FoundationDBBackup {
 	// For more information how the backup system with the operator is working please look at
-	// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/master/docs/manual/backup.md
+	// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/backup.md
 	fdbVersion := factory.GetFDBVersion()
 
 	// If the config is nil, create a default config.

@@ -555,7 +555,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	// TODO (johscheuer): Ensure this test passes reliably. Right now the cluster sometimes gets stuck and needs
 	// manual intervention.
-	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2196
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2196
 	PDescribeTable(
 		"when no remote storage processes are restarted",
 		func(beforeVersion string, targetVersion string) {

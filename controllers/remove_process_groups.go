@@ -227,7 +227,7 @@ func removeProcessGroup(
 		}
 	}
 
-	// TODO(johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1638
+	// TODO(johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1638
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(
 		ctx,
