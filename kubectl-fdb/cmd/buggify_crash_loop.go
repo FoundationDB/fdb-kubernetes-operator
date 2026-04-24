@@ -21,10 +21,11 @@
 package cmd
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	applyfdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2/applyconfiguration/api/v1beta2"
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
@@ -127,6 +128,7 @@ func updateCrashLoopContainerList(
 			return fmt.Errorf("clean option requires cluster-name argument")
 		}
 		return cleanCrashLoopContainerList(
+			cmd.Context(),
 			kubeClient,
 			opts.containerName,
 			processGroupOpts.clusterName,
@@ -177,15 +179,17 @@ func updateCrashLoopContainerList(
 			}
 			cluster.AddProcessGroupsToCrashLoopContainerList(processGroupIDs, opts.containerName)
 		}
-		err = kubeClient.Patch(ctx.TODO(), cluster, patch)
+		err = kubeClient.Patch(cmd.Context(), cluster, patch)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 func cleanCrashLoopContainerList(
+	ctx context.Context,
 	kubeClient client.Client,
 	containerName, clusterName, namespace string,
 	opts buggifyProcessGroupOptions,
@@ -197,7 +201,6 @@ func cleanCrashLoopContainerList(
 		}
 		return err
 	}
-	patch := client.MergeFrom(cluster.DeepCopy())
 
 	if opts.wait {
 		if !confirmAction(
@@ -211,15 +214,15 @@ func cleanCrashLoopContainerList(
 			return fmt.Errorf("user aborted the removal")
 		}
 	}
-	containerIdx := 0
-	for _, crashLoopContainerObj := range cluster.Spec.Buggify.CrashLoopContainers {
-		if crashLoopContainerObj.ContainerName != containerName {
-			containerIdx++
-			continue
-		}
-		crashLoopContainerObj.Targets = nil
-		cluster.Spec.Buggify.CrashLoopContainers[containerIdx] = crashLoopContainerObj
-		break
-	}
-	return kubeClient.Patch(ctx.TODO(), cluster, patch)
+
+	return kubeClient.Apply(
+		ctx,
+		applyfdbv1beta2.FoundationDBCluster(clusterName, namespace).
+			WithSpec(applyfdbv1beta2.FoundationDBClusterSpec().
+				WithBuggify(applyfdbv1beta2.BuggifyConfig().
+					WithCrashLoopContainers(&applyfdbv1beta2.CrashLoopContainerObjectApplyConfiguration{}),
+				),
+			),
+		client.FieldOwner("kubectl-fdb"),
+		client.ForceOwnership)
 }

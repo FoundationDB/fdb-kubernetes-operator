@@ -223,9 +223,9 @@ func (r *FoundationDBBackupReconciler) updateOrApply(
 	backup *fdbv1beta2.FoundationDBBackup,
 ) error {
 	if r.ServerSideApply {
-		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
-		// support for server side apply which should be enough for the status use case. The controller runtime will
-		// add some additional support in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/347.
+		// We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
+		// support for server side apply which should be enough for the status use case. The controller runtime added
+		// support for typed ApplyConfiguration, we could transition this setup to make use of the typed ApplyConfiguration.
 		patch := &fdbv1beta2.FoundationDBBackup{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       backup.Kind,
@@ -238,9 +238,7 @@ func (r *FoundationDBBackupReconciler) updateOrApply(
 			Status: backup.Status,
 		}
 
-		return r.Status().
-			Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"))
-		//, client.ForceOwnership)
+		return applyResource(ctx, r, patch)
 	}
 
 	return r.Status().Update(ctx, backup)

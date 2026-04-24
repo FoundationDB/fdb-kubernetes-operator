@@ -947,15 +947,26 @@ func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup
 		return err
 	}
 
+	args := []string{
+		"modify",
+		"-s",
+		strconv.Itoa(backup.SnapshotPeriodSeconds()),
+		"-d",
+		backupURL,
+	}
+
+	encryptionKeyPath, err := backup.GetEncryptionKey()
+	if err != nil {
+		return err
+	}
+
+	if encryptionKeyPath != "" {
+		args = append(args, "--encryption-key-file", encryptionKeyPath)
+	}
+
 	_, err = client.runCommand(cliCommand{
 		binary: fdbbackupStr,
-		args: []string{
-			"modify",
-			"-s",
-			strconv.Itoa(backup.SnapshotPeriodSeconds()),
-			"-d",
-			backupURL,
-		},
+		args:   args,
 	})
 
 	return err

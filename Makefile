@@ -29,7 +29,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Dependencies to fetch through `go`
-CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
+CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
@@ -154,7 +154,7 @@ deploy: $(KUSTOMIZE) install manifests config/development/kustomization.yaml
 manifests: ${MANIFESTS}
 
 ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/..." paths="./controllers/..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/..." paths="./controllers/..." applyconfiguration output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 fmt: deps bin/fmt_check

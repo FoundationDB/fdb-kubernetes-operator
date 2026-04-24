@@ -838,6 +838,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Running: true,
 				},
 				Restorable: ptr.To(false),
+				UID:        ptr.To("3874300eea1e154e4079530b381f71c3"),
 			}))
 		})
 	})
@@ -4720,6 +4721,31 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				})
 			})
 		})
+	})
+
+	When("getting the zone variable name", func() {
+		DescribeTable("it returns the env var name that carries the zone ID",
+			func(faultDomain FoundationDBClusterFaultDomain, expected string) {
+				cluster := &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{FaultDomain: faultDomain},
+				}
+				Expect(cluster.GetZoneVariableName()).To(Equal(expected))
+			},
+			Entry("when FaultDomain is unset, defaults to EnvNameZoneID",
+				FoundationDBClusterFaultDomain{}, EnvNameZoneID),
+			Entry("when FaultDomain is set but ValueFrom not $-prefixed, defaults to EnvNameZoneID",
+				FoundationDBClusterFaultDomain{
+					Key:       "kubernetes.io/hostname",
+					ValueFrom: "spec.nodeName",
+				},
+				EnvNameZoneID),
+			Entry("when FaultDomain is set and ValueFrom is $-prefixed, strips the $",
+				FoundationDBClusterFaultDomain{
+					Key:       "foo.com/rack",
+					ValueFrom: "$NODE_LABEL_FOO_COM_RACK",
+				},
+				"NODE_LABEL_FOO_COM_RACK"),
+		)
 	})
 
 	When("checking if the process group must be replaced", func() {

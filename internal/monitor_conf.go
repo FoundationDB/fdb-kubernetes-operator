@@ -258,12 +258,7 @@ func GetMonitorProcessConfiguration(
 
 	logGroup := cluster.GetLogGroup()
 
-	var zoneVariable string
-	if strings.HasPrefix(cluster.Spec.FaultDomain.ValueFrom, "$") {
-		zoneVariable = cluster.Spec.FaultDomain.ValueFrom[1:]
-	} else {
-		zoneVariable = fdbv1beta2.EnvNameZoneID
-	}
+	zoneVariable := cluster.GetZoneVariableName()
 
 	// currentPodIPFamily will reflect the current IP family of the Pod. If the Pod doesn't exist, we fall back
 	// to the default IP family defined on the cluster level.

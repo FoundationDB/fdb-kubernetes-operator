@@ -273,39 +273,57 @@ func (fdbBackup *FdbBackup) Pause() {
 	fdbBackup.setState(fdbv1beta2.BackupStatePaused)
 }
 
-// RunDescribeCommand runs the describe command on the backup pod.
-func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
-	backupURL, err := fdbBackup.backup.BackupURL()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+// SetSnapshotInterval updates the snapshot interval of the current backup.
+func (fdbBackup *FdbBackup) SetSnapshotInterval(snapshotPeriodSeconds int) {
+	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
+	foundationDBBackup := &fdbv1beta2.FoundationDBBackup{}
+	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
+		Get(context.Background(), objectKey, foundationDBBackup)).To(gomega.Succeed())
+
+	foundationDBBackup.Spec.SnapshotPeriodSeconds = &snapshotPeriodSeconds
+	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
+		Update(context.Background(), foundationDBBackup)).To(gomega.Succeed())
+	fdbBackup.backup = foundationDBBackup
+	fdbBackup.WaitForReconciliation()
+}
+
+// RunCommandOnBackupPod runs the provided command on a randomly chosen backup pod.
+func (fdbBackup *FdbBackup) RunCommandOnBackupPod(command string) string {
 	backupPod := fdbBackup.GetBackupPod()
-	command := fmt.Sprintf(
-		"fdbbackup describe -d \"%s\" --json", backupURL,
-	)
 	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
 		*backupPod,
 		fdbv1beta2.MainContainerName,
 		command,
 		false)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(err).To(gomega.Succeed())
+	return out
+}
 
+// RunDescribeCommand runs the describe command on a randomly chosen backup pod.
+func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
+	backupURL, err := fdbBackup.backup.BackupURL()
+	gomega.Expect(err).To(gomega.Succeed())
+	command := fmt.Sprintf("fdbbackup describe -d \"%s\" --json", backupURL)
+	out := fdbBackup.RunCommandOnBackupPod(command)
 	desc := &fdbv1beta2.FDBBackupDescribe{}
 	gomega.Expect(json.Unmarshal([]byte(out), desc)).To(gomega.Succeed())
 	return desc
 }
 
-// RunListCommand runs the list command on a backup pod.
+// RunStatusCommand runs the status command on a randomly chosen backup pod.
+func (fdbBackup *FdbBackup) RunStatusCommand() *fdbv1beta2.FoundationDBLiveBackupStatus {
+	out := fdbBackup.RunCommandOnBackupPod("fdbbackup status --json")
+	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
+	gomega.Expect(json.Unmarshal([]byte(out), status)).To(gomega.Succeed())
+	return status
+}
+
+// RunListCommand runs the list command on a randomly chosen backup pod.
 func (fdbBackup *FdbBackup) RunListCommand() []string {
 	backupURL, err := fdbBackup.backup.BaseURL()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(err).To(gomega.Succeed())
 	command := fmt.Sprintf("fdbbackup list -b \"%s\"", backupURL)
-	backupPod := fdbBackup.GetBackupPod()
-	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
-		*backupPod,
-		fdbv1beta2.MainContainerName,
-		command,
-		false)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	return strings.Split(out, "\\n")
+	return strings.Split(fdbBackup.RunCommandOnBackupPod(command), "\\n")
 }
 
 // WaitForReconciliation waits until the FdbBackup resource is fully reconciled.
@@ -333,18 +351,7 @@ func (fdbBackup *FdbBackup) WaitForReconciliation() {
 func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
 	var restorableVersion uint64
 	gomega.Eventually(func(g gomega.Gomega) uint64 {
-		backupPod := fdbBackup.GetBackupPod()
-		out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
-			*backupPod,
-			fdbv1beta2.MainContainerName,
-			"fdbbackup status --json",
-			false,
-		)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-
-		status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
-		g.Expect(json.Unmarshal([]byte(out), status)).NotTo(gomega.HaveOccurred())
-
+		status := fdbBackup.RunStatusCommand()
 		var latestRestorableVersion uint64
 		if status.LatestRestorablePoint != nil {
 			latestRestorableVersion = ptr.Deref(status.LatestRestorablePoint.Version, 0)

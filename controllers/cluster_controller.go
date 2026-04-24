@@ -35,10 +35,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -49,7 +46,6 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	sigyaml "sigs.k8s.io/yaml"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient"
@@ -71,6 +67,7 @@ var subReconcilers = []clusterSubReconciler{
 	updateConfigMap{},
 	checkClientCompatibility{},
 	deletePodsForBuggification{},
+	deleteTerminalPods{},
 	replaceMisconfiguredProcessGroups{},
 	replaceFailedProcessGroups{},
 	addProcessGroups{},
@@ -151,8 +148,9 @@ type FoundationDBClusterReconciler struct {
 	// ClusterLabelKeyForNodeTrigger if set will trigger a reconciliation for all FoundationDBClusters that host a Pod
 	// on the affected node.
 	ClusterLabelKeyForNodeTrigger string
-	decodingSerializer            runtime.Serializer
 	SimulationOptions             SimulationOptions
+	// MinimumAgeForTerminalPodDeletion defines the minimum age of a terminal pod before it will be deleted.
+	MinimumAgeForTerminalPodDeletion time.Duration
 	// Defines the threshold for the high run loop busy condition, the default is 1.0.
 	HighRunLoopBusyThreshold float64
 }
@@ -165,7 +163,6 @@ func NewFoundationDBClusterReconciler(
 		PodLifecycleManager: podLifecycleManager,
 	}
 	r.PodClientProvider = r.newFdbPodClient
-	r.decodingSerializer = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 
 	return r
 }
@@ -767,8 +764,8 @@ func (r *FoundationDBClusterReconciler) updateOrApply(
 ) error {
 	if r.ServerSideApply {
 		// We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
-		// support for server side apply which should be enough for the status use case. The controller runtime will
-		// add some additional support in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/347.
+		// support for server side apply which should be enough for the status use case. The controller runtime added
+		// support for typed ApplyConfiguration, we could transition this setup to make use of the typed ApplyConfiguration.
 		patch := &fdbv1beta2.FoundationDBCluster{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       cluster.Kind,
@@ -781,23 +778,7 @@ func (r *FoundationDBClusterReconciler) updateOrApply(
 			Status: cluster.Status,
 		}
 
-		// We are converting the patch into an *unstructured.Unstructured to remove fields that use a default value.
-		// If we are not doing this, empty (nil) fields will be evaluated as if they were set by the default value.
-		// In some previous testing we discovered some issues with that behaviour. With the *unstructured.Unstructured
-		// we make sure that only fields that are actually set will be applied.
-		outBytes, err := sigyaml.Marshal(patch)
-		if err != nil {
-			return err
-		}
-
-		unstructuredPatch := &unstructured.Unstructured{}
-		_, _, err = r.decodingSerializer.Decode(outBytes, nil, unstructuredPatch)
-		if err != nil {
-			return err
-		}
-
-		return r.Status().
-			Patch(ctx, unstructuredPatch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
+		return applyResource(ctx, r, patch)
 	}
 
 	return r.Status().Update(ctx, cluster)
