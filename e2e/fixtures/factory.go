@@ -929,7 +929,7 @@ func (fdbCluster *FdbCluster) GetNode(name string) *corev1.Node {
 // getStorageEngine returns the storage engine that should be used by the test cluster. Defaults to ssd.
 func (factory *Factory) getStorageEngine() fdbv1beta2.StorageEngine {
 	if factory.options.storageEngine == "" {
-		return fdbv1beta2.StorageEngineSSD
+		return fdbv1beta2.StorageEngineRocksDbV1
 	}
 
 	return fdbv1beta2.StorageEngine(factory.options.storageEngine)
