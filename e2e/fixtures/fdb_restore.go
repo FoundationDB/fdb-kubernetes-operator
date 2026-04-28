@@ -43,7 +43,7 @@ type FdbRestore struct {
 
 // CreateRestoreForCluster will create a FoundationDBRestore resource based on the provided backup resource.
 // For more information how the backup system with the operator is working please look at
-// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/master/docs/manual/backup.md
+// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/backup.md
 func (factory *Factory) CreateRestoreForCluster(
 	backup *FdbBackup,
 	backupVersion *uint64,

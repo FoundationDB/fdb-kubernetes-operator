@@ -79,7 +79,7 @@ func selectCandidates(
 			continue
 		}
 
-		// Ignore processes with missing locality, see: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1254
+		// Ignore processes with missing locality, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1254
 		if len(process.Locality) == 0 {
 			continue
 		}
@@ -115,7 +115,7 @@ func selectCandidates(
 		// that means this process is pending a Pod recreation and will therefore be down for some time.
 		// We reduce the priority in this case to reduce the risk of successive coordinator changes. Reducing the
 		// priority should help in reducing the overall coordinator changes.
-		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2015
+		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2015
 		if process.Version != cluster.Spec.Version ||
 			strings.HasPrefix(process.CommandLine, "/var/") {
 			// math.MinInt64 is the lowest possible priority. By adding the actual priority we make sure that we

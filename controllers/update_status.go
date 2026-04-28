@@ -378,7 +378,7 @@ func checkAndSetProcessStatus(
 	// later by validating additional messages in the machine-readable status.
 	if len(processMap) == 0 {
 		// TODO (johscheuer): Should we reset the exclusion state if the processes are missing? In this case we cannot
-		// know if the process was fully excluded or not and we could run into issues like: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1912
+		// know if the process was fully excluded or not and we could run into issues like: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1912
 		// This change needs some additional testing to ensure we understand the possible side effects.
 		return nil
 	}
@@ -475,7 +475,7 @@ func checkAndSetProcessStatus(
 
 			// If the new command line is longer than 10.000 characters we will throw an error to make sure the operator
 			// is not restarting the cluster the whole time.
-			// See https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2105
+			// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2105
 			if len(commandLine) > 10000 {
 				r.Recorder.Event(
 					cluster,

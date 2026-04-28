@@ -128,12 +128,12 @@ func (factory *Factory) createPodTemplate(
 	config *ClusterConfig,
 ) *corev1.PodTemplateSpec {
 	// The operator is causing this to not work as desired reference:
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/main/internal/deprecations.go#L75-L77
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/internal/deprecations.go#L75-L77
 	mainContainerResources := corev1.ResourceRequirements{
 		Requests: config.generatePodResources(processClass),
 	}
 
-	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/main/docs/manual/warnings.md#resource-requirements otherwise
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/warnings.md#resource-requirements otherwise
 	// the operator will set the default limits.
 	if !config.Performance {
 		mainContainerResources.Limits = corev1.ResourceList{
