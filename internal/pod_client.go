@@ -477,7 +477,11 @@ func GetSubstitutionsFromClusterAndPod(
 		}
 	}
 
-	ipString := GetPublicIPsForPod(pod, logger)[0]
+	publicIPs := GetPublicIPsForPod(pod, logger)
+	if len(publicIPs) == 0 {
+		return nil, fmt.Errorf("no public IPs found for pod %s/%s", pod.Namespace, pod.Name)
+	}
+	ipString := publicIPs[0]
 	substitutions[fdbv1beta2.EnvNamePublicIP] = ipString
 	if ipString != "" {
 		ip := net.ParseIP(ipString)
