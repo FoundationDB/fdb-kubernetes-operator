@@ -15,7 +15,7 @@ type MaintenanceModeOptionsApplyConfiguration struct {
 	UseMaintenanceModeChecker *bool `json:"UseMaintenanceModeChecker,omitempty"`
 	// ResetMaintenanceMode defines whether the operator should reset the maintenance mode if all storage processes
 	// under the maintenance zone have been restarted. The default is false. For more details see:
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/improve-maintenance-mode-integration/docs/manual/operations.md#maintenance
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/operations.md#maintenance
 	// Default is false.
 	ResetMaintenanceMode *bool `json:"resetMaintenanceMode,omitempty"`
 	// MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses.
