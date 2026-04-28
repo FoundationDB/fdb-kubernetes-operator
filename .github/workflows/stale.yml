@@ -1,0 +1,27 @@
+name: 'Close stale pull requests'
+on:
+  schedule:
+    - cron: '15 20 * * *' # 20:15 UTC
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f # v10.2.0
+        with:
+          stale-pr-message: >
+            This PR is stale because it has been open 90 days with no activity.
+            Remove stale label or add a comment to prevent automatic closure in 14 days.
+          stale-issue-message: >
+            This issue is stale because it has been open 180 days with no activity.
+            Remove stale label or comment or this will be closed in 5475 days.'
+          days-before-pr-stale: 90
+          days-before-close: 14
+          days-before-issue-stale: 180
+          days-before-issue-close: 5475 # 15 years, basically disabled for issues
+          operations-per-run: 20
+          ascending: true
