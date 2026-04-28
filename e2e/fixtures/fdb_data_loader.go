@@ -90,8 +90,8 @@ spec:
             value: {{ .Name }}
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb/libs
-          - name: PYTHONUNBUFFERED
-            value: "on"
+          - name: FDB_NETWORK_OPTION_TRACE_FORMAT
+            value: "json"
         volumeMounts:
           - name: config-map
             mountPath: /var/dynamic-conf
@@ -214,8 +214,8 @@ spec:
             value: {{ .Name }}
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb
-          - name: PYTHONUNBUFFERED
-            value: "on"
+          - name: FDB_NETWORK_OPTION_TRACE_FORMAT
+            value: "json"
         volumeMounts:
           - name: config-map
             mountPath: /var/dynamic-conf

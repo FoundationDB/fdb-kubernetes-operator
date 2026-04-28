@@ -37,8 +37,6 @@ type dataLoaderOptions struct {
 	loadDuration time.Duration
 	// clusterFile to connect to the FDB cluster to.
 	clusterFile string
-	// shutdown if set to false the data loader will not shutdown after load is done.
-	shutdown bool
 }
 
 // latencyStats represents a simplified latency metrics tracker.
@@ -83,7 +81,6 @@ func loadData(ctx context.Context, options *dataLoaderOptions) {
 			writeStats.count, writeStats.avg(), writeStats.min, writeStats.max)
 		log.Printf("reads  — count: %d, avg: %s, min: %s, max: %s",
 			readStats.count, readStats.avg(), readStats.min, readStats.max)
-
 	}()
 	batchCount := options.keys / options.batchSize
 
@@ -193,11 +190,6 @@ func loadData(ctx context.Context, options *dataLoaderOptions) {
 			readStats.record(time.Since(readStart))
 		}
 	}
-
-	if !options.shutdown {
-		// Block until signal is received
-		<-ctx.Done()
-	}
 }
 
 func getUuid(randomGen *rand.ChaCha8) (tuple.UUID, error) {
@@ -260,6 +252,10 @@ func main() {
 		readBatchSize: readBatchSize,
 		loadDuration:  loadDuration,
 		clusterFile:   clusterFile,
-		shutdown:      shutdown,
 	})
+
+	if !shutdown {
+		// Block until signal is received
+		<-ctx.Done()
+	}
 }
