@@ -1204,10 +1204,15 @@ func hasExactMatchedTaintKey(
 	nodeTaintKey string,
 ) bool {
 	for _, configuredTaintKey := range taintReplacementOptions {
-		if *configuredTaintKey.Key == nodeTaintKey {
+		if configuredTaintKey.Key == nil {
+			continue
+		}
+
+		if ptr.Deref(configuredTaintKey.Key, "") == nodeTaintKey {
 			return true
 		}
 	}
+
 	return false
 }
 

@@ -61,7 +61,7 @@ func (a addProcessGroups) reconcile(
 		r.getAdminClient,
 	)
 	if getLocalitiesErr != nil {
-		logger.Error(err, "Error getting exclusion list")
+		logger.Error(getLocalitiesErr, "Error getting exclusion list")
 	}
 
 	hasNewProcessGroups := false
