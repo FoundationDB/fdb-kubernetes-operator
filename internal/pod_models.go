@@ -1291,7 +1291,8 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 			podTemplate.Spec.InitContainers,
 			corev1.Container{Name: fdbv1beta2.InitContainerName},
 		)
-		initContainer = &podTemplate.Spec.InitContainers[0]
+		// Take the last init container as we just added the new init container.
+		initContainer = &podTemplate.Spec.InitContainers[len(podTemplate.Spec.InitContainers)-1]
 	}
 
 	err = configureSidecarContainerForBackup(backup, initContainer)

@@ -548,7 +548,7 @@ func deletePodsForUpdates(
 
 	newContext := logr.NewContext(ctx, logger)
 	if status != nil {
-		newContext = context.WithValue(ctx, fdbstatus.StatusContextKey{}, status)
+		newContext = context.WithValue(newContext, fdbstatus.StatusContextKey{}, status)
 	}
 
 	ready, err := r.PodLifecycleManager.CanDeletePods(newContext, adminClient, cluster)

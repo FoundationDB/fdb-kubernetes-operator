@@ -116,7 +116,7 @@ func requiresRecreation(
 	existingService *corev1.Service,
 ) bool {
 	return cluster.IsPodIPFamily6() &&
-		(existingService.Spec.IPFamilies == nil || existingService.Spec.IPFamilies[0] != corev1.IPv6Protocol)
+		(len(existingService.Spec.IPFamilies) == 0 || existingService.Spec.IPFamilies[0] != corev1.IPv6Protocol)
 }
 
 // recreateService removes the existing service and create a new service.
