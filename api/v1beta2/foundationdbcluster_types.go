@@ -2399,11 +2399,7 @@ func (cluster *FoundationDBCluster) GetMaintenancePrefix() string {
 
 // GetLockDuration determines how long we hold locks for.
 func (cluster *FoundationDBCluster) GetLockDuration() time.Duration {
-	minutes := 10
-	if cluster.Spec.LockOptions.LockDurationMinutes != nil {
-		minutes = *cluster.Spec.LockOptions.LockDurationMinutes
-	}
-	return time.Duration(minutes) * time.Minute
+	return time.Duration(ptr.Deref(cluster.Spec.LockOptions.LockDurationMinutes, 10)) * time.Minute
 }
 
 // GetLockID gets the identifier for this instance of the operator when taking
@@ -2421,12 +2417,7 @@ func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
 
 // GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod
 func (cluster *FoundationDBCluster) GetPublicIPSource() PublicIPSource {
-	source := cluster.Spec.Routing.PublicIPSource
-	if source == nil {
-		return PublicIPSourcePod
-	}
-
-	return *source
+	return ptr.Deref(cluster.Spec.Routing.PublicIPSource, PublicIPSourcePod)
 }
 
 // LockOptions provides customization for locking global operations.
@@ -3673,11 +3664,10 @@ func (cluster *FoundationDBCluster) GetSynchronizationMode() SynchronizationMode
 
 // GetDatabaseInteractionMode returns the DatabaseInteractionMode if set, otherwise will return the default interaction mode.
 func (cluster *FoundationDBCluster) GetDatabaseInteractionMode() DatabaseInteractionMode {
-	if cluster.Spec.AutomationOptions.DatabaseInteractionMode == nil {
-		return DatabaseInteractionModeFdbcli
-	}
-
-	return *cluster.Spec.AutomationOptions.DatabaseInteractionMode
+	return ptr.Deref(
+		cluster.Spec.AutomationOptions.DatabaseInteractionMode,
+		DatabaseInteractionModeFdbcli,
+	)
 }
 
 // GetConditionsThatNeedReplacement returns the conditions that should trigger a replacement.
