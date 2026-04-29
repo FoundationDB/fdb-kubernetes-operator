@@ -318,6 +318,11 @@ func (fdbBackup *FdbBackup) RunStatusCommand() *fdbv1beta2.FoundationDBLiveBacku
 	return status
 }
 
+// RunAbortCommand runs the abort command on a randomly chosen backup pod.
+func (fdbBackup *FdbBackup) RunAbortCommand() {
+	fdbBackup.RunCommandOnBackupPod("fdbbackup abort")
+}
+
 // RunListCommand runs the list command on a randomly chosen backup pod.
 func (fdbBackup *FdbBackup) RunListCommand() []string {
 	backupURL, err := fdbBackup.backup.BaseURL()
