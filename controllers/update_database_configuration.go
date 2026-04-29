@@ -82,7 +82,7 @@ func (u updateDatabaseConfiguration) reconcile(
 		}
 		configurationString, configErr := nextConfiguration.GetConfigurationString()
 		if configErr != nil {
-			return &requeue{curError: err, delayedRequeue: true}
+			return &requeue{curError: configErr, delayedRequeue: true}
 		}
 
 		// If the cluster is configured run additional safety checks before performing the database configuration change.

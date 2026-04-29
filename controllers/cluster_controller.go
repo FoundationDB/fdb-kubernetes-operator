@@ -531,8 +531,8 @@ func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(
 	logger.V(1).
 		Info("Processing findFoundationDBClusterForNode, found Pods on node that changed", "labelSelector", r.ClusterLabelKeyForNodeTrigger, "podsOnNode", len(podsOnNode.Items))
 
-	requests := make([]reconcile.Request, len(podsOnNode.Items))
-	for i, item := range podsOnNode.Items {
+	requests := make([]reconcile.Request, 0, len(podsOnNode.Items))
+	for _, item := range podsOnNode.Items {
 		// Since we use a label selector all Pods should have the cluster label.
 		clusterName, ok := item.GetLabels()[r.ClusterLabelKeyForNodeTrigger]
 		if !ok {
@@ -542,12 +542,12 @@ func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(
 
 		logger.V(1).
 			Info("Processing findFoundationDBClusterForNode, found cluster that needs an update", "triggeringPod", item.Name, "clusterName", clusterName)
-		requests[i] = reconcile.Request{
+		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      clusterName,
 				Namespace: item.GetNamespace(),
 			},
-		}
+		})
 	}
 
 	return requests
