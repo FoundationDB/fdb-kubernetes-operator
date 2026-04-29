@@ -218,6 +218,18 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						backupConfiguration.EncryptionEnabled = true
 					})
 
+					AfterEach(func() {
+						if backup != nil {
+							statusCommandOutput := backup.RunStatusCommand()
+							if statusCommandOutput.Status.Running {
+								backup.RunAbortCommand()
+								statusCommandOutput = backup.RunStatusCommand()
+								Expect(statusCommandOutput.Status.Running).To(BeFalse())
+								Expect(statusCommandOutput.Status.Completed).To(BeTrue())
+							}
+						}
+					})
+
 					When("running fdbbackup commands", func() {
 						BeforeEach(func() {
 							skipRestore = true

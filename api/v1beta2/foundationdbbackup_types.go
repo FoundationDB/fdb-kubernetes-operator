@@ -399,6 +399,9 @@ type FoundationDBLiveBackupStatus struct {
 type FoundationDBLiveBackupStatusState struct {
 	// Running determines whether the backup is currently running.
 	Running bool `json:"Running,omitempty"`
+
+	// Completed determines whether the backup has completed.
+	Completed bool `json:"Completed,omitempty"`
 }
 
 // LatestRestorablePoint contains information about the latest restorable point if any exists.
