@@ -112,8 +112,12 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 		"startTime", time.Unix(currentLockStartTime, 0),
 		"endTime", endTime)
 
-	newOwnerDenied := transaction.Get(client.getDenyListKey(ownerID)).MustGet() != nil
-	if newOwnerDenied {
+	newOwnerDenied, err := transaction.Get(client.getDenyListKey(ownerID)).Get()
+	if err != nil {
+		return err
+	}
+
+	if newOwnerDenied != nil {
 		logger.Info("Failed to get lock due to deny list")
 		return fmt.Errorf(
 			"failed to get lock due to deny list, owner ID: %s is on deny list",
@@ -121,9 +125,12 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 		)
 	}
 
-	oldOwnerDenied := transaction.Get(client.getDenyListKey(currentLockOwnerID)).MustGet() != nil
+	oldOwnerDenied, err := transaction.Get(client.getDenyListKey(currentLockOwnerID)).Get()
+	if err != nil {
+		return err
+	}
 
-	if currentLockEndTime < time.Now().Unix() || oldOwnerDenied {
+	if currentLockEndTime < time.Now().Unix() || oldOwnerDenied != nil {
 		logger.Info("Clearing expired lock")
 		client.updateLock(transaction, currentLockStartTime)
 		return nil
