@@ -237,7 +237,21 @@
             "transaction_start_seconds" : 0.00389361
         },
         "layers" : {
-            "_valid" : true
+            "_valid" : true,
+            "backup" : {
+                "paused" : false,
+                "tags" : {
+                    "default" : {
+                        "current_container" : "blobstore://backup@host:443/test-backup",
+                        "running_backup" : true,
+                        "running_backup_is_restorable" : true,
+                        "last_restorable_seconds_behind" : 3.5,
+                        "last_restorable_version" : 12345678,
+                        "mutation_log_bytes_written" : 1048576,
+                        "range_bytes_written" : 2097152
+                    }
+                }
+            }
         },
         "logs" : [
             {

@@ -440,6 +440,12 @@ type FoundationDBStatusBackupTag struct {
 
 	// LastRestorableSecondsBehind indicates how many versions behind the last restorable point-in-time for the backup is.
 	LastRestorableVersion *int64 `json:"last_restorable_version,omitempty"`
+
+	// MutationLogBytesWritten total size of mutation log files produced by the backup
+	MutationLogBytesWritten *int64 `json:"mutation_log_bytes_written,omitempty"`
+
+	// RangeBytesWritten indicates the total size of snapshot (range) files produced by the backup
+	RangeBytesWritten *int64 `json:"range_bytes_written,omitempty"`
 }
 
 // FoundationDBStatusLogInfo provides information about the fault tolerance metrics
