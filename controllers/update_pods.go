@@ -573,7 +573,7 @@ func deletePodsForUpdates(
 
 	// If the maintenance mode feature is enabled we have to determine if the maintenance mode must be set. This is only
 	// the case if at least one storage process is in the deletions slice.
-	if (deletionMode == fdbv1beta2.PodUpdateModeZone || deletionMode == fdbv1beta2.PodUpdateModeProcessGroup) && 
+	if (deletionMode == fdbv1beta2.PodUpdateModeZone || deletionMode == fdbv1beta2.PodUpdateModeProcessGroup) &&
 		cluster.UseMaintenaceMode() {
 		storageProcessIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(deletions))
 		for _, pod := range deletions {
