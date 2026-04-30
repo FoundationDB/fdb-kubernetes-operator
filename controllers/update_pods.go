@@ -474,6 +474,7 @@ func getPodsToDelete(
 			if len(zoneProcesses) < 1 {
 				continue
 			}
+			// Fetch the first pod and delete it
 			pod := zoneProcesses[0]
 			return zone, []*corev1.Pod{pod}, nil
 		}
