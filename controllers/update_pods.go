@@ -35,7 +35,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -460,7 +459,6 @@ func getPodsToDelete(
 	updates map[string][]*corev1.Pod,
 	currentMaintenanceZone string,
 ) (string, []*corev1.Pod, error) {
-	logger := log.Log.WithName("getPodsToDelete")
 	if deletionMode == fdbv1beta2.PodUpdateModeAll {
 		var deletions []*corev1.Pod
 
@@ -483,66 +481,33 @@ func getPodsToDelete(
 	}
 
 	if deletionMode == fdbv1beta2.PodUpdateModeZone {
-		// Pass 1: update all non-storage pods first. This avoids a race condition
-		// where replacing a stateless pod (e.g. hosting DD) triggers a DD failover,
-		// leaving stale storage server IDs that cause SameAddress collisions and
-		// unnecessary data movement when storage pods are replaced later.
-		// For mixed zones, only the non-storage pods are returned in this pass.
+		// Default case is zone
 		for zone, zoneProcesses := range updates {
-			var nonStoragePods []*corev1.Pod
-			var storagePodNames []string
-			for _, pod := range zoneProcesses {
-				if internal.GetProcessClassFromMeta(
-					cluster,
-					pod.ObjectMeta,
-				) != fdbv1beta2.ProcessClassStorage {
-					nonStoragePods = append(nonStoragePods, pod)
-				} else {
-					storagePodNames = append(storagePodNames, pod.Name)
-				}
-			}
-			if len(nonStoragePods) > 0 {
-				podNames := make([]string, 0, len(nonStoragePods))
-				for _, p := range nonStoragePods {
-					podNames = append(podNames, p.Name)
-				}
-				logger.Info("Pass 1: returning non-storage pods",
-					"zone", zone,
-					"nonStoragePods", podNames,
-					"deferredStoragePods", storagePodNames,
-				)
-				return zone, nonStoragePods, nil
-			}
-		}
-
-		logger.Info("Pass 1: no non-storage pods found, falling through to storage",
-			"zoneCount", len(updates),
-			"maintenanceZone", currentMaintenanceZone,
-		)
-
-		// Pass 2: all non-storage pods are done. Process storage pods,
-		// respecting maintenance zone constraints.
-		for zone, zoneProcesses := range updates {
+			// If there is currently an active maintenance zone and the zones are not matching check if at least one
+			// storage process is part of the zone.
 			if currentMaintenanceZone != "" && zone != currentMaintenanceZone {
-				logger.Info("Pass 2: skipping zone due to active maintenance on different zone",
-					"zone", zone,
-					"maintenanceZone", currentMaintenanceZone,
-				)
-				continue
+				var containsStorage bool
+				for _, pod := range zoneProcesses {
+					if internal.GetProcessClassFromMeta(
+						cluster,
+						pod.ObjectMeta,
+					) == fdbv1beta2.ProcessClassStorage {
+						containsStorage = true
+						break
+					}
+				}
+
+				// If at least one storage process is part of the zone we are not allowed to update this zone.
+				if containsStorage {
+					continue
+				}
 			}
-			podNames := make([]string, 0, len(zoneProcesses))
-			for _, p := range zoneProcesses {
-				podNames = append(podNames, p.Name)
-			}
-			logger.Info("Pass 2: returning storage zone",
-				"zone", zone,
-				"pods", podNames,
-			)
+
+			// Fetch the first zone and stop
 			return zone, zoneProcesses, nil
 		}
 
 		// If we are here no zone was matching.
-		logger.Info("No zones matched in either pass")
 		return "", nil, nil
 	}
 
@@ -608,7 +573,7 @@ func deletePodsForUpdates(
 
 	// If the maintenance mode feature is enabled we have to determine if the maintenance mode must be set. This is only
 	// the case if at least one storage process is in the deletions slice.
-	if deletionMode == fdbv1beta2.PodUpdateModeZone && cluster.UseMaintenaceMode() {
+	if (deletionMode == fdbv1beta2.PodUpdateModeZone || deletionMode == fdbv1beta2.PodUpdateModeProcessGroup) && cluster.UseMaintenaceMode() {
 		storageProcessIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(deletions))
 		for _, pod := range deletions {
 			if internal.GetProcessClassFromMeta(

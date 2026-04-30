@@ -145,6 +145,8 @@ The operator supports two integration modes for the maintenance mode:
 The 2. case can make sense if you have another system managing the Kubernetes node upgrades or if you have another component that takes care of the recreation of Pods.
 In most cases a user wants to make use of 1. as this offers the same integrations as 2. but also makes sure that the operator sets the maintenance mode before recreating storage Pods.
 
+Maintenance mode is supported for both `Zone` and `ProcessGroup` deletion modes.
+
 ```yaml
 spec:
   automationOptions:
