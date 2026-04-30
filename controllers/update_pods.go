@@ -470,13 +470,12 @@ func getPodsToDelete(
 	}
 
 	if deletionMode == fdbv1beta2.PodUpdateModeProcessGroup {
-		for _, zoneProcesses := range updates {
+		for zone, zoneProcesses := range updates {
 			if len(zoneProcesses) < 1 {
 				continue
 			}
 			pod := zoneProcesses[0]
-			// Fetch the first pod and delete it
-			return pod.Name, []*corev1.Pod{pod}, nil
+			return zone, []*corev1.Pod{pod}, nil
 		}
 	}
 
