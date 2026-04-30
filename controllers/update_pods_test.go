@@ -167,6 +167,180 @@ var _ = Describe("update_pods", func() {
 				}),
 		)
 
+		When("updates contain a mix of storage and non-storage zones", func() {
+			It("should prefer the non-storage zone", func() {
+				mixedUpdates := map[string][]*corev1.Pod{
+					"storage-zone": {
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "StoragePod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								},
+							},
+						},
+					},
+					"stateless-zone": {
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "StatelessPod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStateless),
+								},
+							},
+						},
+					},
+				}
+				zone, deletion, err := getPodsToDelete(
+					&fdbv1beta2.FoundationDBCluster{},
+					fdbv1beta2.PodUpdateModeZone,
+					mixedUpdates,
+					"",
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(zone).To(Equal("stateless-zone"))
+				Expect(deletion).To(HaveLen(1))
+				Expect(deletion[0].Name).To(Equal("StatelessPod1"))
+			})
+
+			It("should prefer log zone over storage zone", func() {
+				mixedUpdates := map[string][]*corev1.Pod{
+					"storage-zone": {
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "StoragePod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								},
+							},
+						},
+					},
+					"log-zone": {
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "LogPod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassLog),
+								},
+							},
+						},
+					},
+				}
+				zone, deletion, err := getPodsToDelete(
+					&fdbv1beta2.FoundationDBCluster{},
+					fdbv1beta2.PodUpdateModeZone,
+					mixedUpdates,
+					"",
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(zone).To(Equal("log-zone"))
+				Expect(deletion).To(HaveLen(1))
+				Expect(deletion[0].Name).To(Equal("LogPod1"))
+			})
+
+			It("should return only non-storage pods from a mixed zone", func() {
+				mixedUpdates := map[string][]*corev1.Pod{
+					"mixed-zone": {
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "StoragePod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "StatelessPod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStateless),
+								},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "LogPod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassLog),
+								},
+							},
+						},
+					},
+				}
+				zone, deletion, err := getPodsToDelete(
+					&fdbv1beta2.FoundationDBCluster{},
+					fdbv1beta2.PodUpdateModeZone,
+					mixedUpdates,
+					"",
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(zone).To(Equal("mixed-zone"))
+				Expect(deletion).To(HaveLen(2))
+				names := []string{deletion[0].Name, deletion[1].Name}
+				Expect(names).To(ContainElement("StatelessPod1"))
+				Expect(names).To(ContainElement("LogPod1"))
+			})
+
+			It("should fall through to storage zones when no non-storage zones remain", func() {
+				storageOnly := map[string][]*corev1.Pod{
+					"storage-zone": {
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "StoragePod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								},
+							},
+						},
+					},
+				}
+				zone, deletion, err := getPodsToDelete(
+					&fdbv1beta2.FoundationDBCluster{},
+					fdbv1beta2.PodUpdateModeZone,
+					storageOnly,
+					"",
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(zone).To(Equal("storage-zone"))
+				Expect(deletion).To(HaveLen(1))
+			})
+
+			It("should respect maintenance zone when falling through to storage zones", func() {
+				storageOnly := map[string][]*corev1.Pod{
+					"storage-zone1": {
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "StoragePod1",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								},
+							},
+						},
+					},
+					"storage-zone2": {
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "StoragePod2",
+								Labels: map[string]string{
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								},
+							},
+						},
+					},
+				}
+				zone, deletion, err := getPodsToDelete(
+					&fdbv1beta2.FoundationDBCluster{},
+					fdbv1beta2.PodUpdateModeZone,
+					storageOnly,
+					"storage-zone2",
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(zone).To(Equal("storage-zone2"))
+				Expect(deletion).To(HaveLen(1))
+				Expect(deletion[0].Name).To(Equal("StoragePod2"))
+			})
+		})
+
 		When("a version incompatible upgrade is ongoing", func() {
 			BeforeEach(func() {
 				version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
