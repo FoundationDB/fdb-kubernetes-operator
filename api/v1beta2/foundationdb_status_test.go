@@ -511,9 +511,9 @@ var _ = Describe("FoundationDBStatus", func() {
 					Paused: false,
 					Tags: map[string]FoundationDBStatusBackupTag{
 						"default": {
-							CurrentContainer:           "blobstore://backup@host:443/test-backup",
-							RunningBackup:              ptr.To(true),
-							Restorable:                 ptr.To(true),
+							CurrentContainer:            "blobstore://backup@host:443/test-backup",
+							RunningBackup:               ptr.To(true),
+							Restorable:                  ptr.To(true),
 							LastRestorableSecondsBehind: ptr.To(3.5),
 							LastRestorableVersion:       ptr.To[int64](12345678),
 							MutationLogBytesWritten:     ptr.To[int64](1048576),
