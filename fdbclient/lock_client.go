@@ -78,38 +78,22 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 		return nil
 	}
 
-	lockTuple, err := tuple.Unpack(lockValue)
+	currentLockOwnerID, currentLockStartTimestamp, currentLockEndTimestamp, err := unpackLockValue(
+		lockKey,
+		lockValue,
+	)
 	if err != nil {
 		return err
-	}
-
-	if len(lockTuple) < 3 {
-		return invalidLockValue{key: lockKey, value: lockValue}
-	}
-
-	currentLockOwnerID, valid := lockTuple[0].(string)
-	if !valid {
-		return invalidLockValue{key: lockKey, value: lockValue}
-	}
-
-	currentLockStartTime, valid := lockTuple[1].(int64)
-	if !valid {
-		return invalidLockValue{key: lockKey, value: lockValue}
-	}
-
-	currentLockEndTime, valid := lockTuple[2].(int64)
-	if !valid {
-		return invalidLockValue{key: lockKey, value: lockValue}
 	}
 
 	// ownerID represents the current cluster ID. If a lock is present the currentLockOwnerID represents the operator
 	// instance holding the lock.
 	ownerID := client.cluster.GetLockID()
 
-	endTime := time.Unix(currentLockEndTime, 0)
+	endTime := time.Unix(currentLockEndTimestamp, 0)
 	logger := client.log.WithValues(
 		"currentLockOwnerID", currentLockOwnerID,
-		"startTime", time.Unix(currentLockStartTime, 0),
+		"startTime", time.Unix(currentLockStartTimestamp, 0),
 		"endTime", endTime)
 
 	newOwnerDenied, err := transaction.Get(client.getDenyListKey(ownerID)).Get()
@@ -130,15 +114,15 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 		return err
 	}
 
-	if currentLockEndTime < time.Now().Unix() || oldOwnerDenied != nil {
+	if currentLockEndTimestamp < time.Now().Unix() || oldOwnerDenied != nil {
 		logger.Info("Clearing expired lock")
-		client.updateLock(transaction, currentLockStartTime)
+		client.updateLock(transaction, currentLockStartTimestamp)
 		return nil
 	}
 
 	if currentLockOwnerID == ownerID {
 		logger.Info("Extending previous lock")
-		client.updateLock(transaction, currentLockStartTime)
+		client.updateLock(transaction, currentLockStartTimestamp)
 		return nil
 	}
 
@@ -310,24 +294,12 @@ func (client *realLockClient) ReleaseLock() error {
 			return nil, nil
 		}
 
-		lockTuple, err := tuple.Unpack(lockValue)
+		currentLockOwnerID, currentLockStartTimestamp, currentLockEndTimestamp, err := unpackLockValue(
+			lockKey,
+			lockValue,
+		)
 		if err != nil {
 			return nil, err
-		}
-
-		currentLockOwnerID, valid := lockTuple[0].(string)
-		if !valid {
-			return nil, invalidLockValue{key: lockKey, value: lockValue}
-		}
-
-		currentLockStartTimestamp, valid := lockTuple[1].(int64)
-		if !valid {
-			return nil, invalidLockValue{key: lockKey, value: lockValue}
-		}
-
-		currentLockEndTimestamp, valid := lockTuple[2].(int64)
-		if !valid {
-			return nil, invalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		ownerID := client.cluster.GetLockID()
@@ -362,6 +334,35 @@ func (client *realLockClient) ReleaseLock() error {
 		return nil, nil
 	})
 	return err
+}
+
+// unpackLockValue will unpack the lock value and cast the tuple values into the expected types.
+func unpackLockValue(lockKey fdb.Key, lockValue []byte) (string, int64, int64, error) {
+	lockTuple, err := tuple.Unpack(lockValue)
+	if err != nil {
+		return "", 0, 0, err
+	}
+
+	if len(lockTuple) < 3 {
+		return "", 0, 0, invalidLockValue{key: lockKey, value: lockValue}
+	}
+
+	currentLockOwnerID, valid := lockTuple[0].(string)
+	if !valid {
+		return "", 0, 0, invalidLockValue{key: lockKey, value: lockValue}
+	}
+
+	currentLockStartTimestamp, valid := lockTuple[1].(int64)
+	if !valid {
+		return "", 0, 0, invalidLockValue{key: lockKey, value: lockValue}
+	}
+
+	currentLockEndTimestamp, valid := lockTuple[2].(int64)
+	if !valid {
+		return "", 0, 0, invalidLockValue{key: lockKey, value: lockValue}
+	}
+
+	return currentLockOwnerID, currentLockStartTimestamp, currentLockEndTimestamp, nil
 }
 
 // invalidLockValue is an error we can return when we cannot parse the existing
