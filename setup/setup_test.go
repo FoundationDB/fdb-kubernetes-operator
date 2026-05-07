@@ -21,6 +21,7 @@
 package setup
 
 import (
+	"flag"
 	"io/fs"
 	"os"
 	"path"
@@ -106,6 +107,34 @@ var _ = Describe("setup", func() {
 				Expect(resultFile.Mode()).To(Equal(fs.FileMode(0600)))
 				Expect(resultFile.Size()).To(BeNumerically(">", 0))
 			})
+		})
+	})
+
+	When("knob flags are provided", func() {
+		It("should parse repeatable --knob flags", func() {
+			opts := Options{}
+			fs := flag.NewFlagSet("test", flag.ContinueOnError)
+			opts.BindFlags(fs)
+
+			err := fs.Parse([]string{
+				"--knob=enable_coordinator_dns_cache=true",
+				"--knob=coordinator_dns_cache_ttl=600",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(opts.Knobs).To(Equal(knobList{
+				"enable_coordinator_dns_cache=true",
+				"coordinator_dns_cache_ttl=600",
+			}))
+		})
+
+		It("should default to empty when no knobs are provided", func() {
+			opts := Options{}
+			fs := flag.NewFlagSet("test", flag.ContinueOnError)
+			opts.BindFlags(fs)
+
+			err := fs.Parse([]string{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(opts.Knobs).To(BeEmpty())
 		})
 	})
 })

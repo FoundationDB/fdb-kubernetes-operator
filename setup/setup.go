@@ -112,6 +112,16 @@ type Options struct {
 	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
 	MinimumUptimeForConfigurationChanges                  time.Duration
 	MinimumAgeForTerminalPodDeletion                      time.Duration
+	Knobs                                                 knobList
+}
+
+// knobList implements flag.Value for a repeatable --knob flag.
+type knobList []string
+
+func (k *knobList) String() string { return fmt.Sprintf("%v", *k) }
+func (k *knobList) Set(value string) error {
+	*k = append(*k, value)
+	return nil
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -361,6 +371,11 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		"minimum-age-for-terminal-pod-deletion",
 		30*time.Second,
 		"The minimum age of a terminal pod before it will be deleted.",
+	)
+	fs.Var(
+		&o.Knobs,
+		"knob",
+		"FDB client knob in name=value format (repeatable). e.g. --knob enable_coordinator_dns_cache=true",
 	)
 }
 

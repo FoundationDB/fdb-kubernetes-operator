@@ -17,6 +17,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -54,6 +55,16 @@ func main() {
 	logOpts := zap.Options{}
 	logOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if len(operatorOpts.Knobs) > 0 {
+		fmt.Printf("Setting FDB client knobs: %v\n", operatorOpts.Knobs)
+		for _, knob := range operatorOpts.Knobs {
+			if err := fdb.Options().SetKnob(knob); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to set FDB knob %q: %s\n", knob, err.Error())
+				os.Exit(1)
+			}
+		}
+	}
 
 	mgr, file := setup.StartManager(
 		scheme,
