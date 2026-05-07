@@ -375,7 +375,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.Var(
 		&o.Knobs,
 		"knob",
-		"FDB client knob in name=value format (repeatable). e.g. --knob enable_coordinator_dns_cache=true",
+		"FDB client knob in name=value format (repeatable). e.g. --knob coordinator_reconnection_delay=2.0",
 	)
 }
 

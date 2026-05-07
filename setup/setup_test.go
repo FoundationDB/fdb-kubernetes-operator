@@ -117,13 +117,13 @@ var _ = Describe("setup", func() {
 			opts.BindFlags(fs)
 
 			err := fs.Parse([]string{
-				"--knob=enable_coordinator_dns_cache=true",
-				"--knob=coordinator_dns_cache_ttl=600",
+				"--knob=coordinator_reconnection_delay=2.0",
+				"--knob=status_idle_timeout=300",
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(opts.Knobs).To(Equal(knobList{
-				"enable_coordinator_dns_cache=true",
-				"coordinator_dns_cache_ttl=600",
+				"coordinator_reconnection_delay=2.0",
+				"status_idle_timeout=300",
 			}))
 		})
 
