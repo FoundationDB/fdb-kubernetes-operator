@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"text/template"
@@ -87,7 +88,9 @@ spec:
           - name: LD_LIBRARY_PATH
             value: /var/dynamic/fdb/primary/lib
           - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
-            value: {{ .Name }}
+            value: {{ .LogGroup }}
+          - name: FDB_NETWORK_OPTION_TRACE_ENABLE
+            value: /var/log/fdb-trace-logs
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb/libs
           - name: FDB_NETWORK_OPTION_TRACE_FORMAT
@@ -100,6 +103,8 @@ spec:
           - name: fdb-certs
             mountPath: /tmp/fdb-certs
             readOnly: true
+          - name: fdb-trace-logs
+            mountPath: /var/log/fdb-trace-logs
         resources:
          requests:
            cpu: "1"
@@ -164,6 +169,8 @@ spec:
                 path: fdb.cluster
         - name: fdb-libs
           emptyDir: {}
+        - name: fdb-trace-logs
+          emptyDir: {}
         - name: fdb-certs
           secret:
             secretName: {{ .SecretName }}`
@@ -211,11 +218,13 @@ spec:
           - name: LD_LIBRARY_PATH
             value: /var/dynamic/fdb
           - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
-            value: {{ .Name }}
+            value: {{ .LogGroup }}
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb
           - name: FDB_NETWORK_OPTION_TRACE_FORMAT
             value: "json"
+          - name: FDB_NETWORK_OPTION_TRACE_ENABLE
+            value: /var/log/fdb-trace-logs
         volumeMounts:
           - name: config-map
             mountPath: /var/dynamic-conf
@@ -224,6 +233,8 @@ spec:
           - name: fdb-certs
             mountPath: /tmp/fdb-certs
             readOnly: true
+          - name: fdb-trace-logs
+            mountPath: /var/log/fdb-trace-logs
         resources:
          requests:
            cpu: "1"
@@ -285,6 +296,8 @@ spec:
                 path: fdb.cluster
         - name: fdb-libs
           emptyDir: {}
+        - name: fdb-trace-logs
+          emptyDir: {}
         - name: fdb-certs
           secret:
             secretName: {{ .SecretName }}`
@@ -296,8 +309,6 @@ type dataLoaderConfig struct {
 	Name string
 	// Image represents the data loader image that should be used in the Job.
 	Image string
-	// SidecarVersions represents the sidecar configurations for different FoundationDB versions.
-	SidecarVersions []SidecarConfig
 	// Namespace represents the namespace for the Deployment and all associated resources
 	Namespace string
 	// ClusterName the name of the cluster to load data into.
@@ -305,6 +316,10 @@ type dataLoaderConfig struct {
 	// SecretName represents the Kubernetes secret that contains the certificates for communicating with the FoundationDB
 	// cluster.
 	SecretName string
+	// LogGroup defines the log group that should be used for the data loader.
+	LogGroup string
+	// SidecarVersions represents the sidecar configurations for different FoundationDB versions.
+	SidecarVersions []SidecarConfig
 	// DataLoaderArguments defines the arguments that should be passed to the DataLoader
 	DataLoaderArguments []string
 }
@@ -321,6 +336,12 @@ func (factory *Factory) getDataLoaderConfig(
 		ClusterName:         cluster.Name(),
 		SecretName:          factory.GetSecretName(),
 		DataLoaderArguments: arguments,
+		LogGroup: fmt.Sprintf(
+			"%s-%s-%s",
+			cluster.Namespace(),
+			cluster.Name(),
+			dataLoaderName,
+		),
 	}
 }
 

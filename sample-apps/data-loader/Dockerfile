@@ -47,6 +47,7 @@ ARG FDB_WEBSITE
 ARG TARGETARCH
 
 VOLUME /usr/lib/fdb
+VOLUME /var/log/fdb-trace-logs
 
 WORKDIR /
 
@@ -88,7 +89,7 @@ COPY --chown=fdb:fdb --from=builder /workspace/bin/data-loader /usr/local/bin/da
 USER 4059
 
 # Enable tracing per default.
-ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
+ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb-trace-logs
 ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-data-loader
 
 ENTRYPOINT ["/usr/local/bin/data-loader"]
