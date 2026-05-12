@@ -338,7 +338,7 @@ func (factory *Factory) getDataLoaderConfig(
 		DataLoaderArguments: arguments,
 		LogGroup: fmt.Sprintf(
 			"%s-%s",
-			cluster.GetClusterSpec().LogGroup,
+			cluster.cluster.Spec.LogGroup,
 			dataLoaderName,
 		),
 	}
