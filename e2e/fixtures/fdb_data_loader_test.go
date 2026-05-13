@@ -69,6 +69,9 @@ var _ = Describe("FDB Data Loader", func() {
 							Name:      "test-cluster",
 							Namespace: "test",
 						},
+						Spec: fdbv1beta2.FoundationDBClusterSpec{
+							LogGroup: "test",
+						},
 					},
 				}, &DataLoaderOptions{
 					Wait: false,
@@ -83,6 +86,9 @@ var _ = Describe("FDB Data Loader", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-cluster",
 							Namespace: "test",
+						},
+						Spec: fdbv1beta2.FoundationDBClusterSpec{
+							LogGroup: "test",
 						},
 					},
 				}, &DataLoaderOptions{
