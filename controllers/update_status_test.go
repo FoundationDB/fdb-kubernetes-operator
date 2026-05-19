@@ -737,6 +737,90 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
+		When("a process has an empty command line", func() {
+			JustBeforeEach(func() {
+				processes := processMap[pickedProcessGroup.ProcessGroupID]
+				for i := range processes {
+					processes[i].CommandLine = ""
+				}
+				processMap[pickedProcessGroup.ProcessGroupID] = processes
+			})
+
+			It(
+				"should get the MissingProcesses condition and not the IncorrectCommandLine condition",
+				func() {
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					missingProcesses := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.MissingProcesses,
+						false,
+					)
+					Expect(missingProcesses).To(ConsistOf(pickedProcessGroup.ProcessGroupID))
+
+					incorrectCommandLine := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.IncorrectCommandLine,
+						false,
+					)
+					Expect(incorrectCommandLine).To(BeEmpty())
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+				},
+			)
+		})
+
+		When("a process has an empty version", func() {
+			JustBeforeEach(func() {
+				processes := processMap[pickedProcessGroup.ProcessGroupID]
+				for i := range processes {
+					processes[i].Version = ""
+				}
+				processMap[pickedProcessGroup.ProcessGroupID] = processes
+			})
+
+			It(
+				"should get the MissingProcesses condition and not the IncorrectCommandLine condition",
+				func() {
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					missingProcesses := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.MissingProcesses,
+						false,
+					)
+					Expect(missingProcesses).To(ConsistOf(pickedProcessGroup.ProcessGroupID))
+
+					incorrectCommandLine := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.IncorrectCommandLine,
+						false,
+					)
+					Expect(incorrectCommandLine).To(BeEmpty())
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+				},
+			)
+		})
+
 		When("a process group is not reporting to the cluster", func() {
 			BeforeEach(func() {
 				adminClient.MockMissingProcessGroup(pickedProcessGroup.ProcessGroupID, true)
