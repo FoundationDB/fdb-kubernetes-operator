@@ -230,7 +230,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						Eventually(func(g Gomega) {
 							statusBeforeAbort = backup.RunStatusCommand()
 							g.Expect(statusBeforeAbort.Status.Running).To(BeTrue())
-							g.Expect(statusBeforeAbort.Status.Name).To(Equal("RunningDifferentially"))
+							g.Expect(statusBeforeAbort.Status.Name).
+								To(Equal("RunningDifferentially"))
 							g.Expect(statusBeforeAbort.UID).NotTo(BeNil())
 							g.Expect(ptr.Deref(statusBeforeAbort.Restorable, false)).To(BeTrue())
 							g.Expect(statusBeforeAbort.LatestRestorablePoint).NotTo(BeNil())
