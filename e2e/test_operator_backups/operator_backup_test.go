@@ -26,6 +26,7 @@ This test suite contains tests related to backup and restore with the operator.
 
 import (
 	"log"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
@@ -219,15 +220,32 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					})
 
 					AfterEach(func() {
-						if backup != nil {
-							statusCommandOutput := backup.RunStatusCommand()
-							if statusCommandOutput.Status.Running {
-								backup.RunAbortCommand()
-								statusCommandOutput = backup.RunStatusCommand()
-								Expect(statusCommandOutput.Status.Running).To(BeFalse())
-								Expect(statusCommandOutput.Status.Completed).To(BeTrue())
-							}
+						if backup == nil {
+							return
 						}
+
+						backup.Start()
+
+						var statusBeforeAbort *fdbv1beta2.FoundationDBLiveBackupStatus
+						Eventually(func(g Gomega) {
+							statusBeforeAbort = backup.RunStatusCommand()
+							g.Expect(statusBeforeAbort.Status.Running).To(BeTrue())
+							g.Expect(statusBeforeAbort.Status.Name).To(Equal("RunningDifferentially"))
+							g.Expect(statusBeforeAbort.UID).NotTo(BeNil())
+							g.Expect(ptr.Deref(statusBeforeAbort.Restorable, false)).To(BeTrue())
+							g.Expect(statusBeforeAbort.LatestRestorablePoint).NotTo(BeNil())
+						}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
+						uidBeforeAbort := *statusBeforeAbort.UID
+
+						backup.RunAbortCommand()
+
+						Eventually(func(g Gomega) {
+							statusAfterAbort := backup.RunStatusCommand()
+							g.Expect(statusAfterAbort.Status.Running).To(BeFalse())
+							g.Expect(statusAfterAbort.Status.Name).To(Equal("Aborted"))
+							g.Expect(statusAfterAbort.UID).NotTo(BeNil())
+							g.Expect(*statusAfterAbort.UID).To(Equal(uidBeforeAbort))
+						}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 					})
 
 					When("running fdbbackup commands", func() {

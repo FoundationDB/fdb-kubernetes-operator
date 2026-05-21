@@ -397,6 +397,9 @@ type FoundationDBLiveBackupStatus struct {
 // FoundationDBLiveBackupStatusState provides the state of a backup in the
 // backup status.
 type FoundationDBLiveBackupStatusState struct {
+	// Name is the name of the backup state.
+	Name string `json:"Name,omitempty"`
+
 	// Running determines whether the backup is currently running.
 	Running bool `json:"Running,omitempty"`
 
