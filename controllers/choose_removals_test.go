@@ -121,6 +121,35 @@ var _ = Describe("choose_removals", func() {
 			})
 		})
 
+		Context("with a degraded process group", func() {
+			var degradedProcessGroupID fdbv1beta2.ProcessGroupID
+
+			BeforeEach(func() {
+				storageGroups := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 4)
+				Expect(storageGroups).To(HaveLen(4))
+
+				degradedGroup := storageGroups[0]
+				degradedProcessGroupID = degradedGroup.ProcessGroupID
+
+				degradedGroup.ProcessGroupConditions = append(degradedGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
+					ProcessGroupConditionType: fdbv1beta2.PodFailing,
+					Timestamp:                 1,
+				})
+
+				Expect(
+					clusterReconciler.updateOrApply(context.TODO(), cluster),
+				).NotTo(HaveOccurred())
+			})
+
+			It("should not requeue", func() {
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should specifically mark the degraded process group for removal", func() {
+				Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{degradedProcessGroupID}))
+			})
+		})
+
 		Context("with multiple processes on one rack", func() {
 			var processGroupIDs []fdbv1beta2.ProcessGroupID
 
