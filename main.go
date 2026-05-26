@@ -17,7 +17,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
