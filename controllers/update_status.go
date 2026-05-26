@@ -460,6 +460,29 @@ func checkAndSetProcessStatus(
 				continue
 			}
 
+			// If the process.CommandLine or process.Version fields are empty something is wrong with the process, so
+			// we assume the process is "missing". If the process is long enough in this state the operator will
+			// replace the faulty process.
+			if process.CommandLine == "" {
+				hasMissingProcesses = true
+				logger.Info(
+					"found process with missing commandline information",
+					"processGroupID",
+					processGroupStatus.ProcessGroupID,
+				)
+				continue
+			}
+
+			if process.Version == "" {
+				hasMissingProcesses = true
+				logger.Info(
+					"found process with missing version information",
+					"processGroupID",
+					processGroupStatus.ProcessGroupID,
+				)
+				continue
+			}
+
 			commandLine, err := internal.GetStartCommandWithSubstitutions(
 				cluster,
 				processGroupStatus.ProcessClass,
