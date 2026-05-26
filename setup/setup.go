@@ -375,7 +375,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.Var(
 		&o.Knobs,
 		"knob",
-		"FDB client knob in name=value format (repeatable). e.g. --knob coordinator_reconnection_delay=2.0",
+		"FDB client knob in name=value format (repeatable). e.g. --knob coordinator_reconnection_delay=2.0. Used for operator go bindings only -- not other binaries like fdbcli",
 	)
 }
 
@@ -419,6 +419,16 @@ func StartManager(
 	setupLog := logger.WithName("setup")
 	fdbclient.DefaultTimeout = time.Duration(operatorOpts.CliTimeout) * time.Second
 	fdbclient.MaxTimeout = time.Duration(operatorOpts.MaxCliTimeout) * time.Second
+
+	if len(operatorOpts.Knobs) > 0 {
+		setupLog.Info("Setting FDB client knobs", "knobs", operatorOpts.Knobs)
+		for _, knob := range operatorOpts.Knobs {
+			if err := fdb.Options().SetKnob(knob); err != nil {
+				setupLog.Error(err, "Failed to set FDB knob", "knob", knob)
+				os.Exit(1)
+			}
+		}
+	}
 
 	// Define the cache options for the client cache used by the operator. If no label selector is defined, the
 	// default cache configuration will be used.
