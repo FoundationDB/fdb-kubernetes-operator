@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("pod_helper", func() {
@@ -749,12 +750,12 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("LastSpecKeyLabel matches between pod and desired (steady state)",
+		Entry("PodTemplateGenerationLabel matches between pod and desired (steady state)",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							fdbv1beta2.LastSpecKeyLabel: "abcdef0123456789",
+							fdbv1beta2.PodTemplateGenerationLabel: "abcdef0123456789",
 						},
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
@@ -767,7 +768,7 @@ var _ = Describe("pod_helper", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.LastSpecKeyLabel: "abcdef0123456789",
+						fdbv1beta2.PodTemplateGenerationLabel: "abcdef0123456789",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
@@ -778,7 +779,7 @@ var _ = Describe("pod_helper", func() {
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.LastSpecKeyLabel: "abcdef0123456789",
+						fdbv1beta2.PodTemplateGenerationLabel: "abcdef0123456789",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
@@ -788,12 +789,12 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("LastSpecKeyLabel preserved when pod and desired differ (mid-roll)",
+		Entry("PodTemplateGenerationLabel preserved when pod and desired differ (mid-roll)",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							fdbv1beta2.LastSpecKeyLabel: "oldhash000000000",
+							fdbv1beta2.PodTemplateGenerationLabel: "oldhash000000000",
 						},
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
@@ -806,7 +807,7 @@ var _ = Describe("pod_helper", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.LastSpecKeyLabel: "newhash000000000",
+						fdbv1beta2.PodTemplateGenerationLabel: "newhash000000000",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "2",
@@ -817,7 +818,7 @@ var _ = Describe("pod_helper", func() {
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.LastSpecKeyLabel: "oldhash000000000",
+						fdbv1beta2.PodTemplateGenerationLabel: "oldhash000000000",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
@@ -827,7 +828,7 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("LastSpecKeyLabel missing from pod is not patched in",
+		Entry("PodTemplateGenerationLabel missing from pod is not patched in",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -842,7 +843,7 @@ var _ = Describe("pod_helper", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.LastSpecKeyLabel: "newhash000000000",
+						fdbv1beta2.PodTemplateGenerationLabel: "newhash000000000",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
@@ -861,4 +862,123 @@ var _ = Describe("pod_helper", func() {
 			},
 		),
 	)
+
+	Describe("GetPodGenerationHash", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = CreateDefaultCluster()
+			Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(HaveOccurred())
+		})
+
+		It("is deterministic for an unchanged cluster", func() {
+			first, err := GetPodGenerationHash(cluster, fdbv1beta2.ProcessClassStorage)
+			Expect(err).NotTo(HaveOccurred())
+			second, err := GetPodGenerationHash(cluster, fdbv1beta2.ProcessClassStorage)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(first).To(Equal(second))
+		})
+
+		DescribeTable("rotation under input mutations",
+			func(mutate func(*fdbv1beta2.FoundationDBCluster), expectChange bool) {
+				baseline, err := GetPodGenerationHash(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				mutate(cluster)
+				mutated, err := GetPodGenerationHash(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				if expectChange {
+					Expect(mutated).NotTo(Equal(baseline))
+				} else {
+					Expect(mutated).To(Equal(baseline))
+				}
+			},
+			// Inputs that MUST rotate the hash.
+			Entry("Version change rotates",
+				func(c *fdbv1beta2.FoundationDBCluster) { c.Spec.Version = "7.3.99999" },
+				true,
+			),
+			Entry("MainContainer image config change rotates",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					c.Spec.MainContainer.ImageConfigs = append(
+						c.Spec.MainContainer.ImageConfigs,
+						fdbv1beta2.ImageConfig{BaseImage: "custom/image"},
+					)
+				},
+				true,
+			),
+			Entry("SidecarContainer image config change rotates",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					c.Spec.SidecarContainer.ImageConfigs = append(
+						c.Spec.SidecarContainer.ImageConfigs,
+						fdbv1beta2.ImageConfig{BaseImage: "custom/sidecar"},
+					)
+				},
+				true,
+			),
+			Entry("ImageType change rotates",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					t := fdbv1beta2.ImageTypeUnified
+					c.Spec.ImageType = &t
+				},
+				true,
+			),
+			Entry("ProcessSettings podTemplate change rotates",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					settings := c.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					if settings.PodTemplate == nil {
+						settings.PodTemplate = &corev1.PodTemplateSpec{}
+					}
+					if settings.PodTemplate.Labels == nil {
+						settings.PodTemplate.Labels = map[string]string{}
+					}
+					settings.PodTemplate.Labels["test"] = "value"
+					c.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
+				},
+				true,
+			),
+			Entry("CustomParameters change rotates",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					settings := c.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					settings.CustomParameters = append(settings.CustomParameters, "knob_x=1")
+					c.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
+				},
+				true,
+			),
+
+			// Inputs that MUST NOT rotate the hash — they are not part of the
+			// pod's generation identity.
+			Entry("AutomationOptions change does NOT rotate",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					c.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(99)
+				},
+				false,
+			),
+			Entry("DatabaseConfiguration change does NOT rotate",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					c.Spec.DatabaseConfiguration.Storage = 99
+				},
+				false,
+			),
+			Entry("Routing change does NOT rotate",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					c.Spec.Routing.HeadlessService = ptr.To(true)
+				},
+				false,
+			),
+			Entry("LabelConfig.MatchLabels change does NOT rotate",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					c.Spec.LabelConfig.MatchLabels = map[string]string{"foo": "bar"}
+				},
+				false,
+			),
+		)
+	})
 })

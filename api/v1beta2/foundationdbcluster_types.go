@@ -2570,16 +2570,20 @@ type LabelConfig struct {
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
 
-	// IncludeLastSpecKeyAsLabel determines whether the operator should add a
-	// label whose value is a truncated form of the pod spec hash to each Pod
-	// it creates. When true, the label LastSpecKeyLabel
-	// ("foundationdb.org/last-applied-spec") is set to the first 16 hex
-	// characters of the spec hash already stored under the LastSpecKey
-	// annotation. The label is rotated only when the pod is recreated. This
-	// is useful for scheduling features such as
-	// TopologySpreadConstraints.matchLabelKeys that scope constraints by spec
-	// generation.
-	IncludeLastSpecKeyAsLabel *bool `json:"includeLastSpecKeyAsLabel,omitempty"`
+	// IncludePodTemplateGenerationLabel determines whether the operator should
+	// add a label identifying each Pod's generation. When true, the label
+	// PodTemplateGenerationLabel ("foundationdb.org/pod-template-generation")
+	// is set to the first 16 hex characters of a SHA-256 over the user-declared
+	// ProcessSettings for the pod's process class plus the declared FDB
+	// version, MainContainer and SidecarContainer overrides, and ImageType.
+	// The hash excludes operator-internal pod-construction decisions, so it is
+	// stable across operator version changes for an unchanged user spec. The
+	// label is rotated only when the pod is recreated.
+	//
+	// Useful for scheduling features such as
+	// TopologySpreadConstraints.matchLabelKeys that scope spread to the
+	// cohort of pods sharing the same generation.
+	IncludePodTemplateGenerationLabel *bool `json:"includePodTemplateGenerationLabel,omitempty"`
 }
 
 // PublicIPSource models options for how a pod gets its public IP.
@@ -2703,11 +2707,11 @@ func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
 	return ptr.Deref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
 }
 
-// ShouldIncludeLastSpecKeyAsLabel returns whether the cluster wants Pods to
-// be labeled with a truncated form of their spec hash under LastSpecKeyLabel.
-// Defaults to false.
-func (cluster *FoundationDBCluster) ShouldIncludeLastSpecKeyAsLabel() bool {
-	return ptr.Deref(cluster.Spec.LabelConfig.IncludeLastSpecKeyAsLabel, false)
+// ShouldIncludePodTemplateGenerationLabel returns whether the cluster wants
+// Pods to be labeled with a content hash of their declared ProcessSettings
+// under PodTemplateGenerationLabel. Defaults to false.
+func (cluster *FoundationDBCluster) ShouldIncludePodTemplateGenerationLabel() bool {
+	return ptr.Deref(cluster.Spec.LabelConfig.IncludePodTemplateGenerationLabel, false)
 }
 
 // SkipProcessGroup checks if a ProcessGroupStatus should be skipped during reconciliation.

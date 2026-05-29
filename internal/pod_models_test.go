@@ -208,9 +208,9 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 
-			Context("with the last-spec-key label opted in", func() {
+			Context("with the pod-template-generation label opted in", func() {
 				BeforeEach(func() {
-					cluster.Spec.LabelConfig.IncludeLastSpecKeyAsLabel = ptr.To(true)
+					cluster.Spec.LabelConfig.IncludePodTemplateGenerationLabel = ptr.To(true)
 					pod, err = GetPod(
 						cluster,
 						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -218,17 +218,25 @@ var _ = Describe("pod_models", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should set the last-spec-key label to the truncated spec hash", func() {
+				It("should set the pod-template-generation label to the truncated generation hash", func() {
+					hash, err := GetPodGenerationHash(
+						cluster,
+						fdbv1beta2.ProcessClassStorage,
+					)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue(
+						fdbv1beta2.PodTemplateGenerationLabel,
+						hash[:16],
+					))
+				})
+
+				It("should still set the LastSpecKey annotation to the full pod spec hash", func() {
 					hash, err := GetPodSpecHash(
 						cluster,
 						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
 						&pod.Spec,
 					)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue(
-						fdbv1beta2.LastSpecKeyLabel,
-						hash[:16],
-					))
 					Expect(pod.ObjectMeta.Annotations).To(HaveKeyWithValue(
 						fdbv1beta2.LastSpecKey,
 						hash,
@@ -236,7 +244,7 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 
-			Context("with the last-spec-key label disabled (default)", func() {
+			Context("with the pod-template-generation label disabled (default)", func() {
 				BeforeEach(func() {
 					pod, err = GetPod(
 						cluster,
@@ -245,8 +253,8 @@ var _ = Describe("pod_models", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should not set the last-spec-key label", func() {
-					Expect(pod.ObjectMeta.Labels).NotTo(HaveKey(fdbv1beta2.LastSpecKeyLabel))
+				It("should not set the pod-template-generation label", func() {
+					Expect(pod.ObjectMeta.Labels).NotTo(HaveKey(fdbv1beta2.PodTemplateGenerationLabel))
 				})
 			})
 		})

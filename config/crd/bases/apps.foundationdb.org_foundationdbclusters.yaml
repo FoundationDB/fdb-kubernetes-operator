@@ -419,7 +419,7 @@ spec:
                 properties:
                   filterOnOwnerReference:
                     type: boolean
-                  includeLastSpecKeyAsLabel:
+                  includePodTemplateGenerationLabel:
                     type: boolean
                   matchLabels:
                     additionalProperties:

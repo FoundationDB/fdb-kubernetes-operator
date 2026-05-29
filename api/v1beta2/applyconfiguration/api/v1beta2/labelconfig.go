@@ -27,16 +27,20 @@ type LabelConfigApplyConfiguration struct {
 	// by the match labels.
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
-	// IncludeLastSpecKeyAsLabel determines whether the operator should add a
-	// label whose value is a truncated form of the pod spec hash to each Pod
-	// it creates. When true, the label LastSpecKeyLabel
-	// ("foundationdb.org/last-applied-spec") is set to the first 16 hex
-	// characters of the spec hash already stored under the LastSpecKey
-	// annotation. The label is rotated only when the pod is recreated. This
-	// is useful for scheduling features such as
-	// TopologySpreadConstraints.matchLabelKeys that scope constraints by spec
-	// generation.
-	IncludeLastSpecKeyAsLabel *bool `json:"includeLastSpecKeyAsLabel,omitempty"`
+	// IncludePodTemplateGenerationLabel determines whether the operator should
+	// add a label identifying each Pod's generation. When true, the label
+	// PodTemplateGenerationLabel ("foundationdb.org/pod-template-generation")
+	// is set to the first 16 hex characters of a SHA-256 over the user-declared
+	// ProcessSettings for the pod's process class plus the declared FDB
+	// version, MainContainer and SidecarContainer overrides, and ImageType.
+	// The hash excludes operator-internal pod-construction decisions, so it is
+	// stable across operator version changes for an unchanged user spec. The
+	// label is rotated only when the pod is recreated.
+	//
+	// Useful for scheduling features such as
+	// TopologySpreadConstraints.matchLabelKeys that scope spread to the
+	// cohort of pods sharing the same generation.
+	IncludePodTemplateGenerationLabel *bool `json:"includePodTemplateGenerationLabel,omitempty"`
 }
 
 // LabelConfigApplyConfiguration constructs a declarative configuration of the LabelConfig type for use with
@@ -101,10 +105,10 @@ func (b *LabelConfigApplyConfiguration) WithFilterOnOwnerReferences(value bool) 
 	return b
 }
 
-// WithIncludeLastSpecKeyAsLabel sets the IncludeLastSpecKeyAsLabel field in the declarative configuration to the given value
+// WithIncludePodTemplateGenerationLabel sets the IncludePodTemplateGenerationLabel field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the IncludeLastSpecKeyAsLabel field is set to the value of the last call.
-func (b *LabelConfigApplyConfiguration) WithIncludeLastSpecKeyAsLabel(value bool) *LabelConfigApplyConfiguration {
-	b.IncludeLastSpecKeyAsLabel = &value
+// If called multiple times, the IncludePodTemplateGenerationLabel field is set to the value of the last call.
+func (b *LabelConfigApplyConfiguration) WithIncludePodTemplateGenerationLabel(value bool) *LabelConfigApplyConfiguration {
+	b.IncludePodTemplateGenerationLabel = &value
 	return b
 }

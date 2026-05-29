@@ -105,6 +105,35 @@ func GetPodSpecHash(
 	return GetJSONHash(spec)
 }
 
+// GetPodGenerationHash builds a content hash of the user-declared inputs that
+// define a Pod's "generation" for the given process class. Unlike
+// GetPodSpecHash, this does not include operator-internal pod-construction
+// decisions, so it is stable across operator version changes for an unchanged
+// user spec. It is wider than just ProcessSettings: it also incorporates the
+// declared FDB version and container image overrides so that an FDB version
+// upgrade — or a switch of the main/sidecar image registry — rotates the
+// hash explicitly, without relying on the user surfacing those values into
+// the podTemplate. The output is suitable for use as a per-generation
+// identifier on pods — see PodTemplateGenerationLabel.
+func GetPodGenerationHash(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+) (string, error) {
+	return GetJSONHash(struct {
+		ProcessSettings  fdbv1beta2.ProcessSettings    `json:"processSettings"`
+		Version          string                        `json:"version"`
+		MainContainer    fdbv1beta2.ContainerOverrides `json:"mainContainer"`
+		SidecarContainer fdbv1beta2.ContainerOverrides `json:"sidecarContainer"`
+		ImageType        *fdbv1beta2.ImageType         `json:"imageType,omitempty"`
+	}{
+		ProcessSettings:  cluster.GetProcessSettings(processClass),
+		Version:          cluster.Spec.Version,
+		MainContainer:    cluster.Spec.MainContainer,
+		SidecarContainer: cluster.Spec.SidecarContainer,
+		ImageType:        cluster.Spec.ImageType,
+	})
+}
+
 // GetJSONHash serializes an object to JSON and takes a hash of the resulting
 // JSON.
 func GetJSONHash(object interface{}) (string, error) {
@@ -399,22 +428,22 @@ func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (boo
 	}
 	desiredMetadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(ipFamily)
 
-	// Preserve LastSpecKeyLabel on surviving pods. When opted in via
-	// LabelConfig.IncludeLastSpecKeyAsLabel, this label participates in the
-	// scheduler's per-generation skew calculation via TSC matchLabelKeys;
-	// rewriting it in place on a surviving pod would defeat the spread filter
-	// during rolling updates. It rotates only when updatePods deletes the pod
-	// and addPods recreates it with the new spec — same pattern as
-	// fdbv1beta2.LastSpecKey above.
-	if value, ok := pod.ObjectMeta.Labels[fdbv1beta2.LastSpecKeyLabel]; ok {
+	// Preserve PodTemplateGenerationLabel on surviving pods. When opted in via
+	// LabelConfig.IncludePodTemplateGenerationLabel, this label participates
+	// in scheduling decisions through TSC matchLabelKeys; rewriting it in
+	// place on a surviving pod would let the scheduler see all surviving pods
+	// as one generation during a rolling update. It rotates only when
+	// updatePods deletes the pod and addPods recreates it with the new spec
+	// — same pattern as fdbv1beta2.LastSpecKey above.
+	if value, ok := pod.ObjectMeta.Labels[fdbv1beta2.PodTemplateGenerationLabel]; ok {
 		if desiredMetadata.Labels == nil {
 			desiredMetadata.Labels = make(map[string]string)
 		}
-		desiredMetadata.Labels[fdbv1beta2.LastSpecKeyLabel] = value
+		desiredMetadata.Labels[fdbv1beta2.PodTemplateGenerationLabel] = value
 	} else {
 		// Pod predates the label; don't patch it in place. The label will be
 		// applied naturally on recreation.
-		delete(desiredMetadata.Labels, fdbv1beta2.LastSpecKeyLabel)
+		delete(desiredMetadata.Labels, fdbv1beta2.PodTemplateGenerationLabel)
 	}
 
 	return MetadataCorrect(desiredMetadata, &pod.ObjectMeta), nil

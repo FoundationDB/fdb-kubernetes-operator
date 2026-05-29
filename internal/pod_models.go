@@ -1390,15 +1390,20 @@ func GetPodMetadata(
 	metadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(cluster.DesiredImageType())
 	metadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(cluster.GetPodIPFamily())
 
-	if cluster.ShouldIncludeLastSpecKeyAsLabel() && specHash != "" {
-		if metadata.Labels == nil {
-			metadata.Labels = make(map[string]string)
+	if cluster.ShouldIncludePodTemplateGenerationLabel() {
+		// GetPodGenerationHash JSON-encodes an in-memory struct and SHA-256s
+		// it; the error path is effectively unreachable for a well-formed
+		// cluster object. If it ever fires, skip the label rather than fail
+		// pod construction — the metadata path is otherwise infallible.
+		if hash, err := GetPodGenerationHash(cluster, processClass); err == nil && hash != "" {
+			if metadata.Labels == nil {
+				metadata.Labels = make(map[string]string)
+			}
+			// 16 hex chars is well under the 63-char label value limit and
+			// gives 64 bits of entropy — collision-free in practice for any
+			// single cluster.
+			metadata.Labels[fdbv1beta2.PodTemplateGenerationLabel] = hash[:16]
 		}
-		// 16 hex chars is well under the 63-char label value limit and
-		// gives 64 bits of entropy — collision-free in practice for any
-		// single cluster. GetPodSpecHash returns a SHA-256 hex string
-		// (64 chars), so the slice is always safe when specHash != "".
-		metadata.Labels[fdbv1beta2.LastSpecKeyLabel] = specHash[:16]
 	}
 
 	return metadata
