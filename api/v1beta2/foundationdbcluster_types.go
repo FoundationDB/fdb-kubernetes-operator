@@ -2707,7 +2707,7 @@ func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
 }
 
 // ShouldIncludePodTemplateGenerationLabel returns whether the cluster wants
-// Pods to be labeled with a content hash of their declared ProcessSettings
+// Pods to be labeled with a content hash of their canonical rendered PodSpec
 // under PodTemplateGenerationLabel. Defaults to false.
 func (cluster *FoundationDBCluster) ShouldIncludePodTemplateGenerationLabel() bool {
 	return ptr.Deref(cluster.Spec.LabelConfig.IncludePodTemplateGenerationLabel, false)

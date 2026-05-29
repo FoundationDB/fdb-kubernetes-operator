@@ -1391,10 +1391,11 @@ func GetPodMetadata(
 	metadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(cluster.GetPodIPFamily())
 
 	if cluster.ShouldIncludePodTemplateGenerationLabel() {
-		// GetPodGenerationHash JSON-encodes an in-memory struct and SHA-256s
-		// it; the error path is effectively unreachable for a well-formed
-		// cluster object. If it ever fires, skip the label rather than fail
-		// pod construction — the metadata path is otherwise infallible.
+		// GetPodGenerationHash renders GetPodSpec; in practice this succeeds
+		// for any cluster GetPod is also able to render (the caller invokes
+		// GetPodSpec on the same cluster moments earlier). If it ever fails,
+		// skip the label rather than fail pod construction — the metadata
+		// path is otherwise infallible.
 		if hash, err := GetPodGenerationHash(cluster, processClass); err == nil && hash != "" {
 			if metadata.Labels == nil {
 				metadata.Labels = make(map[string]string)
