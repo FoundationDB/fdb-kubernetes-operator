@@ -749,7 +749,7 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("matchLabelKeys label matches between pod and desired (steady state)",
+		Entry("PodSpecHashLabel matches between pod and desired (steady state)",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -762,13 +762,6 @@ var _ = Describe("pod_helper", func() {
 							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
 								fdbv1beta2.PodIPFamilyUnset,
 							),
-						},
-					},
-					Spec: corev1.PodSpec{
-						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
-							{
-								MatchLabelKeys: []string{fdbv1beta2.PodSpecHashLabel},
-							},
 						},
 					},
 				},
@@ -795,7 +788,7 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("matchLabelKeys label differs but pod's value is preserved (mid-roll)",
+		Entry("PodSpecHashLabel preserved when pod and desired differ (mid-roll)",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -808,13 +801,6 @@ var _ = Describe("pod_helper", func() {
 							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
 								fdbv1beta2.PodIPFamilyUnset,
 							),
-						},
-					},
-					Spec: corev1.PodSpec{
-						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
-							{
-								MatchLabelKeys: []string{fdbv1beta2.PodSpecHashLabel},
-							},
 						},
 					},
 				},
@@ -841,7 +827,7 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("matchLabelKeys label missing from pod is not patched in",
+		Entry("PodSpecHashLabel missing from pod is not patched in",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -851,13 +837,6 @@ var _ = Describe("pod_helper", func() {
 							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
 								fdbv1beta2.PodIPFamilyUnset,
 							),
-						},
-					},
-					Spec: corev1.PodSpec{
-						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
-							{
-								MatchLabelKeys: []string{fdbv1beta2.PodSpecHashLabel},
-							},
 						},
 					},
 				},
