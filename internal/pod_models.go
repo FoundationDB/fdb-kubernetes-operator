@@ -1396,13 +1396,13 @@ func GetPodMetadata(
 		// GetPodSpec on the same cluster moments earlier). If it ever fails,
 		// skip the label rather than fail pod construction — the metadata
 		// path is otherwise infallible.
-		if hash, err := GetPodGenerationHash(cluster, processClass); err == nil && hash != "" {
+		if hash, err := GetPodGenerationHash(cluster, processClass); err == nil {
 			if metadata.Labels == nil {
 				metadata.Labels = make(map[string]string)
 			}
 			// 16 hex chars is well under the 63-char label value limit and
-			// gives 64 bits of entropy — collision-free in practice for any
-			// single cluster.
+			// gives 64 bits of entropy — collision-free in practice across
+			// the (process class, generation) pairs the operator emits.
 			metadata.Labels[fdbv1beta2.PodTemplateGenerationLabel] = hash[:16]
 		}
 	}
