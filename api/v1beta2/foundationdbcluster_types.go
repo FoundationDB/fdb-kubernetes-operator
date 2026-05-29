@@ -2569,6 +2569,15 @@ type LabelConfig struct {
 	// by the match labels.
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
+
+	// IncludePodSpecHashLabel determines whether the operator should add a
+	// label with a truncated form of the pod spec hash to each Pod it creates.
+	// When true, the label PodSpecHashLabel ("foundationdb.org/pod-spec-hash")
+	// is set to the first 16 hex characters of the spec hash. The label is
+	// rotated only when the pod is recreated. This is useful for scheduling
+	// features such as TopologySpreadConstraints.matchLabelKeys that scope
+	// constraints by spec generation.
+	IncludePodSpecHashLabel *bool `json:"includePodSpecHashLabel,omitempty"`
 }
 
 // PublicIPSource models options for how a pod gets its public IP.
@@ -2690,6 +2699,12 @@ func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClas
 // when determining if a resource is related to this cluster.
 func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
 	return ptr.Deref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
+}
+
+// ShouldIncludePodSpecHashLabel returns whether the cluster wants Pods to be
+// labeled with a truncated form of their spec hash. Defaults to false.
+func (cluster *FoundationDBCluster) ShouldIncludePodSpecHashLabel() bool {
+	return ptr.Deref(cluster.Spec.LabelConfig.IncludePodSpecHashLabel, false)
 }
 
 // SkipProcessGroup checks if a ProcessGroupStatus should be skipped during reconciliation.

@@ -27,6 +27,14 @@ type LabelConfigApplyConfiguration struct {
 	// by the match labels.
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
+	// IncludePodSpecHashLabel determines whether the operator should add a
+	// label with a truncated form of the pod spec hash to each Pod it creates.
+	// When true, the label PodSpecHashLabel ("foundationdb.org/pod-spec-hash")
+	// is set to the first 16 hex characters of the spec hash. The label is
+	// rotated only when the pod is recreated. This is useful for scheduling
+	// features such as TopologySpreadConstraints.matchLabelKeys that scope
+	// constraints by spec generation.
+	IncludePodSpecHashLabel *bool `json:"includePodSpecHashLabel,omitempty"`
 }
 
 // LabelConfigApplyConfiguration constructs a declarative configuration of the LabelConfig type for use with
@@ -88,5 +96,13 @@ func (b *LabelConfigApplyConfiguration) WithProcessClassLabels(values ...string)
 // If called multiple times, the FilterOnOwnerReferences field is set to the value of the last call.
 func (b *LabelConfigApplyConfiguration) WithFilterOnOwnerReferences(value bool) *LabelConfigApplyConfiguration {
 	b.FilterOnOwnerReferences = &value
+	return b
+}
+
+// WithIncludePodSpecHashLabel sets the IncludePodSpecHashLabel field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IncludePodSpecHashLabel field is set to the value of the last call.
+func (b *LabelConfigApplyConfiguration) WithIncludePodSpecHashLabel(value bool) *LabelConfigApplyConfiguration {
+	b.IncludePodSpecHashLabel = &value
 	return b
 }

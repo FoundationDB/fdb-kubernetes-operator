@@ -207,6 +207,48 @@ var _ = Describe("pod_models", func() {
 					}))
 				})
 			})
+
+			Context("with the pod-spec-hash label opted in", func() {
+				BeforeEach(func() {
+					cluster.Spec.LabelConfig.IncludePodSpecHashLabel = ptr.To(true)
+					pod, err = GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should set the pod-spec-hash label to the truncated spec hash", func() {
+					hash, err := GetPodSpecHash(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						&pod.Spec,
+					)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue(
+						fdbv1beta2.PodSpecHashLabel,
+						hash[:16],
+					))
+					Expect(pod.ObjectMeta.Annotations).To(HaveKeyWithValue(
+						fdbv1beta2.LastSpecKey,
+						hash,
+					))
+				})
+			})
+
+			Context("with the pod-spec-hash label disabled (default)", func() {
+				BeforeEach(func() {
+					pod, err = GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should not set the pod-spec-hash label", func() {
+					Expect(pod.ObjectMeta.Labels).NotTo(HaveKey(fdbv1beta2.PodSpecHashLabel))
+				})
+			})
 		})
 	})
 

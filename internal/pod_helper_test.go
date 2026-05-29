@@ -749,5 +749,137 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
+		Entry("matchLabelKeys label matches between pod and desired (steady state)",
+			testCase{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							fdbv1beta2.PodSpecHashLabel: "abcdef0123456789",
+						},
+						Annotations: map[string]string{
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
+						},
+					},
+					Spec: corev1.PodSpec{
+						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+							{
+								MatchLabelKeys: []string{fdbv1beta2.PodSpecHashLabel},
+							},
+						},
+					},
+				},
+				metadata: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodSpecHashLabel: "abcdef0123456789",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+				expected: true,
+				expectedMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodSpecHashLabel: "abcdef0123456789",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+			},
+		),
+		Entry("matchLabelKeys label differs but pod's value is preserved (mid-roll)",
+			testCase{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							fdbv1beta2.PodSpecHashLabel: "oldhash000000000",
+						},
+						Annotations: map[string]string{
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
+						},
+					},
+					Spec: corev1.PodSpec{
+						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+							{
+								MatchLabelKeys: []string{fdbv1beta2.PodSpecHashLabel},
+							},
+						},
+					},
+				},
+				metadata: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodSpecHashLabel: "newhash000000000",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "2",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+				expected: true,
+				expectedMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodSpecHashLabel: "oldhash000000000",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+			},
+		),
+		Entry("matchLabelKeys label missing from pod is not patched in",
+			testCase{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
+						},
+					},
+					Spec: corev1.PodSpec{
+						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+							{
+								MatchLabelKeys: []string{fdbv1beta2.PodSpecHashLabel},
+							},
+						},
+					},
+				},
+				metadata: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodSpecHashLabel: "newhash000000000",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+				expected: true,
+				expectedMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+			},
+		),
 	)
 })

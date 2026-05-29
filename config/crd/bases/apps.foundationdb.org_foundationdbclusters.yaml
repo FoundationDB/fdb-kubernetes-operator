@@ -419,6 +419,8 @@ spec:
                 properties:
                   filterOnOwnerReference:
                     type: boolean
+                  includePodSpecHashLabel:
+                    type: boolean
                   matchLabels:
                     additionalProperties:
                       type: string

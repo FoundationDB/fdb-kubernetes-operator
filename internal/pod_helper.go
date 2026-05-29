@@ -399,6 +399,27 @@ func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (boo
 	}
 	desiredMetadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(ipFamily)
 
+	// Preserve labels referenced from topologySpreadConstraints.matchLabelKeys on
+	// the existing pod. These labels participate in the scheduler's per-generation
+	// skew calculation: rewriting them in place on a surviving pod would defeat
+	// the matchLabelKeys filter during rolling updates. They are intentionally
+	// rotated only when updatePods deletes the pod and addPods recreates it with
+	// the new spec — same pattern as fdbv1beta2.LastSpecKey above.
+	for _, constraint := range pod.Spec.TopologySpreadConstraints {
+		for _, key := range constraint.MatchLabelKeys {
+			if value, ok := pod.ObjectMeta.Labels[key]; ok {
+				if desiredMetadata.Labels == nil {
+					desiredMetadata.Labels = make(map[string]string)
+				}
+				desiredMetadata.Labels[key] = value
+			} else {
+				// Pod predates the matchLabelKeys label; don't patch it in
+				// place. The label will be applied naturally on recreation.
+				delete(desiredMetadata.Labels, key)
+			}
+		}
+	}
+
 	return MetadataCorrect(desiredMetadata, &pod.ObjectMeta), nil
 }
 

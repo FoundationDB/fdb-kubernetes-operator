@@ -1390,6 +1390,17 @@ func GetPodMetadata(
 	metadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(cluster.DesiredImageType())
 	metadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(cluster.GetPodIPFamily())
 
+	if cluster.ShouldIncludePodSpecHashLabel() && specHash != "" {
+		if metadata.Labels == nil {
+			metadata.Labels = make(map[string]string)
+		}
+		// 16 hex chars is well under the 63-char label value limit and
+		// gives 64 bits of entropy — collision-free in practice for any
+		// single cluster. GetPodSpecHash returns a SHA-256 hex string
+		// (64 chars), so the slice is always safe when specHash != "".
+		metadata.Labels[fdbv1beta2.PodSpecHashLabel] = specHash[:16]
+	}
+
 	return metadata
 }
 

@@ -25,6 +25,13 @@ const (
 	// pod spec.
 	LastSpecKey = "foundationdb.org/last-applied-spec"
 
+	// PodSpecHashLabel provides the label name for a truncated form of the same
+	// hash stored under LastSpecKey. Pod scheduling features such as
+	// TopologySpreadConstraints.matchLabelKeys can reference this label to scope
+	// constraints to a specific pod-spec generation. Emission is opt-in via
+	// LabelConfig.IncludePodSpecHashLabel.
+	PodSpecHashLabel = "foundationdb.org/pod-spec-hash"
+
 	// LastConfigMapKey provides the annotation name we use to store the hash of the
 	// config map.
 	LastConfigMapKey = "foundationdb.org/last-applied-config-map"
