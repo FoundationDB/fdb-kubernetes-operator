@@ -105,33 +105,33 @@ func GetPodSpecHash(
 	return GetJSONHash(spec)
 }
 
-// GetPodGenerationHash builds a content hash of the user-declared inputs that
-// define a Pod's "generation" for the given process class. Unlike
-// GetPodSpecHash, this does not include operator-internal pod-construction
-// decisions, so it is stable across operator version changes for an unchanged
-// user spec. It is wider than just ProcessSettings: it also incorporates the
-// declared FDB version and container image overrides so that an FDB version
-// upgrade — or a switch of the main/sidecar image registry — rotates the
-// hash explicitly, without relying on the user surfacing those values into
-// the podTemplate. The output is suitable for use as a per-generation
-// identifier on pods — see PodTemplateGenerationLabel.
+// GetPodGenerationHash builds a content hash identifying the "generation" of
+// Pods for the given process class. It renders the desired PodSpec via
+// GetPodSpec using a canonical sentinel ProcessGroupID — so all real pods of
+// the same class produce the same hash — then hashes the result. Any field
+// that flows into GetPodSpec contributes to the hash automatically, with no
+// curated field list to maintain.
+//
+// The output is suitable for use as a per-generation identifier on Pods
+// (see PodTemplateGenerationLabel). The hash rotates exactly when the
+// rendered PodSpec for the class changes, which is the same signal the
+// operator's reconciler uses to decide whether existing pods need
+// replacement (via LastSpecKey). Aligning the two means
+// TopologySpreadConstraints.matchLabelKeys consumers get correct
+// per-generation scoping for every roll the operator initiates.
 func GetPodGenerationHash(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	processClass fdbv1beta2.ProcessClass,
 ) (string, error) {
-	return GetJSONHash(struct {
-		ProcessSettings  fdbv1beta2.ProcessSettings    `json:"processSettings"`
-		Version          string                        `json:"version"`
-		MainContainer    fdbv1beta2.ContainerOverrides `json:"mainContainer"`
-		SidecarContainer fdbv1beta2.ContainerOverrides `json:"sidecarContainer"`
-		ImageType        *fdbv1beta2.ImageType         `json:"imageType,omitempty"`
-	}{
-		ProcessSettings:  cluster.GetProcessSettings(processClass),
-		Version:          cluster.Spec.Version,
-		MainContainer:    cluster.Spec.MainContainer,
-		SidecarContainer: cluster.Spec.SidecarContainer,
-		ImageType:        cluster.Spec.ImageType,
-	})
+	canonical := &fdbv1beta2.ProcessGroupStatus{
+		ProcessClass:   processClass,
+		ProcessGroupID: fdbv1beta2.ProcessGroupID(string(processClass) + "-generation"),
+	}
+	spec, err := GetPodSpec(cluster, canonical)
+	if err != nil {
+		return "", err
+	}
+	return GetJSONHash(spec)
 }
 
 // GetJSONHash serializes an object to JSON and takes a hash of the resulting

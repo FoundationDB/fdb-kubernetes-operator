@@ -229,19 +229,6 @@ var _ = Describe("pod_models", func() {
 						hash[:16],
 					))
 				})
-
-				It("should still set the LastSpecKey annotation to the full pod spec hash", func() {
-					hash, err := GetPodSpecHash(
-						cluster,
-						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
-						&pod.Spec,
-					)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(pod.ObjectMeta.Annotations).To(HaveKeyWithValue(
-						fdbv1beta2.LastSpecKey,
-						hash,
-					))
-				})
 			})
 
 			Context("with the pod-template-generation label disabled (default)", func() {

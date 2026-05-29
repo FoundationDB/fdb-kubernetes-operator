@@ -26,11 +26,13 @@ const (
 	LastSpecKey = "foundationdb.org/last-applied-spec"
 
 	// PodTemplateGenerationLabel is the label name carrying a content hash
-	// that identifies a Pod's "generation" — the cohort of pods built from
-	// the same user-declared inputs. Its value is the first 16 hex characters
-	// of a SHA-256 over the user-declared ProcessSettings for the pod's
-	// process class plus the declared FDB version, MainContainer and
-	// SidecarContainer overrides, and ImageType.
+	// that identifies a Pod's "generation" — the cohort of pods of the same
+	// process class that render to the same desired PodSpec. Its value is the
+	// first 16 hex characters of a SHA-256 over the canonical rendered
+	// PodSpec for the class. The hash rotates exactly when the rendered
+	// PodSpec changes, which is the same signal the operator uses to decide
+	// whether existing pods need replacement.
+	//
 	// Suitable for use with TopologySpreadConstraints.matchLabelKeys to scope
 	// spread to the cohort of pods sharing the same generation. Emission is
 	// opt-in via LabelConfig.IncludePodTemplateGenerationLabel.

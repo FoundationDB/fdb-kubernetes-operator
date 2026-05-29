@@ -879,7 +879,20 @@ var _ = Describe("pod_helper", func() {
 			Expect(first).To(Equal(second))
 		})
 
-		DescribeTable("rotation under input mutations",
+		It("yields distinct hashes for distinct process classes", func() {
+			storage, err := GetPodGenerationHash(cluster, fdbv1beta2.ProcessClassStorage)
+			Expect(err).NotTo(HaveOccurred())
+			log, err := GetPodGenerationHash(cluster, fdbv1beta2.ProcessClassLog)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storage).NotTo(Equal(log))
+		})
+
+		// Comprehensive coverage of "what affects the rendered PodSpec" lives
+		// with GetPodSpec's own tests. These smoke tests confirm
+		// GetPodGenerationHash actually delegates to GetPodSpec — i.e., that
+		// mutations that DO affect the rendered PodSpec rotate the hash, and
+		// mutations that DON'T affect it leave the hash stable.
+		DescribeTable("rotation tracks the rendered PodSpec",
 			func(mutate func(*fdbv1beta2.FoundationDBCluster), expectChange bool) {
 				baseline, err := GetPodGenerationHash(
 					cluster,
@@ -900,61 +913,26 @@ var _ = Describe("pod_helper", func() {
 					Expect(mutated).To(Equal(baseline))
 				}
 			},
-			// Inputs that MUST rotate the hash.
-			Entry("Version change rotates",
-				func(c *fdbv1beta2.FoundationDBCluster) { c.Spec.Version = "7.3.99999" },
-				true,
-			),
-			Entry("MainContainer image config change rotates",
-				func(c *fdbv1beta2.FoundationDBCluster) {
-					c.Spec.MainContainer.ImageConfigs = append(
-						c.Spec.MainContainer.ImageConfigs,
-						fdbv1beta2.ImageConfig{BaseImage: "custom/image"},
-					)
-				},
-				true,
-			),
-			Entry("SidecarContainer image config change rotates",
-				func(c *fdbv1beta2.FoundationDBCluster) {
-					c.Spec.SidecarContainer.ImageConfigs = append(
-						c.Spec.SidecarContainer.ImageConfigs,
-						fdbv1beta2.ImageConfig{BaseImage: "custom/sidecar"},
-					)
-				},
-				true,
-			),
-			Entry("ImageType change rotates",
+			Entry("ImageType change rotates (split <-> unified flips rendering)",
 				func(c *fdbv1beta2.FoundationDBCluster) {
 					t := fdbv1beta2.ImageTypeUnified
 					c.Spec.ImageType = &t
 				},
 				true,
 			),
-			Entry("ProcessSettings podTemplate change rotates",
+			Entry("podTemplate.spec.nodeSelector change rotates",
 				func(c *fdbv1beta2.FoundationDBCluster) {
 					settings := c.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					if settings.PodTemplate == nil {
 						settings.PodTemplate = &corev1.PodTemplateSpec{}
 					}
-					if settings.PodTemplate.Labels == nil {
-						settings.PodTemplate.Labels = map[string]string{}
+					settings.PodTemplate.Spec.NodeSelector = map[string]string{
+						"test": "value",
 					}
-					settings.PodTemplate.Labels["test"] = "value"
 					c.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 				},
 				true,
 			),
-			Entry("CustomParameters change rotates",
-				func(c *fdbv1beta2.FoundationDBCluster) {
-					settings := c.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-					settings.CustomParameters = append(settings.CustomParameters, "knob_x=1")
-					c.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
-				},
-				true,
-			),
-
-			// Inputs that MUST NOT rotate the hash — they are not part of the
-			// pod's generation identity.
 			Entry("AutomationOptions change does NOT rotate",
 				func(c *fdbv1beta2.FoundationDBCluster) {
 					c.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(99)
@@ -964,18 +942,6 @@ var _ = Describe("pod_helper", func() {
 			Entry("DatabaseConfiguration change does NOT rotate",
 				func(c *fdbv1beta2.FoundationDBCluster) {
 					c.Spec.DatabaseConfiguration.Storage = 99
-				},
-				false,
-			),
-			Entry("Routing change does NOT rotate",
-				func(c *fdbv1beta2.FoundationDBCluster) {
-					c.Spec.Routing.HeadlessService = ptr.To(true)
-				},
-				false,
-			),
-			Entry("LabelConfig.MatchLabels change does NOT rotate",
-				func(c *fdbv1beta2.FoundationDBCluster) {
-					c.Spec.LabelConfig.MatchLabels = map[string]string{"foo": "bar"}
 				},
 				false,
 			),

@@ -2573,12 +2573,11 @@ type LabelConfig struct {
 	// IncludePodTemplateGenerationLabel determines whether the operator should
 	// add a label identifying each Pod's generation. When true, the label
 	// PodTemplateGenerationLabel ("foundationdb.org/pod-template-generation")
-	// is set to the first 16 hex characters of a SHA-256 over the user-declared
-	// ProcessSettings for the pod's process class plus the declared FDB
-	// version, MainContainer and SidecarContainer overrides, and ImageType.
-	// The hash excludes operator-internal pod-construction decisions, so it is
-	// stable across operator version changes for an unchanged user spec. The
-	// label is rotated only when the pod is recreated.
+	// is set to the first 16 hex characters of a SHA-256 over the canonical
+	// rendered PodSpec for the pod's process class. The hash rotates exactly
+	// when the rendered PodSpec for the class changes, aligning generation
+	// rotation with the operator's pod-replacement signal. The label is
+	// rotated only when the pod is recreated.
 	//
 	// Useful for scheduling features such as
 	// TopologySpreadConstraints.matchLabelKeys that scope spread to the
