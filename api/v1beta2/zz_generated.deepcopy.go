@@ -1741,8 +1741,8 @@ func (in *LabelConfig) DeepCopyInto(out *LabelConfig) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.IncludePodSpecHashLabel != nil {
-		in, out := &in.IncludePodSpecHashLabel, &out.IncludePodSpecHashLabel
+	if in.IncludeLastSpecKeyAsLabel != nil {
+		in, out := &in.IncludeLastSpecKeyAsLabel, &out.IncludeLastSpecKeyAsLabel
 		*out = new(bool)
 		**out = **in
 	}

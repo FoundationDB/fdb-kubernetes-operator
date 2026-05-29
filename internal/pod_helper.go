@@ -399,22 +399,22 @@ func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (boo
 	}
 	desiredMetadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(ipFamily)
 
-	// Preserve PodSpecHashLabel on surviving pods. When opted in via
-	// LabelConfig.IncludePodSpecHashLabel, this label participates in the
+	// Preserve LastSpecKeyLabel on surviving pods. When opted in via
+	// LabelConfig.IncludeLastSpecKeyAsLabel, this label participates in the
 	// scheduler's per-generation skew calculation via TSC matchLabelKeys;
 	// rewriting it in place on a surviving pod would defeat the spread filter
 	// during rolling updates. It rotates only when updatePods deletes the pod
 	// and addPods recreates it with the new spec — same pattern as
 	// fdbv1beta2.LastSpecKey above.
-	if value, ok := pod.ObjectMeta.Labels[fdbv1beta2.PodSpecHashLabel]; ok {
+	if value, ok := pod.ObjectMeta.Labels[fdbv1beta2.LastSpecKeyLabel]; ok {
 		if desiredMetadata.Labels == nil {
 			desiredMetadata.Labels = make(map[string]string)
 		}
-		desiredMetadata.Labels[fdbv1beta2.PodSpecHashLabel] = value
+		desiredMetadata.Labels[fdbv1beta2.LastSpecKeyLabel] = value
 	} else {
 		// Pod predates the label; don't patch it in place. The label will be
 		// applied naturally on recreation.
-		delete(desiredMetadata.Labels, fdbv1beta2.PodSpecHashLabel)
+		delete(desiredMetadata.Labels, fdbv1beta2.LastSpecKeyLabel)
 	}
 
 	return MetadataCorrect(desiredMetadata, &pod.ObjectMeta), nil

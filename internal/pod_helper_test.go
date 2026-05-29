@@ -749,12 +749,12 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("PodSpecHashLabel matches between pod and desired (steady state)",
+		Entry("LastSpecKeyLabel matches between pod and desired (steady state)",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							fdbv1beta2.PodSpecHashLabel: "abcdef0123456789",
+							fdbv1beta2.LastSpecKeyLabel: "abcdef0123456789",
 						},
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
@@ -767,7 +767,7 @@ var _ = Describe("pod_helper", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.PodSpecHashLabel: "abcdef0123456789",
+						fdbv1beta2.LastSpecKeyLabel: "abcdef0123456789",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
@@ -778,7 +778,7 @@ var _ = Describe("pod_helper", func() {
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.PodSpecHashLabel: "abcdef0123456789",
+						fdbv1beta2.LastSpecKeyLabel: "abcdef0123456789",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
@@ -788,12 +788,12 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("PodSpecHashLabel preserved when pod and desired differ (mid-roll)",
+		Entry("LastSpecKeyLabel preserved when pod and desired differ (mid-roll)",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							fdbv1beta2.PodSpecHashLabel: "oldhash000000000",
+							fdbv1beta2.LastSpecKeyLabel: "oldhash000000000",
 						},
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
@@ -806,7 +806,7 @@ var _ = Describe("pod_helper", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.PodSpecHashLabel: "newhash000000000",
+						fdbv1beta2.LastSpecKeyLabel: "newhash000000000",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "2",
@@ -817,7 +817,7 @@ var _ = Describe("pod_helper", func() {
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.PodSpecHashLabel: "oldhash000000000",
+						fdbv1beta2.LastSpecKeyLabel: "oldhash000000000",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
@@ -827,7 +827,7 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
-		Entry("PodSpecHashLabel missing from pod is not patched in",
+		Entry("LastSpecKeyLabel missing from pod is not patched in",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -842,7 +842,7 @@ var _ = Describe("pod_helper", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbv1beta2.PodSpecHashLabel: "newhash000000000",
+						fdbv1beta2.LastSpecKeyLabel: "newhash000000000",
 					},
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",

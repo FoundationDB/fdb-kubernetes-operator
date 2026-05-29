@@ -2570,14 +2570,16 @@ type LabelConfig struct {
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
 
-	// IncludePodSpecHashLabel determines whether the operator should add a
-	// label with a truncated form of the pod spec hash to each Pod it creates.
-	// When true, the label PodSpecHashLabel ("foundationdb.org/pod-spec-hash")
-	// is set to the first 16 hex characters of the spec hash. The label is
-	// rotated only when the pod is recreated. This is useful for scheduling
-	// features such as TopologySpreadConstraints.matchLabelKeys that scope
-	// constraints by spec generation.
-	IncludePodSpecHashLabel *bool `json:"includePodSpecHashLabel,omitempty"`
+	// IncludeLastSpecKeyAsLabel determines whether the operator should add a
+	// label whose value is a truncated form of the pod spec hash to each Pod
+	// it creates. When true, the label LastSpecKeyLabel
+	// ("foundationdb.org/last-applied-spec") is set to the first 16 hex
+	// characters of the spec hash already stored under the LastSpecKey
+	// annotation. The label is rotated only when the pod is recreated. This
+	// is useful for scheduling features such as
+	// TopologySpreadConstraints.matchLabelKeys that scope constraints by spec
+	// generation.
+	IncludeLastSpecKeyAsLabel *bool `json:"includeLastSpecKeyAsLabel,omitempty"`
 }
 
 // PublicIPSource models options for how a pod gets its public IP.
@@ -2701,10 +2703,11 @@ func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
 	return ptr.Deref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
 }
 
-// ShouldIncludePodSpecHashLabel returns whether the cluster wants Pods to be
-// labeled with a truncated form of their spec hash. Defaults to false.
-func (cluster *FoundationDBCluster) ShouldIncludePodSpecHashLabel() bool {
-	return ptr.Deref(cluster.Spec.LabelConfig.IncludePodSpecHashLabel, false)
+// ShouldIncludeLastSpecKeyAsLabel returns whether the cluster wants Pods to
+// be labeled with a truncated form of their spec hash under LastSpecKeyLabel.
+// Defaults to false.
+func (cluster *FoundationDBCluster) ShouldIncludeLastSpecKeyAsLabel() bool {
+	return ptr.Deref(cluster.Spec.LabelConfig.IncludeLastSpecKeyAsLabel, false)
 }
 
 // SkipProcessGroup checks if a ProcessGroupStatus should be skipped during reconciliation.

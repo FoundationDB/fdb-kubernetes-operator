@@ -22,15 +22,20 @@ package v1beta2
 
 const (
 	// LastSpecKey provides the annotation name we use to store the hash of the
-	// pod spec.
+	// pod spec. When LabelConfig.IncludeLastSpecKeyAsLabel is set, the same
+	// key is also used as a label whose value is the first 16 hex characters
+	// of the same hash (suitable for use with
+	// TopologySpreadConstraints.matchLabelKeys). ObjectMeta.Annotations and
+	// ObjectMeta.Labels are independent maps in Kubernetes, so the dual use
+	// does not collide; see LastSpecKeyLabel for label-side reads.
 	LastSpecKey = "foundationdb.org/last-applied-spec"
 
-	// PodSpecHashLabel provides the label name for a truncated form of the same
-	// hash stored under LastSpecKey. Pod scheduling features such as
-	// TopologySpreadConstraints.matchLabelKeys can reference this label to scope
-	// constraints to a specific pod-spec generation. Emission is opt-in via
-	// LabelConfig.IncludePodSpecHashLabel.
-	PodSpecHashLabel = "foundationdb.org/pod-spec-hash"
+	// LastSpecKeyLabel is an alias of LastSpecKey for use as a label key.
+	// Provided as a distinct named constant so read-site intent (label vs.
+	// annotation) is explicit at call sites. The label carries a truncated
+	// (16-char) form of the hash and is only emitted when
+	// LabelConfig.IncludeLastSpecKeyAsLabel is true.
+	LastSpecKeyLabel = LastSpecKey
 
 	// LastConfigMapKey provides the annotation name we use to store the hash of the
 	// config map.
