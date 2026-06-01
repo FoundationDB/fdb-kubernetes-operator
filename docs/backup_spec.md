@@ -183,7 +183,9 @@ FoundationDBLiveBackupStatusState provides the state of a backup in the backup s
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
+| Name | Name is the name of the backup state. | string | false |
 | Running | Running determines whether the backup is currently running. | bool | false |
+| Completed | Completed determines whether the backup has completed. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
