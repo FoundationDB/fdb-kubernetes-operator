@@ -28,17 +28,9 @@ type LabelConfigApplyConfiguration struct {
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
 	// IncludePodTemplateGenerationLabel determines whether the operator should
-	// add a label identifying each Pod's generation. When true, the label
-	// PodTemplateGenerationLabel ("foundationdb.org/pod-template-generation")
-	// is set to the first 16 hex characters of a SHA-256 over the canonical
-	// rendered PodSpec for the pod's process class. The hash rotates exactly
-	// when the rendered PodSpec for the class changes, aligning generation
-	// rotation with the operator's pod-replacement signal. The label is
-	// rotated only when the pod is recreated.
-	//
-	// Useful for scheduling features such as
-	// TopologySpreadConstraints.matchLabelKeys that scope spread to the
-	// cohort of pods sharing the same generation.
+	// stamp each Pod with PodTemplateGenerationLabel at creation time. See
+	// PodTemplateGenerationLabel for the value, rotation semantics, and use
+	// case. The label is rotated only when the pod is recreated.
 	IncludePodTemplateGenerationLabel *bool `json:"includePodTemplateGenerationLabel,omitempty"`
 }
 

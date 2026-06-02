@@ -115,9 +115,9 @@ const PodGenerationHashLength = 16
 // Kubernetes label value. The spec is rendered with a sentinel
 // ProcessGroupID so every pod of the same class produces the same hash;
 // any field that flows into GetPodSpec contributes automatically. The hash
-// rotates exactly when the rendered PodSpec for the class changes — the
-// same trigger LastSpecKey uses to drive pod replacement. See
-// PodTemplateGenerationLabel for the consumer.
+// is computed from the same source LastSpecKey uses to drive pod
+// replacement, so it rotates exactly when the rendered PodSpec for the
+// class changes. See PodTemplateGenerationLabel for the consumer.
 func GetPodGenerationHash(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	processClass fdbv1beta2.ProcessClass,

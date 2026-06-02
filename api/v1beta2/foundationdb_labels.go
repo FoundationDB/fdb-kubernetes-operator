@@ -29,9 +29,9 @@ const (
 	// that identifies a Pod's "generation" — the cohort of pods of the same
 	// process class that render to the same desired PodSpec. Its value is the
 	// first 16 hex characters of a SHA-256 over the canonical rendered
-	// PodSpec for the class. The hash rotates exactly when the rendered
-	// PodSpec changes, which is the same signal the operator uses to decide
-	// whether existing pods need replacement.
+	// PodSpec for the class, computed from the same source LastSpecKey uses
+	// to drive pod replacement, so the label rotates exactly when the
+	// rendered PodSpec for the class changes.
 	//
 	// Suitable for use with TopologySpreadConstraints.matchLabelKeys to scope
 	// spread to the cohort of pods sharing the same generation. Emission is
