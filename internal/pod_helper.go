@@ -105,20 +105,19 @@ func GetPodSpecHash(
 	return GetJSONHash(spec)
 }
 
-// GetPodGenerationHash builds a content hash identifying the "generation" of
-// Pods for the given process class. It renders the desired PodSpec via
-// GetPodSpec using a canonical sentinel ProcessGroupID — so all real pods of
-// the same class produce the same hash — then hashes the result. Any field
-// that flows into GetPodSpec contributes to the hash automatically, with no
-// curated field list to maintain.
-//
-// The output is suitable for use as a per-generation identifier on Pods
-// (see PodTemplateGenerationLabel). The hash rotates exactly when the
-// rendered PodSpec for the class changes, which is the same signal the
-// operator's reconciler uses to decide whether existing pods need
-// replacement (via LastSpecKey). Aligning the two means
-// TopologySpreadConstraints.matchLabelKeys consumers get correct
-// per-generation scoping for every roll the operator initiates.
+// PodGenerationHashLength is the number of hex characters returned by
+// GetPodGenerationHash — fits under Kubernetes' 63-char label value limit
+// while giving 64 bits of entropy.
+const PodGenerationHashLength = 16
+
+// GetPodGenerationHash returns a class-scoped hash of the rendered PodSpec,
+// truncated to PodGenerationHashLength hex characters for direct use as a
+// Kubernetes label value. The spec is rendered with a sentinel
+// ProcessGroupID so every pod of the same class produces the same hash;
+// any field that flows into GetPodSpec contributes automatically. The hash
+// rotates exactly when the rendered PodSpec for the class changes — the
+// same trigger LastSpecKey uses to drive pod replacement. See
+// PodTemplateGenerationLabel for the consumer.
 func GetPodGenerationHash(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	processClass fdbv1beta2.ProcessClass,
@@ -131,7 +130,11 @@ func GetPodGenerationHash(
 	if err != nil {
 		return "", err
 	}
-	return GetJSONHash(spec)
+	hash, err := GetJSONHash(spec)
+	if err != nil {
+		return "", err
+	}
+	return hash[:PodGenerationHashLength], nil
 }
 
 // GetJSONHash serializes an object to JSON and takes a hash of the resulting

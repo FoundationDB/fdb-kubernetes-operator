@@ -218,7 +218,7 @@ var _ = Describe("pod_models", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should set the pod-template-generation label to the truncated generation hash", func() {
+				It("should set the pod-template-generation label to the generation hash", func() {
 					hash, err := GetPodGenerationHash(
 						cluster,
 						fdbv1beta2.ProcessClassStorage,
@@ -226,8 +226,28 @@ var _ = Describe("pod_models", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue(
 						fdbv1beta2.PodTemplateGenerationLabel,
-						hash[:16],
+						hash,
 					))
+				})
+
+				It("should set the same label value on distinct pods of the same class", func() {
+					other, otherErr := GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 2),
+					)
+					Expect(otherErr).NotTo(HaveOccurred())
+					Expect(other.ObjectMeta.Labels[fdbv1beta2.PodTemplateGenerationLabel]).
+						To(Equal(pod.ObjectMeta.Labels[fdbv1beta2.PodTemplateGenerationLabel]))
+				})
+
+				It("should set different label values on pods of distinct classes", func() {
+					logPod, logErr := GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassLog, 1),
+					)
+					Expect(logErr).NotTo(HaveOccurred())
+					Expect(logPod.ObjectMeta.Labels[fdbv1beta2.PodTemplateGenerationLabel]).
+						NotTo(Equal(pod.ObjectMeta.Labels[fdbv1beta2.PodTemplateGenerationLabel]))
 				})
 			})
 
