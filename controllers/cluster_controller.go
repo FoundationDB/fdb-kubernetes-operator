@@ -153,6 +153,10 @@ type FoundationDBClusterReconciler struct {
 	MinimumAgeForTerminalPodDeletion time.Duration
 	// Defines the threshold for the high run loop busy condition, the default is 1.0.
 	HighRunLoopBusyThreshold float64
+	// AllowedPodModifications defines the pod modification that are allowed for the user provided configuration. If a field
+	// is unset in AllowedPodModifications, we allow everything to not break the current setups. In a new major release we could
+	// change this and enforce that fields are only allowed to change if the according AllowedPodModifications is set.
+	AllowedPodModifications *fdbv1beta2.AllowedPodModifications
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -222,7 +226,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 
-	err = cluster.Validate()
+	err = cluster.Validate(r.AllowedPodModifications)
 	if err != nil {
 		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
 		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)

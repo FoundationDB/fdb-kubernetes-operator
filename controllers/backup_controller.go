@@ -30,6 +30,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,6 +50,10 @@ type FoundationDBBackupReconciler struct {
 	InSimulation           bool
 	DatabaseClientProvider fdbadminclient.DatabaseClientProvider
 	ServerSideApply        bool
+	// AllowedPodModifications defines the pod modification that are allowed for the user provided configuration. If a field
+	// is unset in AllowedPodModifications, we allow everything to not break the current setups. In a new major release we could
+	// change this and enforce that fields are only allowed to change if the according AllowedPodModifications is set.
+	AllowedPodModifications *fdbv1beta2.AllowedPodModifications
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -105,6 +110,17 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 	// finalizer.
 	if backup.DeletionTimestamp != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+	}
+
+	err = backup.Validate(r.AllowedPodModifications)
+	if err != nil {
+		r.Recorder.Event(
+			backup,
+			corev1.EventTypeWarning,
+			"FoundationDBBackup not valid",
+			err.Error(),
+		)
+		return ctrl.Result{}, fmt.Errorf("FoundationDBBackup is not valid: %w", err)
 	}
 
 	for _, subReconciler := range backupSubReconcilers {

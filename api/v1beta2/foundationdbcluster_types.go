@@ -3319,9 +3319,11 @@ func (cluster *FoundationDBCluster) GetCrashLoopContainerProcessGroups() map[str
 	return crashLoopTargets
 }
 
-// Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are
-// found all of them will be returned in a single error.
-func (cluster *FoundationDBCluster) Validate() error {
+// Validate checks if all settings in the FoundationDBCluster are valid, if not an error will be returned.
+// If multiple issues are found all of them will be returned in a single error.
+func (cluster *FoundationDBCluster) Validate(
+	allowedPodModifications *AllowedPodModifications,
+) error {
 	var validations []string
 
 	// Check if the provided storage engine is valid for the defined FDB version.
@@ -3385,6 +3387,25 @@ func (cluster *FoundationDBCluster) Validate() error {
 				DatabaseInteractionModeMgmtAPI,
 			),
 		)
+	}
+
+	// Verify if any of the user provided pod specs contains forbidden modifications.
+	for processClass, settings := range cluster.Spec.Processes {
+		if settings.PodTemplate == nil {
+			continue
+		}
+
+		err = PodSpecIsSanitized(&settings.PodTemplate.Spec, allowedPodModifications)
+		if err != nil {
+			validations = append(
+				validations,
+				fmt.Sprintf(
+					"Forbidden PodSpec for %s: %s",
+					processClass,
+					err,
+				),
+			)
+		}
 	}
 
 	if len(validations) == 0 {

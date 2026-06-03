@@ -79,6 +79,10 @@ apiVersion: apps/v1
                value: /usr/bin/fdb/primary/lib
 ```
 
+## Restricting Pod Template Modifications
+
+In multi-tenant environments where CR-write access is granted to less-trusted users, you can restrict which `podTemplate` fields those users may set. See [Restricting Pod Template Modifications](pod_template_restrictions.md) for the full configuration reference.
+
 ## Next
 
 You can continue on to the [next section](replacements_and_deletions.md) or go back to the [table of contents](index.md).
