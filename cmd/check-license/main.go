@@ -143,6 +143,11 @@ func isGoSource(path, name string) bool {
 		return false
 	}
 
+	// Should be ignored as it already has an Apache header.
+	if strings.Contains(filepath.ToSlash(path), "cmd/po-docgen") {
+		return false
+	}
+
 	return true
 }
 

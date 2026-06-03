@@ -80,7 +80,7 @@ endif
 
 all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
 
-.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint
+.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint check-license fix-license
 
 deps: $(BUILD_DEPS)
 
@@ -243,6 +243,15 @@ bin/lint: $(GOLANGCI_LINT) ${GO_SRC}
 	$(GOLANGCI_LINT) run ./...
 	@mkdir -p bin
 	@touch $@
+
+check-license: bin/check-license
+	bin/check-license
+
+fix-license: bin/check-license
+	bin/check-license --fix
+
+bin/check-license: cmd/check-license/main.go
+	go build -o $@ ./cmd/check-license/
 
 vulncheck: bin/govulncheck
 
