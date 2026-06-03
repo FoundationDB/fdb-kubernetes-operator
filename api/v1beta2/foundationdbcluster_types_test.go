@@ -5119,10 +5119,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		DescribeTable("it should return if the cluster is valid",
 			func(cluster *FoundationDBCluster, expected error) {
 				if expected == nil {
-					Expect(cluster.Validate()).NotTo(HaveOccurred())
+					Expect(cluster.Validate(nil)).NotTo(HaveOccurred())
 					return
 				}
-				Expect(cluster.Validate()).To(Equal(expected))
+				Expect(cluster.Validate(nil)).To(Equal(expected))
 			},
 			Entry("valid cluster spec",
 				&FoundationDBCluster{
@@ -5252,6 +5252,191 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				fmt.Errorf("version: 7.0.0 is not supported, minimum supported version is: 7.1.0"),
 			),
 		)
+
+		DescribeTable("it should validate AllowedPodModifications against pod templates",
+			func(cluster *FoundationDBCluster, mods *AllowedPodModifications, expected error) {
+				if expected == nil {
+					Expect(cluster.Validate(mods)).NotTo(HaveOccurred())
+					return
+				}
+				Expect(cluster.Validate(mods)).To(Equal(expected))
+			},
+			Entry("valid cluster, nil modifications",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+					},
+				},
+				nil,
+				nil,
+			),
+			Entry("valid cluster, no pod template defined",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+					},
+				},
+				&AllowedPodModifications{AllowHostNetwork: ptr.To(false)},
+				nil,
+			),
+			Entry(
+				"forbidden hostNetwork in storage pod template",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassStorage: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{HostNetwork: true},
+								},
+							},
+						},
+					},
+				},
+				&AllowedPodModifications{AllowHostNetwork: ptr.To(false)},
+				fmt.Errorf(
+					"Forbidden PodSpec for storage: spec.HostNetwork is set to true, which is forbidden",
+				),
+			),
+			Entry("allowed hostNetwork in storage pod template",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassStorage: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{HostNetwork: true},
+								},
+							},
+						},
+					},
+				},
+				&AllowedPodModifications{AllowHostNetwork: ptr.To(true)},
+				nil,
+			),
+			Entry(
+				"forbidden serviceAccountName in pod template",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassStorage: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{ServiceAccountName: "operator-sa"},
+								},
+							},
+						},
+					},
+				},
+				&AllowedPodModifications{
+					AllowedServiceAccountNames: map[string]None{"other-sa": {}},
+				},
+				fmt.Errorf(
+					"Forbidden PodSpec for storage: spec.ServiceAccountName is set to operator-sa, which is forbidden, allowed values: other-sa",
+				),
+			),
+			Entry("allowed serviceAccountName in pod template",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassStorage: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{ServiceAccountName: "my-sa"},
+								},
+							},
+						},
+					},
+				},
+				&AllowedPodModifications{AllowedServiceAccountNames: map[string]None{"my-sa": {}}},
+				nil,
+			),
+			Entry(
+				"forbidden volume source in pod template",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassStorage: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										Volumes: []corev1.Volume{{
+											Name: "credentials",
+											VolumeSource: corev1.VolumeSource{
+												Secret: &corev1.SecretVolumeSource{
+													SecretName: "my-secret",
+												},
+											},
+										}},
+									},
+								},
+							},
+						},
+					},
+				},
+				&AllowedPodModifications{
+					AllowedAdditionalVolumeSources: map[string]None{"configmap": {}},
+				},
+				fmt.Errorf(
+					"Forbidden PodSpec for storage: spec.Volumes has a secret volume, which is forbidden, allowed volume types: configmap",
+				),
+			),
+		)
+
+		When("multiple process classes have forbidden pod specs", func() {
+			It("should collect all violations into one error", func() {
+				cluster := &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassStorage: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{HostNetwork: true},
+								},
+							},
+							ProcessClassLog: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{HostNetwork: true},
+								},
+							},
+						},
+					},
+				}
+				mods := &AllowedPodModifications{AllowHostNetwork: ptr.To(false)}
+				err := cluster.Validate(mods)
+				Expect(err).To(HaveOccurred())
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring("Forbidden PodSpec for storage: spec.HostNetwork is set to true, which is forbidden")))
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring("Forbidden PodSpec for log: spec.HostNetwork is set to true, which is forbidden")))
+			})
+		})
 	})
 
 	When("adding processes to the no-schedule list", func() {

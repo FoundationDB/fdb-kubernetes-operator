@@ -21,7 +21,6 @@
 package setup
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -33,7 +32,9 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/go-logr/logr"
@@ -68,29 +69,38 @@ type Options struct {
 	CacheDatabaseStatus                bool
 	EnableNodeIndex                    bool
 	ReplaceOnSecurityContextChange     bool
-	MetricsAddr                        string
-	LeaderElectionID                   string
-	LogFile                            string
-	LogFilePermission                  string
-	LabelSelector                      string
-	ClusterLabelKeyForNodeTrigger      string
-	HealthProbeBindAddress             string
-	WatchNamespace                     string
-	PodUpdateMethod                    string
-	CliTimeout                         int
-	MaxCliTimeout                      int
-	MaxConcurrentReconciles            int
-	LogFileMaxSize                     int
-	LogFileMaxAge                      int
-	MaxNumberOfOldLogFiles             int
-	MinimumRecoveryTimeForExclusion    float64
-	MinimumRecoveryTimeForInclusion    float64
-	HighRunLoopBusyThreshold           float64
-	LogFileMinAge                      time.Duration
-	GetTimeout                         time.Duration
-	PostTimeout                        time.Duration
-	MaintenanceListStaleDuration       time.Duration
-	MaintenanceListWaitDuration        time.Duration
+	// AllowAutomountServiceAccountToken defines if the spec.AutomountServiceAccountToken setting in the corev1.PodSpec can
+	// be set to true.
+	AllowAutomountServiceAccountToken bool
+	// AllowHostNetwork defines if a user is allowed to set the HostNetwork setting.
+	AllowHostNetwork bool
+	// AllowHostPID defines if a user is allowed to set the HostPID setting.
+	AllowHostPID bool
+	// AllowHostIPC defines if a user is allowed to set the HostIPC setting.
+	AllowHostIPC                    bool
+	MetricsAddr                     string
+	LeaderElectionID                string
+	LogFile                         string
+	LogFilePermission               string
+	LabelSelector                   string
+	ClusterLabelKeyForNodeTrigger   string
+	HealthProbeBindAddress          string
+	WatchNamespace                  string
+	PodUpdateMethod                 string
+	CliTimeout                      int
+	MaxCliTimeout                   int
+	MaxConcurrentReconciles         int
+	LogFileMaxSize                  int
+	LogFileMaxAge                   int
+	MaxNumberOfOldLogFiles          int
+	MinimumRecoveryTimeForExclusion float64
+	MinimumRecoveryTimeForInclusion float64
+	HighRunLoopBusyThreshold        float64
+	LogFileMinAge                   time.Duration
+	GetTimeout                      time.Duration
+	PostTimeout                     time.Duration
+	MaintenanceListStaleDuration    time.Duration
+	MaintenanceListWaitDuration     time.Duration
 	// GlobalSynchronizationWaitDuration is the wait time for the operator when the synchronization mode is set to
 	// global. The wait time defines the period where no updates for the according action should happen. Increasing the
 	// wait time will increase the chances that all updates are part of the list but will also delay the rollout of
@@ -112,10 +122,20 @@ type Options struct {
 	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
 	MinimumUptimeForConfigurationChanges                  time.Duration
 	MinimumAgeForTerminalPodDeletion                      time.Duration
+	// AllowedAdditionalVolumeSources defines the allowed corev1.VolumeSources a user can define in the user provided
+	// corev1.PodSpec.
+	AllowedAdditionalVolumeSources []string
+	// AllowedAdditionalVolumeMounts defines the allowed volume mounts a user can define in the user provided
+	// corev1.PodSpec.
+	AllowedAdditionalVolumeMounts []string
+
+	// AllowedServiceAccountNames defines the allowed ServiceAccountNames. If set, this limits the ServiceAccountNames
+	// a user can specify.
+	AllowedServiceAccountNames []string
 }
 
 // BindFlags will parse the given flagset for the operator option flags
-func (o *Options) BindFlags(fs *flag.FlagSet) {
+func (o *Options) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(
 		&o.MetricsAddr,
 		"metrics-addr",
@@ -362,6 +382,48 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		30*time.Second,
 		"The minimum age of a terminal pod before it will be deleted.",
 	)
+	fs.BoolVar(
+		&o.AllowAutomountServiceAccountToken,
+		"allow-automount-service-account-token",
+		true,
+		"If set to false the user provided configuration can't set spec.AutomountServiceAccountToken to true.",
+	)
+	fs.BoolVar(
+		&o.AllowHostPID,
+		"allow-host-pid",
+		true,
+		"If set to false the user provided configuration can't set spec.HostPID to true.",
+	)
+	fs.BoolVar(
+		&o.AllowHostIPC,
+		"allow-host-ipc",
+		true,
+		"If set to false the user provided configuration can't set spec.HostIPC to true.",
+	)
+	fs.BoolVar(
+		&o.AllowHostNetwork,
+		"allow-host-network",
+		true,
+		"If set to false the user provided configuration can't set spec.HostNetwork to true.",
+	)
+	fs.StringArrayVar(
+		&o.AllowedAdditionalVolumeSources,
+		"allowed-additional-volume-sources",
+		nil,
+		"If set, the user provided configuration can only contain volumes of the allowed volume source type, e.g. emptyDir.",
+	)
+	fs.StringArrayVar(
+		&o.AllowedAdditionalVolumeMounts,
+		"allowed-additional-volume-mounts",
+		nil,
+		"If set, the user provided configuration can only contain volume mounts for the allowed volumes.",
+	)
+	fs.StringArrayVar(
+		&o.AllowedServiceAccountNames,
+		"allowed-service-account-names",
+		nil,
+		"If set, the user provided configuration can only contain a spec spec.ServiceAccountName from the allowed names.",
+	)
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -476,6 +538,7 @@ func StartManager(
 		os.Exit(1)
 	}
 
+	allowedPodModifications := operatorOpts.generateAllowedPodModifications()
 	if clusterReconciler != nil {
 		clusterReconciler.Client = mgr.GetClient()
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
@@ -505,6 +568,8 @@ func StartManager(
 		clusterReconciler.MinimumUptimeForCoordinatorChangeWithUndesiredProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithUndesiredProcess
 		clusterReconciler.MinimumUptimeForConfigurationChanges = operatorOpts.MinimumUptimeForConfigurationChanges
 		clusterReconciler.MinimumAgeForTerminalPodDeletion = operatorOpts.MinimumAgeForTerminalPodDeletion
+		clusterReconciler.AllowedPodModifications = allowedPodModifications
+
 		// If the provided PodLifecycleManager supports the update method, we can set the desired update method, otherwise the
 		// update method will be ignored.
 		castedPodManager, ok := clusterReconciler.PodLifecycleManager.(podmanager.PodLifecycleManagerWithPodUpdateMethod)
@@ -538,6 +603,7 @@ func StartManager(
 		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
 		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
 		backupReconciler.ServerSideApply = operatorOpts.ServerSideApply
+		backupReconciler.AllowedPodModifications = allowedPodModifications
 
 		if err := backupReconciler.SetupWithManager(
 			mgr,
@@ -582,6 +648,39 @@ func StartManager(
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("setup manager")
 	return mgr, nil
+}
+
+// generateAllowedPodModifications will generate the *internal.AllowedPodModifications based on the provided configuration.
+func (o *Options) generateAllowedPodModifications() *fdbv1beta2.AllowedPodModifications {
+	allowedPodModifications := &fdbv1beta2.AllowedPodModifications{
+		AllowAutomountServiceAccountToken: ptr.To(o.AllowAutomountServiceAccountToken),
+		AllowHostNetwork:                  ptr.To(o.AllowHostNetwork),
+		AllowHostPID:                      ptr.To(o.AllowHostPID),
+		AllowHostIPC:                      ptr.To(o.AllowHostIPC),
+		AllowedServiceAccountNames:        map[string]fdbv1beta2.None{},
+		AllowedAdditionalVolumeSources:    map[string]fdbv1beta2.None{},
+		AllowedAdditionalVolumeMounts:     map[string]fdbv1beta2.None{},
+	}
+
+	if len(o.AllowedServiceAccountNames) > 0 {
+		for _, allowedServiceAccountName := range o.AllowedServiceAccountNames {
+			allowedPodModifications.AllowedServiceAccountNames[allowedServiceAccountName] = fdbv1beta2.None{}
+		}
+	}
+
+	if len(o.AllowedAdditionalVolumeSources) > 0 {
+		for _, allowedAdditionalVolumeSource := range o.AllowedAdditionalVolumeSources {
+			allowedPodModifications.AllowedAdditionalVolumeSources[allowedAdditionalVolumeSource] = fdbv1beta2.None{}
+		}
+	}
+
+	if len(o.AllowedAdditionalVolumeMounts) > 0 {
+		for _, allowedAdditionalVolumeMount := range o.AllowedAdditionalVolumeMounts {
+			allowedPodModifications.AllowedAdditionalVolumeMounts[allowedAdditionalVolumeMount] = fdbv1beta2.None{}
+		}
+	}
+
+	return allowedPodModifications
 }
 
 // MoveFDBBinaries moves FDB binaries that are pulled from setup containers into

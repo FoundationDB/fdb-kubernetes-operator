@@ -21,6 +21,7 @@
 package v1beta2
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -519,6 +520,31 @@ func (backup *FoundationDBBackup) GetBackupMode() BackupMode {
 // UseUnifiedImage returns true if the unified image should be used.
 func (backup *FoundationDBBackup) UseUnifiedImage() bool {
 	return ptr.Deref(backup.Spec.ImageType, ImageTypeUnified) == ImageTypeUnified
+}
+
+// Validate checks if all settings in the FoundationDBBackup are valid, if not an error will be returned.
+// If multiple issues are found all of them will be returned in a single error.
+func (backup *FoundationDBBackup) Validate(allowedPodModifications *AllowedPodModifications) error {
+	var validations []string
+
+	if backup.Spec.PodTemplateSpec != nil {
+		err := PodSpecIsSanitized(&backup.Spec.PodTemplateSpec.Spec, allowedPodModifications)
+		if err != nil {
+			validations = append(
+				validations,
+				fmt.Sprintf(
+					"Forbidden PodSpec: %s",
+					err,
+				),
+			)
+		}
+	}
+
+	if len(validations) == 0 {
+		return nil
+	}
+
+	return errors.New(strings.Join(validations, ", "))
 }
 
 // parseAccountName will parse the accountName and return a *url.URL for the getURL method.
