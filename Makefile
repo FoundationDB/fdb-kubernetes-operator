@@ -41,6 +41,8 @@ GO_LINES_PKG=github.com/golangci/golines@v0.14.0
 GO_LINES=$(GOBIN)/golines
 GO_IMPORTS_PKG=golang.org/x/tools/cmd/goimports@v0.34.0
 GO_IMPORTS=$(GOBIN)/goimports
+GO_VULN_CHECK_PKG=golang.org/x/vuln/cmd/govulncheck@latest
+GO_VULN_CHECK=$(GOBIN)/govulncheck
 
 BUILD_DEPS?=
 BUILDER?="docker"
@@ -64,6 +66,7 @@ $(eval $(call godep,kustomize,KUSTOMIZE))
 $(eval $(call godep,goreleaser,GORELEASER))
 $(eval $(call godep,golines,GO_LINES))
 $(eval $(call godep,goimports,GO_IMPORTS))
+$(eval $(call godep,govulncheck,GO_VULN_CHECK))
 
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go" -not -name ".\#*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
@@ -238,6 +241,13 @@ lint: bin/lint
 
 bin/lint: $(GOLANGCI_LINT) ${GO_SRC}
 	$(GOLANGCI_LINT) run ./...
+	@mkdir -p bin
+	@touch $@
+
+vulncheck: bin/govulncheck
+
+bin/govulncheck: ${GO_VULN_CHECK} ${GO_SRC}
+	$(GO_VULN_CHECK) ./...
 	@mkdir -p bin
 	@touch $@
 
