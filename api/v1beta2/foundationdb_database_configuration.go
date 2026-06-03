@@ -76,6 +76,7 @@ type DatabaseConfiguration struct {
 
 	// PerpetualStorageWiggleLocality if defined the specified locality will be migrated.
 	// Format is: <<LOCALITY_KEY>:<LOCALITY_VALUE>|0>
+	// +kubebuilder:validation:Pattern=`^([\w.-]+:[\w.-]+|0)$`
 	PerpetualStorageWiggleLocality *string `json:"perpetual_storage_wiggle_locality,omitempty"`
 
 	// PerpetualStorageWiggleEngine defines the perpetual storage engine type.

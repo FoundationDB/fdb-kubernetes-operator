@@ -384,6 +384,12 @@ func (client *cliAdminClient) ConfigureDatabase(
 		configurationString = "new " + configurationString
 	}
 
+	// Ensure the provided configuration string doesn't contain any invalid characters, e.g. to run another fdbcli
+	// command.
+	if strings.ContainsAny(configurationString, ";\n\r") {
+		return fmt.Errorf("configuration string contains invalid characters")
+	}
+
 	_, err = client.runCommand(
 		cliCommand{command: fmt.Sprintf("configure %s", configurationString)},
 	)

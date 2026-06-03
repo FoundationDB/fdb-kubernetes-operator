@@ -1325,6 +1325,106 @@ protocol fdb00b071010000`,
 			).To(BeNumerically(">", 0), "coordinator changes counter should be incremented after a coordinator change")
 		})
 	})
+
+	When("changing the configuration", func() {
+		var cliClient *cliAdminClient
+		var mockRunner *mockCommandRunner
+		var newDatabase bool
+		var configuration *fdbv1beta2.DatabaseConfiguration
+		var configurationErr error
+
+		BeforeEach(func() {
+			mockRunner = &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: []string{""},
+			}
+
+			cliClient = &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: "test",
+					},
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.3.1",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion:   "7.3.1",
+						ConnectionString: "abc:dfg@test:4500",
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+				fdbLibClient: &mockFdbLibClient{
+					mockedOutput: []byte(""),
+				},
+			}
+
+		})
+
+		JustBeforeEach(func() {
+			configurationErr = cliClient.ConfigureDatabase(*configuration, newDatabase)
+		})
+
+		When("the database is not yet configured with the default configuration", func() {
+			BeforeEach(func() {
+				newDatabase = true
+				configuration = &fdbv1beta2.DatabaseConfiguration{}
+			})
+
+			It("should configure the database", func() {
+				Expect(configurationErr).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs).To(HaveLen(1))
+				Expect(
+					mockRunner.receivedArgs[0][:2],
+				).To(Equal([]string{"--exec", "configure new   usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[]"}))
+			})
+
+			When("invalid input is provided", func() {
+				BeforeEach(func() {
+					newDatabase = true
+					configuration = &fdbv1beta2.DatabaseConfiguration{
+						PerpetualStorageWiggleLocality: ptr.To("; status details\n"),
+					}
+				})
+
+				It("should not configure the database and return an error", func() {
+					Expect(configurationErr).To(HaveOccurred())
+					Expect(mockRunner.receivedArgs).To(BeEmpty())
+				})
+			})
+		})
+
+		When("the database is already configured", func() {
+			BeforeEach(func() {
+				newDatabase = false
+				configuration = &fdbv1beta2.DatabaseConfiguration{}
+			})
+
+			It("should configure the database", func() {
+				Expect(configurationErr).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs).To(HaveLen(1))
+				Expect(
+					mockRunner.receivedArgs[0][:2],
+				).To(Equal([]string{"--exec", "configure   usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[]"}))
+			})
+
+			When("invalid input is provided", func() {
+				BeforeEach(func() {
+					newDatabase = true
+					configuration = &fdbv1beta2.DatabaseConfiguration{
+						PerpetualStorageWiggleLocality: ptr.To("; status details\n"),
+					}
+				})
+
+				It("should not configure the database and return an error", func() {
+					Expect(configurationErr).To(HaveOccurred())
+					Expect(mockRunner.receivedArgs).To(BeEmpty())
+				})
+			})
+		})
+
+	})
 })
 
 // getCounterValue extracts the current value of a prometheus counter for specific labels

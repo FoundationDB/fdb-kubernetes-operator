@@ -324,6 +324,7 @@ spec:
                     maxLength: 100
                     type: string
                   perpetual_storage_wiggle_locality:
+                    pattern: ^([\w.-]+:[\w.-]+|0)$
                     type: string
                   proxies:
                     type: integer
@@ -4714,6 +4715,7 @@ spec:
                     maxLength: 100
                     type: string
                   perpetual_storage_wiggle_locality:
+                    pattern: ^([\w.-]+:[\w.-]+|0)$
                     type: string
                   proxies:
                     type: integer
