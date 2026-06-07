@@ -153,10 +153,10 @@ type JVMChaosStatus struct {
 // JVMChaos is the Schema for the jvmchaos API
 type JVMChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   JVMChaosSpec   `json:"spec,omitempty"`
-	Status JVMChaosStatus `json:"status,omitempty"`
+	Spec   JVMChaosSpec   `json:"spec"`
+	Status JVMChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithSelector = (*JVMChaos)(nil)
@@ -166,8 +166,8 @@ func init() {
 	SchemeBuilder.Register(&JVMChaos{}, &JVMChaosList{})
 }
 
-func (obj *JVMChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (obj *JVMChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &obj.Spec.ContainerSelector,
 	}
 }

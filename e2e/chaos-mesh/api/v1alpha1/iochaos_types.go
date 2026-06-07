@@ -27,10 +27,10 @@ import (
 // IOChaos is the Schema for the iochaos API
 type IOChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   IOChaosSpec   `json:"spec,omitempty"`
-	Status IOChaosStatus `json:"status,omitempty"`
+	Spec   IOChaosSpec   `json:"spec"`
+	Status IOChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithCustomStatus = (*IOChaos)(nil)
@@ -100,12 +100,12 @@ type IOChaosStatus struct {
 	Instances map[string]int64 `json:"instances,omitempty"`
 }
 
-func (obj *IOChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (obj *IOChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &obj.Spec.ContainerSelector,
 	}
 }
 
-func (obj *IOChaos) GetCustomStatus() interface{} {
+func (obj *IOChaos) GetCustomStatus() any {
 	return &obj.Status.Instances
 }

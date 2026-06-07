@@ -190,11 +190,11 @@ const (
 // PodIOChaos is the Schema for the podiochaos API
 type PodIOChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec PodIOChaosSpec `json:"spec,omitempty"`
+	Spec PodIOChaosSpec `json:"spec"`
 
-	Status PodIOChaosStatus `json:"status,omitempty"`
+	Status PodIOChaosStatus `json:"status"`
 }
 
 type PodIOChaosStatus struct {
@@ -213,6 +213,6 @@ type PodIOChaosStatus struct {
 // PodIOChaosList contains a list of PodIOChaos
 type PodIOChaosList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []PodIOChaos `json:"items"`
 }

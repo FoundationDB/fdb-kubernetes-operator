@@ -27,10 +27,10 @@ import (
 // AWSChaos is the Schema for the awschaos API
 type AWSChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	Spec   AWSChaosSpec   `json:"spec"`
-	Status AWSChaosStatus `json:"status,omitempty"`
+	Status AWSChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithSelector = (*AWSChaos)(nil)
@@ -97,8 +97,8 @@ type AWSSelector struct {
 	DeviceName *string `json:"deviceName,omitempty" webhook:"AWSDeviceName,nilable"`
 }
 
-func (obj *AWSChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (obj *AWSChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &obj.Spec.AWSSelector,
 	}
 }

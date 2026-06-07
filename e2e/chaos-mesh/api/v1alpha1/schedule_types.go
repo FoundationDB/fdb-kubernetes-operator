@@ -26,11 +26,11 @@ const KindSchedule = "Schedule"
 // Schedule is the cronly schedule object
 type Schedule struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	Spec ScheduleSpec `json:"spec"`
 
-	Status ScheduleStatus `json:"status,omitempty"`
+	Status ScheduleStatus `json:"status"`
 }
 
 type ConcurrencyPolicy string
@@ -70,7 +70,7 @@ type ScheduleStatus struct {
 	Active []corev1.ObjectReference `json:"active,omitempty"`
 
 	// +nullable
-	LastScheduleTime metav1.Time `json:"time,omitempty"`
+	LastScheduleTime metav1.Time `json:"time"`
 }
 
 type ScheduleTemplateType string
@@ -85,14 +85,13 @@ func (in *Schedule) IsPaused() bool {
 // ScheduleList contains a list of Schedule
 type ScheduleList struct {
 	metav1.TypeMeta `           json:",inline"`
-	metav1.ListMeta `           json:"metadata,omitempty"`
+	metav1.ListMeta `           json:"metadata"`
 	Items           []Schedule `json:"items"`
 }
 
 func (in *ScheduleList) GetItems() []GenericChaos {
 	var result []GenericChaos
 	for _, item := range in.Items {
-		item := item
 		result = append(result, &item)
 	}
 	return result

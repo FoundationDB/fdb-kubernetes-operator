@@ -24,13 +24,13 @@ import (
 // TimeChaos is the Schema for the timechaos API
 type TimeChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec defines the behavior of a time chaos experiment
 	Spec TimeChaosSpec `json:"spec"`
 
 	// Most recently observed status of the time chaos experiment
-	Status TimeChaosStatus `json:"status,omitempty"`
+	Status TimeChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithSelector = (*TimeChaos)(nil)
@@ -63,8 +63,8 @@ type TimeChaosStatus struct {
 	ChaosStatus `json:",inline"`
 }
 
-func (in *TimeChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (in *TimeChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &in.Spec.ContainerSelector,
 	}
 }

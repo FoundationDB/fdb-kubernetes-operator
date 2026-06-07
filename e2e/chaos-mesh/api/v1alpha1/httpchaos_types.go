@@ -24,10 +24,10 @@ import (
 // HTTPChaos is the Schema for the HTTPchaos API
 type HTTPChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   HTTPChaosSpec   `json:"spec,omitempty"`
-	Status HTTPChaosStatus `json:"status,omitempty"`
+	Spec   HTTPChaosSpec   `json:"spec"`
+	Status HTTPChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithCustomStatus = (*HTTPChaos)(nil)
@@ -80,12 +80,12 @@ type HTTPChaosStatus struct {
 	Instances map[string]int64 `json:"instances,omitempty"`
 }
 
-func (obj *HTTPChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (obj *HTTPChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &obj.Spec.PodSelector,
 	}
 }
 
-func (obj *HTTPChaos) GetCustomStatus() interface{} {
+func (obj *HTTPChaos) GetCustomStatus() any {
 	return &obj.Status.Instances
 }

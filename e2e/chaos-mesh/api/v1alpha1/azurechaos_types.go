@@ -27,10 +27,10 @@ import (
 // AzureChaos is the Schema for the azurechaos API
 type AzureChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	Spec   AzureChaosSpec   `json:"spec"`
-	Status AzureChaosStatus `json:"status,omitempty"`
+	Status AzureChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithSelector = (*AzureChaos)(nil)
@@ -91,8 +91,8 @@ type AzureSelector struct {
 	RemoteCluster string `json:"remoteCluster,omitempty"`
 }
 
-func (obj *AzureChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (obj *AzureChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &obj.Spec.AzureSelector,
 	}
 }

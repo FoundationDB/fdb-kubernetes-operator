@@ -41,13 +41,13 @@ const (
 // DNSChaos is the Schema for the networkchaos API
 type DNSChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec defines the behavior of a pod chaos experiment
 	Spec DNSChaosSpec `json:"spec"`
 
 	// Most recently observed status of the chaos experiment about pods
-	Status DNSChaosStatus `json:"status,omitempty"`
+	Status DNSChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithSelector = (*DNSChaos)(nil)
@@ -83,8 +83,8 @@ type DNSChaosStatus struct {
 	ChaosStatus `json:",inline"`
 }
 
-func (obj *DNSChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (obj *DNSChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &obj.Spec.ContainerSelector,
 	}
 }

@@ -28,13 +28,13 @@ import (
 // StressChaos is the Schema for the stresschaos API
 type StressChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec defines the behavior of a time chaos experiment
 	Spec StressChaosSpec `json:"spec"`
 
 	// Most recently observed status of the time chaos experiment
-	Status StressChaosStatus `json:"status,omitempty"`
+	Status StressChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithCustomStatus = (*StressChaos)(nil)
@@ -169,12 +169,12 @@ type CPUStressor struct {
 	Options []string `json:"options,omitempty"`
 }
 
-func (obj *StressChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (obj *StressChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &obj.Spec.ContainerSelector,
 	}
 }
 
-func (obj *StressChaos) GetCustomStatus() interface{} {
+func (obj *StressChaos) GetCustomStatus() any {
 	return &obj.Status.Instances
 }

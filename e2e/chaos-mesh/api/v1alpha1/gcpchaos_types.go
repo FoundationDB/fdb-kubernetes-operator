@@ -27,10 +27,10 @@ import (
 // GCPChaos is the Schema for the gcpchaos API
 type GCPChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	Spec   GCPChaosSpec   `json:"spec"`
-	Status GCPChaosStatus `json:"status,omitempty"`
+	Status GCPChaosStatus `json:"status"`
 }
 
 var _ InnerObjectWithCustomStatus = (*GCPChaos)(nil)
@@ -84,8 +84,8 @@ type GCPSelector struct {
 	DeviceNames []string `json:"deviceNames,omitempty" webhook:"GCPDeviceNames,nilable"`
 }
 
-func (obj *GCPChaos) GetSelectorSpecs() map[string]interface{} {
-	return map[string]interface{}{
+func (obj *GCPChaos) GetSelectorSpecs() map[string]any {
+	return map[string]any{
 		".": &obj.Spec.GCPSelector,
 	}
 }
@@ -107,6 +107,6 @@ type GCPChaosStatus struct {
 	AttachedDisksStrings []string `json:"attachedDiskStrings,omitempty"`
 }
 
-func (obj *GCPChaos) GetCustomStatus() interface{} {
+func (obj *GCPChaos) GetCustomStatus() any {
 	return &obj.Status.AttachedDisksStrings
 }

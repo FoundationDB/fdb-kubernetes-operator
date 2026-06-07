@@ -28,13 +28,13 @@ import (
 // PodNetworkChaos is the Schema for the PodNetworkChaos API
 type PodNetworkChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec defines the behavior of a pod chaos experiment
 	Spec PodNetworkChaosSpec `json:"spec"`
 
 	// Most recently observed status of the chaos experiment about pods
-	Status PodNetworkChaosStatus `json:"status,omitempty"`
+	Status PodNetworkChaosStatus `json:"status"`
 }
 
 // PodNetworkChaosSpec defines the desired state of PodNetworkChaos
@@ -183,6 +183,6 @@ type PodNetworkChaosStatus struct {
 // PodNetworkChaosList contains a list of PodNetworkChaos
 type PodNetworkChaosList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []PodNetworkChaos `json:"items"`
 }
