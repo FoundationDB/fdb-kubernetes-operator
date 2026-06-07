@@ -258,13 +258,13 @@ func (client *MockClient) Delete(
 	return client.fakeClient.Delete(ctx, object, options...)
 }
 
-func getMapFromObject(object ctrlClient.Object) (map[string]interface{}, error) {
+func getMapFromObject(object ctrlClient.Object) (map[string]any, error) {
 	jsonData, err := json.Marshal(object)
 	if err != nil {
 		return nil, err
 	}
 
-	newMap := make(map[string]interface{})
+	newMap := make(map[string]any)
 	err = json.Unmarshal(jsonData, &newMap)
 	if err != nil {
 		return nil, err
@@ -467,7 +467,7 @@ func (client *MockClient) Eventf(
 	eventType string,
 	reason string,
 	messageFormat string,
-	args ...interface{},
+	args ...any,
 ) {
 	client.createEvent(buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...)))
 }
@@ -479,7 +479,7 @@ func (client *MockClient) PastEventf(
 	eventType string,
 	reason string,
 	messageFormat string,
-	args ...interface{},
+	args ...any,
 ) {
 	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
 	event.EventTime = metav1.MicroTime(timestamp)
@@ -493,7 +493,7 @@ func (client *MockClient) AnnotatedEventf(
 	eventType string,
 	reason string,
 	messageFormat string,
-	args ...interface{},
+	args ...any,
 ) {
 	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
 	event.ObjectMeta.Annotations = annotations

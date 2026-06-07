@@ -738,7 +738,7 @@ func checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(
 	}
 
 	log.Println("Getting the status from:", clientPod.Name)
-	for retry := 0; retry < 5; retry++ {
+	for range 5 {
 		err = getStatusAndCheckIfClusterShouldBeRecovered(ctx, kubeClient, config, clientPod)
 		if err == nil {
 			break

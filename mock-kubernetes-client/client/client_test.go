@@ -558,7 +558,7 @@ var _ = Describe("[mock client]", func() {
 
 					expectedReplicas := ptr.Deref(replicaSet.Spec.Replicas, 1)
 
-					for i := int32(0); i < expectedReplicas; i++ {
+					for i := range expectedReplicas {
 						err := client.Create(ctx, &corev1.Pod{
 							ObjectMeta: metav1.ObjectMeta{
 								Namespace: replicaSet.Namespace,
@@ -616,7 +616,7 @@ var _ = Describe("[mock client]", func() {
 
 				expectedReplicas := ptr.Deref(replicaSet.Spec.Replicas, 1)
 
-				for i := int32(0); i < expectedReplicas; i++ {
+				for i := range expectedReplicas {
 					err := client.Create(ctx, &corev1.Pod{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: replicaSet.Namespace,

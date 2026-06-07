@@ -555,7 +555,7 @@ func chooseRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {
 		return nil, fmt.Errorf("no pods available")
 	}
 
-	for tries := 0; tries < 10; tries++ {
+	for range 10 {
 		candidate := items[rand.IntN(len(items))]
 		if candidate.GetDeletionTimestamp().IsZero() {
 			return ptr.To(candidate), nil

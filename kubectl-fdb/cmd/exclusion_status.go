@@ -136,7 +136,7 @@ kubectl fdb get exclusion-status c1 --interval=5m
 }
 
 // isTerminal checks if output is to a terminal (not piped)
-func isTerminal(out interface{}) bool {
+func isTerminal(out any) bool {
 	if f, ok := out.(*os.File); ok {
 		return term.IsTerminal(int(f.Fd()))
 	}
@@ -145,7 +145,7 @@ func isTerminal(out interface{}) bool {
 }
 
 // getTerminalWidth returns the width of the terminal, or a default if unavailable
-func getTerminalWidth(out interface{}) int {
+func getTerminalWidth(out any) int {
 	if f, ok := out.(*os.File); ok {
 		width, _, err := term.GetSize(int(f.Fd()))
 		if err != nil || width <= 0 {
