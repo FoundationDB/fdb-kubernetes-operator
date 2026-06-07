@@ -124,7 +124,7 @@ const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 // GenerateRandomString can be used to generate a random string with length n
 func GenerateRandomString(n int) string {
 	var res strings.Builder
-	for i := 0; i < n; i++ {
+	for range n {
 		res.WriteByte(letterBytes[rand.IntN(len(letterBytes))])
 	}
 

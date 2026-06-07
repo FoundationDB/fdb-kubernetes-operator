@@ -23,6 +23,7 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -124,9 +125,7 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 	}
 
 	if cluster.Spec.ConfigMap != nil {
-		for k, v := range cluster.Spec.ConfigMap.Data {
-			data[k] = v
-		}
+		maps.Copy(data, cluster.Spec.ConfigMap.Data)
 	}
 
 	metadata := getConfigMapMetadata(cluster)

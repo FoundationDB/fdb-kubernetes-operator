@@ -24,6 +24,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -222,9 +223,7 @@ func ChooseDistributedProcesses(
 	currentLimits := make(map[string]int, len(fields))
 
 	if constraint.HardLimits != nil {
-		for field, limit := range constraint.HardLimits {
-			hardLimits[field] = limit
-		}
+		maps.Copy(hardLimits, constraint.HardLimits)
 	}
 
 	for _, field := range fields {
