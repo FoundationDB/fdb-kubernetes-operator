@@ -69,10 +69,7 @@ func (s updateBackupStatus) reconcile(
 	}
 
 	if currentBackupDeployment != nil && desiredBackupDeployment != nil {
-		status.AgentCount = int(currentBackupDeployment.Status.ReadyReplicas)
-		if status.AgentCount > int(currentBackupDeployment.Status.UpdatedReplicas) {
-			status.AgentCount = int(currentBackupDeployment.Status.UpdatedReplicas)
-		}
+		status.AgentCount = min(int(currentBackupDeployment.Status.ReadyReplicas), int(currentBackupDeployment.Status.UpdatedReplicas))
 		generationsMatch := currentBackupDeployment.Status.ObservedGeneration == currentBackupDeployment.ObjectMeta.Generation
 
 		annotationChange := internal.MergeAnnotations(
