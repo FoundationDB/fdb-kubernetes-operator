@@ -73,13 +73,13 @@ var (
 // PhysicalMachineChaos is the Schema for the physical machine chaos API
 type PhysicalMachineChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the behavior of a physical machine chaos experiment
 	Spec PhysicalMachineChaosSpec `json:"spec"`
 
 	// Most recently observed status of the chaos experiment
-	Status PhysicalMachineChaosStatus `json:"status"`
+	Status PhysicalMachineChaosStatus `json:"status,omitempty"`
 }
 
 // PhysicalMachineChaosSpec defines the desired state of PhysicalMachineChaos
@@ -103,8 +103,8 @@ type PhysicalMachineChaosStatus struct {
 	ChaosStatus `json:",inline"`
 }
 
-func (obj *PhysicalMachineChaos) GetSelectorSpecs() map[string]any {
-	return map[string]any{
+func (obj *PhysicalMachineChaos) GetSelectorSpecs() map[string]interface{} {
+	return map[string]interface{}{
 		".": &obj.Spec.PhysicalMachineSelector,
 	}
 }
@@ -115,7 +115,7 @@ type PhysicalMachineSelector struct {
 	Address []string `json:"address,omitempty"`
 
 	// Selector is used to select physical machines that are used to inject chaos action.
-	Selector PhysicalMachineSelectorSpec `json:"selector"`
+	Selector PhysicalMachineSelectorSpec `json:"selector,omitempty"`
 
 	// Mode defines the mode to run chaos action.
 	// Supported mode: one / all / fixed / fixed-percent / random-max-percent

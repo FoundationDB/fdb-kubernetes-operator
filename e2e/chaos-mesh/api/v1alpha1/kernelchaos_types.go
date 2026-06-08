@@ -24,7 +24,7 @@ import (
 // KernelChaos is the Schema for the kernelchaos API
 type KernelChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the behavior of a kernel chaos experiment
 	Spec KernelChaosSpec `json:"spec"`
@@ -109,8 +109,8 @@ type KernelChaosStatus struct {
 	ChaosStatus `json:",inline"`
 }
 
-func (obj *KernelChaos) GetSelectorSpecs() map[string]any {
-	return map[string]any{
+func (obj *KernelChaos) GetSelectorSpecs() map[string]interface{} {
+	return map[string]interface{}{
 		".": &obj.Spec.PodSelector,
 	}
 }

@@ -16,8 +16,6 @@
 package v1alpha1
 
 import (
-	"slices"
-
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +25,7 @@ import (
 // +chaos-mesh:experiment
 type Workflow struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the behavior of a workflow
 	Spec WorkflowSpec `json:"spec"`
@@ -87,7 +85,12 @@ func IsChaosTemplateType(target TemplateType) bool {
 }
 
 func contains(arr []TemplateType, target TemplateType) bool {
-	return slices.Contains(arr, target)
+	for _, item := range arr {
+		if item == target {
+			return true
+		}
+	}
+	return false
 }
 
 type Template struct {
@@ -143,13 +146,14 @@ type Task struct {
 
 type WorkflowList struct {
 	metav1.TypeMeta `           json:",inline"`
-	metav1.ListMeta `           json:"metadata"`
+	metav1.ListMeta `           json:"metadata,omitempty"`
 	Items           []Workflow `json:"items"`
 }
 
 func (in *WorkflowList) GetItems() []GenericChaos {
 	var result []GenericChaos
 	for _, item := range in.Items {
+		item := item
 		result = append(result, &item)
 	}
 	return result

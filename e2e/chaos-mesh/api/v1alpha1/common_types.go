@@ -150,13 +150,13 @@ type StatefulObject interface {
 type InnerObjectWithCustomStatus interface {
 	InnerObject
 
-	GetCustomStatus() any
+	GetCustomStatus() interface{}
 }
 
 type InnerObjectWithSelector interface {
 	InnerObject
 
-	GetSelectorSpecs() map[string]any
+	GetSelectorSpecs() map[string]interface{}
 }
 
 type RemoteObject interface {

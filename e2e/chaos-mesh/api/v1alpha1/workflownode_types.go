@@ -31,13 +31,13 @@ const KindWorkflowNode = "WorkflowNode"
 
 type WorkflowNode struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the behavior of a node of workflow
 	Spec WorkflowNodeSpec `json:"spec"`
 
 	// Most recently observed status of the workflow node
-	Status WorkflowNodeStatus `json:"status"`
+	Status WorkflowNodeStatus `json:"status,omitempty"`
 }
 
 type WorkflowNodeSpec struct {
@@ -112,7 +112,7 @@ type WorkflowNodeCondition struct {
 
 type WorkflowNodeList struct {
 	metav1.TypeMeta `               json:",inline"`
-	metav1.ListMeta `               json:"metadata"`
+	metav1.ListMeta `               json:"metadata,omitempty"`
 	Items           []WorkflowNode `json:"items"`
 }
 

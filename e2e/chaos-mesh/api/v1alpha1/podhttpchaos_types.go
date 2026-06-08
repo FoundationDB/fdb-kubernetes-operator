@@ -184,15 +184,15 @@ type PodHttpChaosTLS struct {
 // PodHttpChaos is the Schema for the podhttpchaos API
 type PodHttpChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PodHttpChaosSpec   `json:"spec"`
-	Status PodHttpChaosStatus `json:"status"`
+	Spec   PodHttpChaosSpec   `json:"spec,omitempty"`
+	Status PodHttpChaosStatus `json:"status,omitempty"`
 }
 
 // PodHttpChaosList contains a list of PodHttpChaos
 type PodHttpChaosList struct {
 	metav1.TypeMeta `               json:",inline"`
-	metav1.ListMeta `               json:"metadata"`
+	metav1.ListMeta `               json:"metadata,omitempty"`
 	Items           []PodHttpChaos `json:"items"`
 }

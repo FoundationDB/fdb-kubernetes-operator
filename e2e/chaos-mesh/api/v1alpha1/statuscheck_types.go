@@ -27,13 +27,13 @@ import (
 // +chaos-mesh:base
 type StatusCheck struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the behavior of a status check
 	Spec StatusCheckSpec `json:"spec"`
 
 	// Most recently observed status of status check
-	Status StatusCheckStatus `json:"status"`
+	Status StatusCheckStatus `json:"status,omitempty"`
 }
 
 type StatusCheckMode string
@@ -192,7 +192,7 @@ type HTTPStatusCheck struct {
 // StatusCheckList contains a list of StatusCheck
 type StatusCheckList struct {
 	metav1.TypeMeta `              json:",inline"`
-	metav1.ListMeta `              json:"metadata"`
+	metav1.ListMeta `              json:"metadata,omitempty"`
 	Items           []StatusCheck `json:"items"`
 }
 

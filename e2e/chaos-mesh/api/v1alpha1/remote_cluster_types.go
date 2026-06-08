@@ -26,11 +26,11 @@ import (
 // RemoteCluster defines a remote cluster
 type RemoteCluster struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec RemoteClusterSpec `json:"spec"`
+	Spec RemoteClusterSpec `json:"spec,omitempty"`
 
-	Status RemoteClusterStatus `json:"status"`
+	Status RemoteClusterStatus `json:"status,omitempty"`
 }
 
 // RemoteClusterSpec defines the specification of a remote cluster
@@ -80,6 +80,6 @@ type RemoteClusterCondition struct {
 // RemoteClusterList contains a list of RemoteCluster
 type RemoteClusterList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []RemoteCluster `json:"items"`
 }

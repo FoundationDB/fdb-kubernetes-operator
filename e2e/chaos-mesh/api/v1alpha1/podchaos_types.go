@@ -25,13 +25,13 @@ import (
 // PodChaos is the control script`s spec.
 type PodChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the behavior of a pod chaos experiment
 	Spec PodChaosSpec `json:"spec"`
 
 	// Most recently observed status of the chaos experiment about pods
-	Status PodChaosStatus `json:"status"`
+	Status PodChaosStatus `json:"status,omitempty"`
 }
 
 var _ InnerObjectWithSelector = (*PodChaos)(nil)
@@ -80,14 +80,14 @@ type PodChaosStatus struct {
 	ChaosStatus `json:",inline"`
 }
 
-func (obj *PodChaos) GetSelectorSpecs() map[string]any {
+func (obj *PodChaos) GetSelectorSpecs() map[string]interface{} {
 	switch obj.Spec.Action {
 	case PodKillAction, PodFailureAction:
-		return map[string]any{
+		return map[string]interface{}{
 			".": &obj.Spec.PodSelector,
 		}
 	case ContainerKillAction:
-		return map[string]any{
+		return map[string]interface{}{
 			".": &obj.Spec.ContainerSelector,
 		}
 	}

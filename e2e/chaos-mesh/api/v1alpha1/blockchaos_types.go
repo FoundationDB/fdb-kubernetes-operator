@@ -22,10 +22,10 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // BlockChaos is the Schema for the blockchaos API
 type BlockChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   BlockChaosSpec   `json:"spec"`
-	Status BlockChaosStatus `json:"status"`
+	Status BlockChaosStatus `json:"status,omitempty"`
 }
 
 type BlockChaosAction string
@@ -77,12 +77,12 @@ type BlockChaosStatus struct {
 	InjectionIds map[string]int `json:"ids,omitempty"`
 }
 
-func (obj *BlockChaos) GetSelectorSpecs() map[string]any {
-	return map[string]any{
+func (obj *BlockChaos) GetSelectorSpecs() map[string]interface{} {
+	return map[string]interface{}{
 		".": &obj.Spec.ContainerNodeVolumePathSelector,
 	}
 }
 
-func (obj *BlockChaos) GetCustomStatus() any {
+func (obj *BlockChaos) GetCustomStatus() interface{} {
 	return &obj.Status.InjectionIds
 }

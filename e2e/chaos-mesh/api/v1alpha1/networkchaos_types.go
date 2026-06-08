@@ -27,13 +27,13 @@ import (
 // NetworkChaos is the Schema for the networkchaos API
 type NetworkChaos struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the behavior of a pod chaos experiment
 	Spec NetworkChaosSpec `json:"spec"`
 
 	// Most recently observed status of the chaos experiment about pods
-	Status NetworkChaosStatus `json:"status"`
+	Status NetworkChaosStatus `json:"status,omitempty"`
 }
 
 var _ InnerObjectWithCustomStatus = (*NetworkChaos)(nil)
@@ -177,8 +177,8 @@ type ReorderSpec struct {
 	Gap         int    `json:"gap"`
 }
 
-func (obj *NetworkChaos) GetSelectorSpecs() map[string]any {
-	selectors := map[string]any{
+func (obj *NetworkChaos) GetSelectorSpecs() map[string]interface{} {
+	selectors := map[string]interface{}{
 		".": &obj.Spec.PodSelector,
 	}
 	if obj.Spec.Target != nil {
@@ -187,6 +187,6 @@ func (obj *NetworkChaos) GetSelectorSpecs() map[string]any {
 	return selectors
 }
 
-func (obj *NetworkChaos) GetCustomStatus() any {
+func (obj *NetworkChaos) GetCustomStatus() interface{} {
 	return &obj.Status.Instances
 }
