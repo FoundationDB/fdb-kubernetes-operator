@@ -1119,7 +1119,10 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 
 	if backup.Spec.BackupDeploymentMetadata != nil {
 		maps.Copy(deployment.ObjectMeta.Labels, backup.Spec.BackupDeploymentMetadata.Labels)
-		maps.Copy(deployment.ObjectMeta.Annotations, backup.Spec.BackupDeploymentMetadata.Annotations)
+		maps.Copy(
+			deployment.ObjectMeta.Annotations,
+			backup.Spec.BackupDeploymentMetadata.Annotations,
+		)
 	}
 	deployment.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
 
