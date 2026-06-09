@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"time"
 
@@ -697,13 +698,7 @@ func validateProcessGroups(
 		status.AddServersPerDisk(processCount, processGroup.ProcessClass)
 
 		imageType := internal.GetImageType(pod)
-		imageTypeFound := false
-		for _, currentImageType := range status.ImageTypes {
-			if imageType == currentImageType {
-				imageTypeFound = true
-				break
-			}
-		}
+		imageTypeFound := slices.Contains(status.ImageTypes, imageType)
 		if !imageTypeFound {
 			status.ImageTypes = append(status.ImageTypes, imageType)
 		}

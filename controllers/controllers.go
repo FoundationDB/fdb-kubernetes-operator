@@ -69,7 +69,7 @@ type requeue struct {
 // processRequeue interprets a requeue result from a subreconciler.
 func processRequeue(
 	requeue *requeue,
-	subReconciler interface{},
+	subReconciler any,
 	object runtime.Object,
 	recorder record.EventRecorder,
 	logger logr.Logger,
