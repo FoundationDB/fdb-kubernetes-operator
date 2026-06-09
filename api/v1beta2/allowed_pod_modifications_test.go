@@ -74,7 +74,7 @@ var _ = Describe("AllowedPodModifications", func() {
 		Entry("automount not set in podSpec, token not allowed",
 			&corev1.PodSpec{},
 			&AllowedPodModifications{AllowAutomountServiceAccountToken: ptr.To(false)},
-			Succeed(),
+			MatchError(ContainSubstring("spec.AutomountServiceAccountToken is set to")),
 		),
 		// HostNetwork
 		Entry("hostNetwork=true, AllowHostNetwork not set",

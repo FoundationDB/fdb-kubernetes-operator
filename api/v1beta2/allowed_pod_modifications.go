@@ -62,8 +62,8 @@ func init() {
 }
 
 // AllowedPodModifications defines the pod modification that are allowed for the user provided configuration. If a field
-// is unset in AllowedPodModifications, we allow everything to not break the current setups. In a new major release we could
-// change this and enforce that fields are only allowed to change if the according AllowedPodModifications is set.
+// is unset in AllowedPodModifications, we allow everything to avoid breaking the current setups. In a new major release we could
+// change this and enforce that fields are only allowed to change if the corresponding AllowedPodModifications is set.
 type AllowedPodModifications struct {
 	// AllowedServiceAccountNames defines the allowed ServiceAccountNames. If set, this limits the ServiceAccountNames
 	// a user can specify.
@@ -96,49 +96,37 @@ func PodSpecIsSanitized(
 	}
 
 	// Check if the AutomountServiceAccountToken setting is set, if so, we have to check if the allowedPodModifications
-	// allow to set the setting.
-	if podSpec.AutomountServiceAccountToken != nil {
-		if allowedPodModifications.AllowAutomountServiceAccountToken != nil {
-			if !ptr.Deref(allowedPodModifications.AllowAutomountServiceAccountToken, false) &&
-				ptr.Deref(podSpec.AutomountServiceAccountToken, true) {
-				return fmt.Errorf(
-					"spec.AutomountServiceAccountToken is set to %v, which is forbidden",
-					podSpec.AutomountServiceAccountToken,
-				)
-			}
+	// allow to set the setting. The default value of podSpec.AutomountServiceAccountToken is true.
+	if ptr.Deref(podSpec.AutomountServiceAccountToken, true) {
+		if !ptr.Deref(allowedPodModifications.AllowAutomountServiceAccountToken, true) {
+			return fmt.Errorf(
+				"spec.AutomountServiceAccountToken is set to %v, which is forbidden",
+				ptr.Deref(podSpec.AutomountServiceAccountToken, true),
+			)
 		}
-
-		// If allowedPodModifications.AllowAutomountServiceAccountToken is not set but podSpec.AutomountServiceAccountToken
-		// is set, we don't perform any validation.
 	}
 
 	// Check if the HostNetwork setting is set and if this is actually allowed.
 	if podSpec.HostNetwork {
-		if allowedPodModifications.AllowHostNetwork != nil {
-			if !ptr.Deref(allowedPodModifications.AllowHostNetwork, false) {
-				return fmt.Errorf(
-					"spec.HostNetwork is set to %v, which is forbidden",
-					podSpec.HostNetwork,
-				)
-			}
+		if !ptr.Deref(allowedPodModifications.AllowHostNetwork, true) {
+			return fmt.Errorf(
+				"spec.HostNetwork is set to %v, which is forbidden",
+				podSpec.HostNetwork,
+			)
 		}
 	}
 
 	// Check if the HostIPC setting is set and if this is actually allowed.
 	if podSpec.HostIPC {
-		if allowedPodModifications.AllowHostIPC != nil {
-			if !ptr.Deref(allowedPodModifications.AllowHostIPC, false) {
-				return fmt.Errorf("spec.HostIPC is set to %v, which is forbidden", podSpec.HostIPC)
-			}
+		if !ptr.Deref(allowedPodModifications.AllowHostIPC, true) {
+			return fmt.Errorf("spec.HostIPC is set to %v, which is forbidden", podSpec.HostIPC)
 		}
 	}
 
 	// Check if the HostPID setting is set and if this is actually allowed.
 	if podSpec.HostPID {
-		if allowedPodModifications.AllowHostPID != nil {
-			if !ptr.Deref(allowedPodModifications.AllowHostPID, false) {
-				return fmt.Errorf("spec.HostPID is set to %v, which is forbidden", podSpec.HostPID)
-			}
+		if !ptr.Deref(allowedPodModifications.AllowHostPID, true) {
+			return fmt.Errorf("spec.HostPID is set to %v, which is forbidden", podSpec.HostPID)
 		}
 	}
 
