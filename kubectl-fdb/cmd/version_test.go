@@ -1,9 +1,9 @@
 /*
- * version.go
+ * version_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package cmd
 
 import (

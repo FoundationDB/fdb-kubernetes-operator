@@ -237,7 +237,7 @@ func fieldName(field *ast.Field) string {
 	if field.Tag != nil {
 		jsonTag = reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1]).
 			Get("json")
-			// Delete first and last quotation
+		// Delete first and last quotation
 		if strings.Contains(jsonTag, "inline") {
 			return "-"
 		}
@@ -259,7 +259,7 @@ func fieldRequired(field *ast.Field) bool {
 	if field.Tag != nil {
 		jsonTag = reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1]).
 			Get("json")
-			// Delete first and last quotation
+		// Delete first and last quotation
 		return !strings.Contains(jsonTag, "omitempty")
 	}
 

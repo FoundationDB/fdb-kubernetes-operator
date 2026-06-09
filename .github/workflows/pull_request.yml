@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: sudo dpkg -i fdb.deb
       - name: Run linting and vulnerable dependencies check
-        run: make fmt lint vulncheck
+        run: make fmt lint vulncheck check-license
   build:
     name: Build
     runs-on: ubuntu-latest
