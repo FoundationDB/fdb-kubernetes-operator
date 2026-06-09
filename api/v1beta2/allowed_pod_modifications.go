@@ -38,7 +38,7 @@ var volumeSourceType func(corev1.VolumeSource) string
 // method can be used to get the type of the corev1.VolumeSource. Doing this in the init method will reduce the JSON
 // parsing in the hot path.
 func init() {
-	t := reflect.TypeOf(corev1.VolumeSource{})
+	t := reflect.TypeFor[corev1.VolumeSource]()
 	// The idea is to fetch the name from the json tag, e.g. "secret" for the field "Secret". Since the json tag
 	// values will be used by a user to define the allow list.
 	names := make([]string, t.NumField())
@@ -51,7 +51,7 @@ func init() {
 	volumeSourceType = func(volumeSource corev1.VolumeSource) string {
 		v := reflect.ValueOf(volumeSource)
 		for i := range v.NumField() {
-			if v.Field(i).Kind() == reflect.Ptr && !v.Field(i).IsNil() {
+			if v.Field(i).Kind() == reflect.Pointer && !v.Field(i).IsNil() {
 				return names[i]
 			}
 		}
@@ -97,72 +97,63 @@ func PodSpecIsSanitized(
 
 	// Check if the AutomountServiceAccountToken setting is set, if so, we have to check if the allowedPodModifications
 	// allow to set the setting. The default value of podSpec.AutomountServiceAccountToken is true.
-	if ptr.Deref(podSpec.AutomountServiceAccountToken, true) {
-		if !ptr.Deref(allowedPodModifications.AllowAutomountServiceAccountToken, true) {
-			return fmt.Errorf(
-				"spec.AutomountServiceAccountToken is set to %v, which is forbidden",
-				ptr.Deref(podSpec.AutomountServiceAccountToken, true),
-			)
-		}
+	if ptr.Deref(podSpec.AutomountServiceAccountToken, true) &&
+		!ptr.Deref(allowedPodModifications.AllowAutomountServiceAccountToken, true) {
+		return fmt.Errorf(
+			"spec.AutomountServiceAccountToken is set to %v, which is forbidden",
+			ptr.Deref(podSpec.AutomountServiceAccountToken, true),
+		)
 	}
 
 	// Check if the HostNetwork setting is set and if this is actually allowed.
-	if podSpec.HostNetwork {
-		if !ptr.Deref(allowedPodModifications.AllowHostNetwork, true) {
-			return fmt.Errorf(
-				"spec.HostNetwork is set to %v, which is forbidden",
-				podSpec.HostNetwork,
-			)
-		}
+	if podSpec.HostNetwork && !ptr.Deref(allowedPodModifications.AllowHostNetwork, true) {
+		return fmt.Errorf(
+			"spec.HostNetwork is set to %v, which is forbidden",
+			podSpec.HostNetwork,
+		)
 	}
 
 	// Check if the HostIPC setting is set and if this is actually allowed.
-	if podSpec.HostIPC {
-		if !ptr.Deref(allowedPodModifications.AllowHostIPC, true) {
-			return fmt.Errorf("spec.HostIPC is set to %v, which is forbidden", podSpec.HostIPC)
-		}
+	if podSpec.HostIPC && !ptr.Deref(allowedPodModifications.AllowHostIPC, true) {
+		return fmt.Errorf("spec.HostIPC is set to %v, which is forbidden", podSpec.HostIPC)
 	}
 
 	// Check if the HostPID setting is set and if this is actually allowed.
-	if podSpec.HostPID {
-		if !ptr.Deref(allowedPodModifications.AllowHostPID, true) {
-			return fmt.Errorf("spec.HostPID is set to %v, which is forbidden", podSpec.HostPID)
-		}
+	if podSpec.HostPID && !ptr.Deref(allowedPodModifications.AllowHostPID, true) {
+		return fmt.Errorf("spec.HostPID is set to %v, which is forbidden", podSpec.HostPID)
 	}
 
 	// Check if the ServiceAccountName is set and if this is actually allowed.
-	if podSpec.ServiceAccountName != "" {
-		if len(allowedPodModifications.AllowedServiceAccountNames) > 0 {
-			if _, ok := allowedPodModifications.AllowedServiceAccountNames[podSpec.ServiceAccountName]; !ok {
-				return fmt.Errorf(
-					"spec.ServiceAccountName is set to %s, which is forbidden, allowed values: %v",
-					podSpec.ServiceAccountName,
-					strings.Join(
-						slices.Sorted(
-							maps.Keys(allowedPodModifications.AllowedServiceAccountNames),
-						),
-						",",
+	if podSpec.ServiceAccountName != "" &&
+		len(allowedPodModifications.AllowedServiceAccountNames) > 0 {
+		if _, ok := allowedPodModifications.AllowedServiceAccountNames[podSpec.ServiceAccountName]; !ok {
+			return fmt.Errorf(
+				"spec.ServiceAccountName is set to %s, which is forbidden, allowed values: %v",
+				podSpec.ServiceAccountName,
+				strings.Join(
+					slices.Sorted(
+						maps.Keys(allowedPodModifications.AllowedServiceAccountNames),
 					),
-				)
-			}
+					",",
+				),
+			)
 		}
 	}
 
 	// Check if the DeprecatedServiceAccount is set and if this is actually allowed.
-	if podSpec.DeprecatedServiceAccount != "" {
-		if len(allowedPodModifications.AllowedServiceAccountNames) > 0 {
-			if _, ok := allowedPodModifications.AllowedServiceAccountNames[podSpec.DeprecatedServiceAccount]; !ok {
-				return fmt.Errorf(
-					"spec.DeprecatedServiceAccount is set to %s, which is forbidden, allowed values: %v",
-					podSpec.DeprecatedServiceAccount,
-					strings.Join(
-						slices.Sorted(
-							maps.Keys(allowedPodModifications.AllowedServiceAccountNames),
-						),
-						",",
+	if podSpec.DeprecatedServiceAccount != "" &&
+		len(allowedPodModifications.AllowedServiceAccountNames) > 0 {
+		if _, ok := allowedPodModifications.AllowedServiceAccountNames[podSpec.DeprecatedServiceAccount]; !ok {
+			return fmt.Errorf(
+				"spec.DeprecatedServiceAccount is set to %s, which is forbidden, allowed values: %v",
+				podSpec.DeprecatedServiceAccount,
+				strings.Join(
+					slices.Sorted(
+						maps.Keys(allowedPodModifications.AllowedServiceAccountNames),
 					),
-				)
-			}
+					",",
+				),
+			)
 		}
 	}
 
