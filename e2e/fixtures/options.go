@@ -289,7 +289,7 @@ func (options *FactoryOptions) validateFlags() error {
 		return nil
 	}
 
-	for _, upgradeTest := range strings.Split(upgradeString, ",") {
+	for upgradeTest := range strings.SplitSeq(upgradeString, ",") {
 		versions := strings.Split(upgradeTest, ":")
 		if len(versions) != 2 {
 			return fmt.Errorf(
@@ -371,8 +371,8 @@ func (options *FactoryOptions) validateFDBVersionTagMapping() error {
 		return nil
 	}
 
-	mappings := strings.Split(options.fdbVersionTagMapping, ",")
-	for _, mapping := range mappings {
+	mappings := strings.SplitSeq(options.fdbVersionTagMapping, ",")
+	for mapping := range mappings {
 		versionMapping := strings.Split(mapping, ":")
 		if len(versionMapping) != 2 {
 			return fmt.Errorf(

@@ -1822,7 +1822,7 @@ func (fdbCluster *FdbCluster) GetRange(
 	), false, timeout)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(stdout, "\n"), "\n") {
 		line = strings.TrimSpace(line)
 		sep := "' is `"
 		idx := strings.Index(line, sep)
@@ -1849,7 +1849,7 @@ func (fdbCluster *FdbCluster) GenerateRandomValues(
 	res := make([]KeyValue, 0, n)
 	index := []byte{'a'}
 	var err error
-	for i := 0; i < n; i++ {
+	for range n {
 		res = append(res, KeyValue{
 			Key:   append([]byte{prefix}, index...),
 			Value: []byte(fdbCluster.factory.RandStringRunes(24)),
