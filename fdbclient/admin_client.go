@@ -410,7 +410,7 @@ func (client *cliAdminClient) SetMaintenanceZone(zone string, timeoutSeconds int
 			// The value is a literal text of a non-negative double which represents the remaining time for the zone to be in maintenance.
 			tr.Set(
 				fdb.Key(path.Join("\xff\xff/management/maintenance/", zone)),
-				[]byte(fmt.Sprintf("%d.0", timeoutSeconds)),
+				fmt.Appendf(nil, "%d.0", timeoutSeconds),
 			)
 			return nil
 		})
@@ -1071,7 +1071,7 @@ func (client *cliAdminClient) SetKnobs(knobs []string) {
 
 // WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 // arguments must be even.
-func (client *cliAdminClient) WithValues(keysAndValues ...interface{}) {
+func (client *cliAdminClient) WithValues(keysAndValues ...any) {
 	newLogger := client.log.WithValues(keysAndValues...)
 	client.log = newLogger
 

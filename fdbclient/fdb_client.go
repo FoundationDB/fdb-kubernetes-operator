@@ -337,7 +337,7 @@ func (fdbClient *realFdbLibClient) executeTransaction(
 		return nil, err
 	}
 
-	result, err := db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	result, err := db.Transact(func(tr fdb.Transaction) (any, error) {
 		err = setCommonOptions(&tr)
 		if err != nil {
 			return nil, err

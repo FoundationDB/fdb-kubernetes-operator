@@ -130,7 +130,7 @@ func generateCandidates(dcIDs []string, processesPerDc int, numberOfZones int) [
 
 	idx := 0
 	for _, dcID := range dcIDs {
-		for i := 0; i < processesPerDc; i++ {
+		for i := range processesPerDc {
 			zoneIdx := i % numberOfZones
 			candidates[idx] = Info{
 				ID: dcID + strconv.Itoa(i),
@@ -301,7 +301,7 @@ var _ = Describe("Localities", func() {
 				})
 
 				for _, dcID := range dcIDs {
-					for i := 0; i < 3; i++ {
+					for i := range 3 {
 						pClass := fdbv1beta2.ProcessClassStorage
 						// The first locality will be a log process
 						if i == 0 {
@@ -859,7 +859,7 @@ var _ = Describe("Localities", func() {
 					candidates = make([]Info, 18)
 					idx := 0
 					for _, dcID := range []string{primaryID, primarySatelliteID, remoteID, remoteSatelliteID} {
-						for i := 0; i < 3; i++ {
+						for i := range 3 {
 							candidates[idx] = Info{
 								ID:    strconv.Itoa(idx),
 								Class: fdbv1beta2.ProcessClassLog,
@@ -879,7 +879,7 @@ var _ = Describe("Localities", func() {
 							continue
 						}
 
-						for i := 0; i < 3; i++ {
+						for i := range 3 {
 							candidates[idx] = Info{
 								ID:    strconv.Itoa(idx),
 								Class: fdbv1beta2.ProcessClassStorage,
