@@ -23,6 +23,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"strings"
 	"sync"
@@ -277,9 +278,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 					fdbv1beta2.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 				}
 
-				for key, value := range client.localityInfo[processGroupID] {
-					locality[key] = value
-				}
+				maps.Copy(locality, client.localityInfo[processGroupID])
 
 				for _, container := range pod.Spec.Containers {
 					for _, envVar := range container.Env {
@@ -375,9 +374,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			fdbv1beta2.FDBLocalityZoneIDKey:     string(processGroup.ProcessGroupID),
 		}
 
-		for key, value := range client.localityInfo[processGroup.ProcessGroupID] {
-			locality[key] = value
-		}
+		maps.Copy(locality, client.localityInfo[processGroup.ProcessGroupID])
 
 		var uptimeSeconds float64 = 60000
 		underMaintenance := false
@@ -1237,7 +1234,7 @@ func (client *AdminClient) GetWorstDurabilityLag() (fdbv1beta2.FoundationDBStatu
 
 // WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 // arguments must be even.
-func (client *AdminClient) WithValues(_ ...interface{}) {}
+func (client *AdminClient) WithValues(_ ...any) {}
 
 // SetTimeout will overwrite the default timeout for interacting the FDB cluster.
 func (client *AdminClient) SetTimeout(_ time.Duration) {}
@@ -1248,9 +1245,7 @@ func (client *AdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Proces
 	// We have to create a copy here as the map will be a pointer.
 	res := make(map[fdbv1beta2.ProcessGroupID]int64, len(client.processesUnderMaintenance))
 
-	for processGroupID, timestamp := range client.processesUnderMaintenance {
-		res[processGroupID] = timestamp
-	}
+	maps.Copy(res, client.processesUnderMaintenance)
 
 	return res, nil
 }
