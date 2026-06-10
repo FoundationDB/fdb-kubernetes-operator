@@ -691,7 +691,12 @@ func analyzeStatusInternal(
 				false,
 			)
 			if err != nil {
-				return fmt.Errorf("error killing process %s status: %s, %w", process, stderr.String(), err)
+				return fmt.Errorf(
+					"error killing process %s status: %s, %w",
+					process,
+					stderr.String(),
+					err,
+				)
 			}
 			time.Sleep(killSleepDuration)
 		}
