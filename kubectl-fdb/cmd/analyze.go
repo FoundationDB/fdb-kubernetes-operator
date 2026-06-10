@@ -652,7 +652,6 @@ func analyzeStatusInternal(
 
 		foundIssues = true
 		addr := process.Address.StringWithoutFlags()
-		processesWithError = append(processesWithError, addr)
 		for _, message := range process.Messages {
 			printStatement(
 				cmd,
@@ -665,6 +664,18 @@ func analyzeStatusInternal(
 				errorMessage,
 			)
 		}
+
+		// fdbcli kill needs an IP. fdbserver always sets public_address to an IP (see
+		// internal/monitor_conf.go), so a non-IP here is either malformed or attacker-controlled — skip it.
+		if autoFix && process.Address.IPAddress == nil {
+			cmd.Printf(
+				"Skipping auto-fix for process %s: address %q is not a valid IP\n",
+				process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+				addr,
+			)
+			continue
+		}
+		processesWithError = append(processesWithError, addr)
 	}
 
 	if len(processesWithError) > 0 && autoFix {
@@ -674,6 +685,9 @@ func analyzeStatusInternal(
 			cmd.Println("Start killing", process)
 			killCmd := fmt.Sprintf("kill; kill %s; sleep 5; status", process)
 			var stderr bytes.Buffer
+			// Use ExecuteCommandRaw (argv) here instead of ExecuteCommandOnPod. The latter wraps in
+			// bash -c, and the address comes from FDB's status JSON, so a shell metacharacter in
+			// there would let an attacker inject commands.
 			err := kubeHelper.ExecuteCommandRaw(
 				cmd.Context(),
 				kubeClient,

