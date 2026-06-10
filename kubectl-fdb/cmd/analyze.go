@@ -43,9 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// killSleepDuration is the pause between successive `fdbcli kill` invocations during --auto-fix.
-var killSleepDuration = 5 * time.Second
-
 func newAnalyzeCmd(streams genericiooptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
 
@@ -698,7 +695,7 @@ func analyzeStatusInternal(
 					err,
 				)
 			}
-			time.Sleep(killSleepDuration)
+			time.Sleep(5 * time.Second)
 		}
 	}
 

@@ -1090,7 +1090,6 @@ var _ = Describe("[plugin] analyze cluster", func() {
 		var (
 			capturedURL *url.URL
 			origSPDY    func(*rest.Config, string, *url.URL) (remotecommand.Executor, error)
-			origSleep   time.Duration
 		)
 
 		// commandArgs returns the argv from the captured exec request.
@@ -1098,18 +1097,15 @@ var _ = Describe("[plugin] analyze cluster", func() {
 
 		BeforeEach(func() {
 			origSPDY = kubeHelper.NewSPDYExecutor
-			origSleep = killSleepDuration
 			capturedURL = nil
 			kubeHelper.NewSPDYExecutor = func(_ *rest.Config, _ string, u *url.URL) (remotecommand.Executor, error) {
 				capturedURL = u
 				return &kubeHelper.FakeExecutor{}, nil
 			}
-			killSleepDuration = 0
 		})
 
 		AfterEach(func() {
 			kubeHelper.NewSPDYExecutor = origSPDY
-			killSleepDuration = origSleep
 		})
 
 		runAutoFix := func(status *fdbv1beta2.FoundationDBStatus) {
