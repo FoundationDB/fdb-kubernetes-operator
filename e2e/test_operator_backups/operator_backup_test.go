@@ -25,7 +25,9 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -226,17 +228,27 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 
 						backup.Start()
 
-						var statusBeforeAbort *fdbv1beta2.FoundationDBLiveBackupStatus
+						var statusBeforeExpire *fdbv1beta2.FoundationDBLiveBackupStatus
 						Eventually(func(g Gomega) {
-							statusBeforeAbort = backup.RunStatusCommand()
-							g.Expect(statusBeforeAbort.Status.Running).To(BeTrue())
-							g.Expect(statusBeforeAbort.Status.Name).
+							statusBeforeExpire = backup.RunStatusCommand()
+							g.Expect(statusBeforeExpire.Status.Running).To(BeTrue())
+							g.Expect(statusBeforeExpire.Status.Name).
 								To(Equal("RunningDifferentially"))
-							g.Expect(statusBeforeAbort.UID).NotTo(BeNil())
-							g.Expect(ptr.Deref(statusBeforeAbort.Restorable, false)).To(BeTrue())
-							g.Expect(statusBeforeAbort.LatestRestorablePoint).NotTo(BeNil())
+							g.Expect(statusBeforeExpire.UID).NotTo(BeNil())
+							g.Expect(ptr.Deref(statusBeforeExpire.Restorable, false)).To(BeTrue())
+							g.Expect(statusBeforeExpire.LatestRestorablePoint).NotTo(BeNil())
 						}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
-						uidBeforeAbort := *statusBeforeAbort.UID
+						uidBeforeAbort := *statusBeforeExpire.UID
+						expireBeforeVersion := ptr.Deref(
+							statusBeforeExpire.LatestRestorablePoint.Version,
+							0,
+						)
+
+						expireOutput := backup.RunExpireCommand(expireBeforeVersion)
+						Expect(strings.TrimSpace(expireOutput)).To(Equal(fmt.Sprintf(
+							"Final metadata update...\nAll data before version %d has been deleted.",
+							expireBeforeVersion,
+						)))
 
 						backup.RunAbortCommand()
 
