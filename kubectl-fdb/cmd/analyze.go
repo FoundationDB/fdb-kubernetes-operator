@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -41,6 +42,9 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// killSleepDuration is the pause between successive `fdbcli kill` invocations during --auto-fix.
+var killSleepDuration = 5 * time.Second
 
 func newAnalyzeCmd(streams genericiooptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
@@ -672,19 +676,24 @@ func analyzeStatusInternal(
 		for _, process := range processesWithError {
 			cmd.Println("Start killing", process)
 			killCmd := fmt.Sprintf("kill; kill %s; sleep 5; status", process)
-			_, stderr, err := kubeHelper.ExecuteCommandOnPod(
+			var stderr bytes.Buffer
+			err := kubeHelper.ExecuteCommandRaw(
 				cmd.Context(),
 				kubeClient,
 				restConfig,
-				pod,
+				pod.Namespace,
+				pod.Name,
 				fdbv1beta2.MainContainerName,
-				fmt.Sprintf("fdbcli --exec '%s'", killCmd),
+				[]string{"fdbcli", "--exec", killCmd},
+				nil,
+				nil,
+				&stderr,
 				false,
 			)
 			if err != nil {
-				return fmt.Errorf("error killing process %s status: %s, %w", process, stderr, err)
+				return fmt.Errorf("error killing process %s status: %s, %w", process, stderr.String(), err)
 			}
-			time.Sleep(5 * time.Second)
+			time.Sleep(killSleepDuration)
 		}
 	}
 
