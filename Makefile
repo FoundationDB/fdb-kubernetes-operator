@@ -80,7 +80,7 @@ endif
 
 all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
 
-.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint check-license fix-license
+.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint check-license fix-license fix
 
 deps: $(BUILD_DEPS)
 
@@ -159,8 +159,12 @@ manifests: ${MANIFESTS}
 ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/..." paths="./controllers/..." applyconfiguration output:crd:artifacts:config=config/crd/bases
 
+# Run the Go fix modernizers against the code.
+fix:
+	go list ./... | grep -v '/e2e/chaos-mesh/' | xargs go fix
+
 # Run go fmt against code
-fmt: deps bin/fmt_check
+fmt: deps fix bin/fmt_check
 
 bin/fmt_check: ${GO_ALL}
 	# We make use of gofmt with golines because of: https://github.com/segmentio/golines/issues/155
