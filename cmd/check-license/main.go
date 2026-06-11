@@ -211,9 +211,9 @@ func fixFile(path, filename, bpRaw string) error {
 	// Strip existing leading block comment if present.
 	rest := s
 	if strings.HasPrefix(s, "/*") {
-		end := strings.Index(s, "*/")
-		if end >= 0 {
-			rest = strings.TrimLeft(s[end+2:], "\n")
+		_, after, ok := strings.Cut(s, "*/")
+		if ok {
+			rest = strings.TrimLeft(after, "\n")
 		}
 	}
 
