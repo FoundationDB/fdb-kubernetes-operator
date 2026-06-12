@@ -665,8 +665,6 @@ func analyzeStatusInternal(
 			)
 		}
 
-		// fdbcli kill needs an IP. fdbserver always sets public_address to an IP (see
-		// internal/monitor_conf.go), so a non-IP here is either malformed or attacker-controlled — skip it.
 		if autoFix && process.Address.IPAddress == nil {
 			cmd.Printf(
 				"Skipping auto-fix for process %s: address %q is not a valid IP\n",

@@ -1145,6 +1145,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("IPv4:port",
 				fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("10.0.1.42"), Port: 4500},
 				"10.0.1.42:4500"),
+			Entry(
+				"IPv6:port",
+				fdbv1beta2.ProcessAddress{
+					IPAddress: net.ParseIP("2620:149:1000:4217::1c1c"),
+					Port:      4501,
+				},
+				"[2620:149:1000:4217::1c1c]:4501",
+			),
 		)
 
 		// Non-IP addresses get dropped before fdbcli is ever invoked. fdbserver only reports IPs in
