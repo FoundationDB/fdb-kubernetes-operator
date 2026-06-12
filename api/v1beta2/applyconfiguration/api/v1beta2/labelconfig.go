@@ -27,6 +27,11 @@ type LabelConfigApplyConfiguration struct {
 	// by the match labels.
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
+	// IncludePodTemplateGenerationLabel determines whether the operator should
+	// stamp each Pod with PodTemplateGenerationLabel at creation time. See
+	// PodTemplateGenerationLabel for the value, rotation semantics, and use
+	// case. The label is rotated only when the pod is recreated.
+	IncludePodTemplateGenerationLabel *bool `json:"includePodTemplateGenerationLabel,omitempty"`
 }
 
 // LabelConfigApplyConfiguration constructs a declarative configuration of the LabelConfig type for use with
@@ -88,5 +93,13 @@ func (b *LabelConfigApplyConfiguration) WithProcessClassLabels(values ...string)
 // If called multiple times, the FilterOnOwnerReferences field is set to the value of the last call.
 func (b *LabelConfigApplyConfiguration) WithFilterOnOwnerReferences(value bool) *LabelConfigApplyConfiguration {
 	b.FilterOnOwnerReferences = &value
+	return b
+}
+
+// WithIncludePodTemplateGenerationLabel sets the IncludePodTemplateGenerationLabel field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IncludePodTemplateGenerationLabel field is set to the value of the last call.
+func (b *LabelConfigApplyConfiguration) WithIncludePodTemplateGenerationLabel(value bool) *LabelConfigApplyConfiguration {
+	b.IncludePodTemplateGenerationLabel = &value
 	return b
 }

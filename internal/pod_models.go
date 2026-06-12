@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // GetProcessGroupIDFromPodName returns the process group ID for a given Pod name.
@@ -140,6 +141,29 @@ func GetPod(
 	)
 	metadata.Name = processGroup.GetPodName(cluster)
 	metadata.OwnerReferences = owner
+
+	// The generation label is only stamped at pod-creation time. Reconcile
+	// passes preserve the existing value via the carve-out in
+	// podMetadataCorrect, so there's no need to recompute it on every
+	// PodMetadataCorrect call.
+	if cluster.ShouldIncludePodTemplateGenerationLabel() {
+		hash, hashErr := GetPodGenerationHash(cluster, processGroup.ProcessClass)
+		if hashErr != nil {
+			// A missing label degrades TSC matchLabelKeys to a broader
+			// spread, which the cluster tolerates — log and continue
+			// rather than fail pod construction.
+			logf.Log.WithName("internal").
+				Error(hashErr, "skipping pod-template-generation label",
+					"namespace", cluster.Namespace,
+					"cluster", cluster.Name,
+					"processClass", processGroup.ProcessClass)
+		} else {
+			if metadata.Labels == nil {
+				metadata.Labels = make(map[string]string)
+			}
+			metadata.Labels[fdbv1beta2.PodTemplateGenerationLabel] = hash
+		}
+	}
 
 	return &corev1.Pod{
 		ObjectMeta: metadata,
