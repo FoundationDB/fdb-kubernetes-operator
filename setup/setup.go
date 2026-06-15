@@ -69,14 +69,14 @@ type Options struct {
 	CacheDatabaseStatus                bool
 	EnableNodeIndex                    bool
 	ReplaceOnSecurityContextChange     bool
-	// AllowAutomountServiceAccountToken defines if the spec.AutomountServiceAccountToken setting in the corev1.PodSpec can
-	// be set to true.
+	// AllowAutomountServiceAccountToken defines if the spec.AutomountServiceAccountToken setting in the user provided corev1.PodSpec
+	// can be set to true.
 	AllowAutomountServiceAccountToken bool
-	// AllowHostNetwork defines if a user is allowed to set the HostNetwork setting.
+	// AllowHostNetwork defines if a user is allowed to set the HostNetwork setting in the user provided corev1.PodSpec.
 	AllowHostNetwork bool
-	// AllowHostPID defines if a user is allowed to set the HostPID setting.
+	// AllowHostPID defines if a user is allowed to set the HostPID setting in the user provided corev1.PodSpec.
 	AllowHostPID bool
-	// AllowHostIPC defines if a user is allowed to set the HostIPC setting.
+	// AllowHostIPC defines if a user is allowed to set the HostIPC setting in the user provided corev1.PodSpec.
 	AllowHostIPC                    bool
 	MetricsAddr                     string
 	LeaderElectionID                string
@@ -128,7 +128,6 @@ type Options struct {
 	// AllowedAdditionalVolumeMounts defines the allowed volume mounts a user can define in the user provided
 	// corev1.PodSpec.
 	AllowedAdditionalVolumeMounts []string
-
 	// AllowedServiceAccountNames defines the allowed ServiceAccountNames. If set, this limits the ServiceAccountNames
 	// a user can specify.
 	AllowedServiceAccountNames []string
