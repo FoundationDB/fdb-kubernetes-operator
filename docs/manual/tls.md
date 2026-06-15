@@ -99,7 +99,7 @@ You must always ensure that the peer verification rules allow access from the cl
 
 If you want to run any clusters with TLS, you must configure the operator to support FDB's mutual TLS. This requires setting the same environment variables that you set on the fdbserver processes: `FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, and `FDB_TLS_CA_FILE`. You will probably want to use the same certificate mechanism that you use for the FDB certs for the operator certs as well. This certificate configuration will only be used for connections to FoundationDB and to the sidecar process.
 
-You can configure how often the operator refreshes TLS certificates by setting the `FDB_NETWORK_OPTION_KNOB` environment variable with the `tls_cert_refresh_delay_seconds` option. This controls the delay between certificate refresh checks in seconds. If not set, FoundationDB uses its default refresh interval (which is to refresh every 12 hours).
+You can configure how often the operator refreshes TLS certificates by setting the [FDB_NETWORK_OPTION_KNOB](operator_customization.md#setting-custom-fdb-client-knobs) environment variable with the `tls_cert_refresh_delay_seconds` option. This controls the delay between certificate refresh checks in seconds. If not set, FoundationDB uses its default refresh interval (which is to refresh every 12 hours).
 
 ```yaml
 # In your operator deployment
