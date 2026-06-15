@@ -40,7 +40,7 @@ COPY main.go main.go
 # Build
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -o /workspace/bin/data-loader main.go
 
-FROM rockylinux/rockylinux:9.6-minimal
+FROM rockylinux/rockylinux:9.8-minimal
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
