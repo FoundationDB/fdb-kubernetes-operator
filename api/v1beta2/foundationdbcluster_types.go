@@ -1324,8 +1324,7 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// DeletionMode defines the deletion mode for this cluster. This can be
 	// PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
-	// DeletionMode defines how Pods are deleted in order to update them or
-	// when they are removed.
+	// DeletionMode defines how Pods are deleted in order to update them.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=All;Zone;ProcessGroup;None
 	// +kubebuilder:default:=Zone

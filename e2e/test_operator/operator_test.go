@@ -2594,7 +2594,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				availabilityCheck = false
 
 				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-				spec.AutomationOptions.DeletionMode = fdbv1beta2.PodUpdateModeNone
+				spec.AutomationOptions.RemovalMode = fdbv1beta2.PodUpdateModeNone
 				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 
 				storagePod := factory.RandomPickOnePod(fdbCluster.GetStoragePods(ctx).Items)
@@ -2654,7 +2654,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			AfterEach(func(ctx SpecContext) {
 				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-				spec.AutomationOptions.DeletionMode = fdbv1beta2.PodUpdateModeZone
+				spec.AutomationOptions.RemovalMode = fdbv1beta2.PodUpdateModeZone
 				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 
 				Expect(fdbCluster.SetCustomParameters(ctx,
