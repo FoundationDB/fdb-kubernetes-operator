@@ -59,7 +59,7 @@ RUN groupadd --gid 4059 fdb && \
 	mkdir -p /var/log/fdb && \
 	touch /var/log/fdb/.keep
 
-FROM rockylinux/rockylinux:9.6-minimal
+FROM rockylinux/rockylinux:9.8-minimal
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
