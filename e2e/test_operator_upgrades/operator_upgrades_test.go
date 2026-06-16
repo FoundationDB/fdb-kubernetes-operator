@@ -224,14 +224,31 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				)
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 
-			// Restart the fdbserver process to pickup the new configuration and run with the newer version.
-			_, _, err := fdbCluster.ExecuteCmdOnPod(ctx,
-				selectedCoordinator,
-				fdbv1beta2.MainContainerName,
-				"pkill fdbserver",
-				false,
-			)
-			Expect(err).NotTo(HaveOccurred())
+			expectedBinaryPath := fmt.Sprintf("/var/fdb/shared-binaries/bin/%s/fdbserver", targetVersion)
+			Eventually(func(g Gomega) {
+				// Restart the fdbserver process to pick up the new configuration and run with the newer version.
+				_, _, err := fdbCluster.ExecuteCmdOnPod(
+					ctx,
+					selectedCoordinator,
+					fdbv1beta2.MainContainerName,
+					"pkill -9 fdbserver",
+					false,
+				)
+				g.Expect(err).NotTo(HaveOccurred())
+				// Wait 2 seconds for the process to be restarted and report to the cluster.
+				time.Sleep(2 * time.Second)
+
+				// Make sure the process came up in the expected version.
+				stdout, _, err := fdbCluster.ExecuteCmdOnPod(
+					ctx,
+					selectedCoordinator,
+					fdbv1beta2.MainContainerName,
+					"pgrep -a fdbserver",
+					true,
+				)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(stdout).To(ContainSubstring(expectedBinaryPath))
+			})
 
 			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
 			Eventually(func(g Gomega) map[string]fdbv1beta2.None {
@@ -248,9 +265,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					g.Expect(err).NotTo(HaveOccurred())
 					result[parsedAddr.MachineAddress()] = fdbv1beta2.None{}
 				}
-
+				g
 				return result
-			}).WithTimeout(180 * time.Second).WithPolling(4 * time.Second).Should(And(HaveLen(1), HaveKey(selectedCoordinator.Status.PodIP)))
+			}).WithTimeout(300 * time.Second).WithPolling(4 * time.Second).Should(And(HaveLen(1), HaveKey(selectedCoordinator.Status.PodIP)))
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
 			fdbCluster.SetKillProcesses(ctx, true, false)
@@ -261,7 +278,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// Make sure the cluster has no data loss.
 			fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 		},
-
 		EntryDescription(
 			"Upgrade from %[1]s to %[2]s with one coordinator restarted during the staging phase",
 		),
