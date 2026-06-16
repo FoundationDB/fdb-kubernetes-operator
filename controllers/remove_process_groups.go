@@ -69,6 +69,18 @@ func (u removeProcessGroups) reconcile(
 		}
 	}
 
+	// Stale exclusion guard for https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1912.
+	// When FDB reports no processes for this cluster's DC, checkAndSetProcessStatus took the
+	// early-return path in update_status.go and ExclusionTimestamp on each process group is
+	// whatever it was before — possibly stale. Trusting the cached IsExcluded() flag in
+	// getProcessGroupsToRemove would risk removing a partially-excluded data-bearing process.
+	if hasUnverifiableExcludedRemoval(cluster, status) {
+		return &requeue{
+			message: "Removals blocked: FDB reported no processes, exclusion state cannot be verified",
+			delay:   30 * time.Second,
+		}
+	}
+
 	remainingMap, err := removals.GetRemainingMap(
 		logger,
 		adminClient,
@@ -586,6 +598,31 @@ func getProcessesToInclude(
 	}
 
 	return fdbProcessesToInclude, processGroups[:idx]
+}
+
+// hasUnverifiableExcludedRemoval reports whether the cluster has at least one process group
+// marked for removal whose IsExcluded() flag cannot be re-verified against live cluster state
+// in this reconcile cycle. The flag is unverifiable when the FDB machine-readable status
+// reports no processes sharing the cluster's DC — the same condition under which
+// checkAndSetProcessStatus skips refreshing ExclusionTimestamp.
+func hasUnverifiableExcludedRemoval(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+) bool {
+	if status == nil {
+		return false
+	}
+	for _, process := range status.Cluster.Processes {
+		if cluster.ProcessSharesDC(process) {
+			return false
+		}
+	}
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(
