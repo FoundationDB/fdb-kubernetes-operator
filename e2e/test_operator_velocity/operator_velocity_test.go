@@ -25,6 +25,7 @@ This test suite includes tests to validate the rollout time of new knobs under d
 */
 
 import (
+	"context"
 	"log"
 	"strings"
 	"time"
@@ -52,6 +53,7 @@ var (
 )
 
 func CheckKnobRollout(
+	ctx context.Context,
 	fdbCluster *fixtures.HaFdbCluster,
 	expectedGeneralCustomParameters fdbv1beta2.FoundationDBCustomParameters,
 	expectedStorageCustomParameters fdbv1beta2.FoundationDBCustomParameters,
@@ -60,7 +62,7 @@ func CheckKnobRollout(
 	totalStorageProcessCount int,
 ) {
 	primary := fdbCluster.GetPrimary()
-	initialGeneration := primary.GetStatus().Cluster.Generation
+	initialGeneration := primary.GetStatus(ctx).Cluster.Generation
 
 	startTime := time.Now()
 	timeoutTime := startTime.Add(time.Duration(knobRolloutTimeoutSeconds) * time.Second)
@@ -70,6 +72,7 @@ func CheckKnobRollout(
 		durationSinceLastStateDump := time.Since(lastStateDump)
 		if durationSinceLastStateDump > 2*time.Minute {
 			factory.DumpStateHaClusterWithLogsSince(
+				ctx,
 				fdbCluster,
 				ptr.To[int64](int64(durationSinceLastStateDump.Seconds())+5),
 			)
@@ -77,7 +80,7 @@ func CheckKnobRollout(
 			lastStateDump = time.Now()
 		}
 
-		status := primary.GetStatus()
+		status := primary.GetStatus(ctx)
 		commandLines := primary.GetCommandlineForProcessesPerClassWithStatus(status)
 		var generalProcessCounts, storageProcessCounts int
 
@@ -112,7 +115,7 @@ func CheckKnobRollout(
 		)
 
 		for _, cluster := range fdbCluster.GetAllClusters() {
-			currentCluster := cluster.GetCluster()
+			currentCluster := cluster.GetCluster(ctx)
 			log.Println(
 				"cluster state:",
 				currentCluster.Name,
@@ -128,7 +131,7 @@ func CheckKnobRollout(
 	}).WithTimeout(time.Until(timeoutTime)).WithPolling(15 * time.Second).Should(Succeed())
 
 	rolloutDuration := time.Since(startTime)
-	finalGeneration := primary.GetStatus().Cluster.Generation
+	finalGeneration := primary.GetStatus(ctx).Cluster.Generation
 
 	log.Println(
 		"Knob rollout took",
@@ -143,7 +146,7 @@ func CheckKnobRollout(
 	// If the synchronization mode is global, we expect to see only a single recovery. Since those tests are running on
 	// a real cluster we add some additional buffer of two additional recoveries. We check for an increase of 6 generations
 	// because FDB increase the current generation by 2 if a recovery is triggered.
-	if primary.GetCluster().GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
+	if primary.GetCluster(ctx).GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
 		Expect(finalGeneration - initialGeneration).To(BeNumerically("<=", 6))
 	}
 }
@@ -172,9 +175,9 @@ func parametersExists(cmdLine string, params fdbv1beta2.FoundationDBCustomParame
 	return true
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbHaCluster(
+	fdbCluster = factory.CreateFdbHaCluster(ctx,
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneDoubleSat, false),
 	)
 
@@ -205,36 +208,36 @@ var _ = BeforeSuite(func() {
 	}
 })
 
-var _ = AfterSuite(func() {
-	factory.Shutdown()
+var _ = AfterSuite(func(ctx SpecContext) {
+	factory.Shutdown(ctx)
 })
 
 var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 	var totalGeneralProcessCount, totalStorageProcessCount int
 
-	BeforeEach(func() {
-		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
+	BeforeEach(func(ctx SpecContext) {
+		Expect(fdbCluster.WaitForReconciliation(ctx)).ToNot(HaveOccurred())
 
 		totalGeneralProcessCount = 0
 		totalStorageProcessCount = 0
 
 		for _, cluster := range fdbCluster.GetAllClusters() {
-			processCnt, err := cluster.GetCluster().GetProcessCountsWithDefaults()
+			processCnt, err := cluster.GetCluster(ctx).GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 			totalStorageProcessCount += processCnt.Storage * cluster.GetStorageServerPerPod()
 			totalGeneralProcessCount += processCnt.Total() - processCnt.Storage
 		}
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() {
-			factory.DumpStateHaCluster(fdbCluster)
+			factory.DumpStateHaCluster(ctx, fdbCluster)
 		}
-		Expect(factory.CleanupChaosMeshExperiments()).ToNot(HaveOccurred())
+		Expect(factory.CleanupChaosMeshExperiments(ctx)).ToNot(HaveOccurred())
 		log.Println("Reverting knobs back to initial settings")
 		start := time.Now()
 		Expect(
-			fdbCluster.SetCustomParameters(
+			fdbCluster.SetCustomParameters(ctx,
 				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
 					fdbv1beta2.ProcessClassGeneral: initialGeneralCustomParameters,
 					fdbv1beta2.ProcessClassStorage: initialStorageCustomParameters,
@@ -247,9 +250,9 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 	})
 
 	When("a knob is changed", func() {
-		It("should roll out knob changes within expected time", func() {
+		It("should roll out knob changes within expected time", func(ctx SpecContext) {
 			Expect(
-				fdbCluster.SetCustomParameters(
+				fdbCluster.SetCustomParameters(ctx,
 					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
 						fdbv1beta2.ProcessClassGeneral: newGeneralCustomParameters,
 						fdbv1beta2.ProcessClassStorage: newStorageCustomParameters,
@@ -259,6 +262,7 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 			).To(Succeed())
 
 			CheckKnobRollout(
+				ctx,
 				fdbCluster,
 				newGeneralCustomParameters,
 				newStorageCustomParameters,
@@ -269,10 +273,10 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 	})
 
 	When("a knob is changed and the cluster is bounced", func() {
-		It("should roll out knob changes within expected time", func() {
-			Expect(fdbCluster.GetPrimary().BounceClusterWithoutWait()).ToNot(HaveOccurred())
+		It("should roll out knob changes within expected time", func(ctx SpecContext) {
+			Expect(fdbCluster.GetPrimary().BounceClusterWithoutWait(ctx)).ToNot(HaveOccurred())
 			Expect(
-				fdbCluster.SetCustomParameters(
+				fdbCluster.SetCustomParameters(ctx,
 					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
 						fdbv1beta2.ProcessClassGeneral: newGeneralCustomParameters,
 						fdbv1beta2.ProcessClassStorage: newStorageCustomParameters,
@@ -283,11 +287,12 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 
 			// Make sure to wait for the cluster to become available again.
 			Eventually(func() bool {
-				return fdbCluster.GetPrimary().IsAvailable()
+				return fdbCluster.GetPrimary().IsAvailable(ctx)
 			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
 
-			cluster := fdbCluster.GetPrimary().GetCluster()
+			cluster := fdbCluster.GetPrimary().GetCluster(ctx)
 			CheckKnobRollout(
+				ctx,
 				fdbCluster,
 				newGeneralCustomParameters,
 				newStorageCustomParameters,
@@ -302,32 +307,32 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 		var initialReplaceTime time.Duration
 		var exp *fixtures.ChaosMeshExperiment
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			initialReplaceTime = time.Duration(ptr.Deref(
 				fdbCluster.GetPrimary().
-					GetClusterSpec().
+					GetClusterSpec(ctx).
 					AutomationOptions.Replacements.FailureDetectionTimeSeconds,
 				90,
 			)) * time.Second
 			Expect(
-				fdbCluster.GetPrimary().SetAutoReplacements(false, 1*time.Hour),
+				fdbCluster.GetPrimary().SetAutoReplacements(ctx, false, 1*time.Hour),
 			).NotTo(HaveOccurred())
 			// Partition a storage Pod from the rest of the cluster
-			pod := factory.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods())
+			pod := factory.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods(ctx))
 			log.Printf("partition Pod: %s", pod.Name)
-			exp = factory.InjectPartition(fixtures.PodSelector(pod))
+			exp = factory.InjectPartition(ctx, fixtures.PodSelector(pod))
 		})
 
-		AfterEach(func() {
-			factory.DeleteChaosMeshExperiment(exp)
+		AfterEach(func(ctx SpecContext) {
+			factory.DeleteChaosMeshExperiment(ctx, exp)
 			Expect(
-				fdbCluster.GetPrimary().SetAutoReplacements(true, initialReplaceTime),
+				fdbCluster.GetPrimary().SetAutoReplacements(ctx, true, initialReplaceTime),
 			).NotTo(HaveOccurred())
 		})
 
-		It("should roll out knob changes within expected time", func() {
+		It("should roll out knob changes within expected time", func(ctx SpecContext) {
 			Expect(
-				fdbCluster.SetCustomParameters(
+				fdbCluster.SetCustomParameters(ctx,
 					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
 						fdbv1beta2.ProcessClassGeneral: newGeneralCustomParameters,
 						fdbv1beta2.ProcessClassStorage: newStorageCustomParameters,
@@ -342,11 +347,12 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 			// as the partitioned Pod will block the release of the lock and the next operator has to wait until the
 			// lock is expired.
 			CheckKnobRollout(
+				ctx,
 				fdbCluster,
 				newGeneralCustomParameters,
 				newStorageCustomParameters,
 				normalKnobRolloutTimeoutSeconds+int(
-					fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds(),
+					fdbCluster.GetPrimary().GetCluster(ctx).GetLockDuration().Seconds(),
 				),
 				totalGeneralProcessCount,
 				totalStorageProcessCount-(1*fdbCluster.GetPrimary().GetStorageServerPerPod()),
@@ -355,21 +361,21 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 	})
 
 	When("a knob is changed and a single pod in the primary region is replaced", func() {
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			// Start replacement of a random storage Pod.
-			pod := factory.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods())
+			pod := factory.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods(ctx))
 			log.Println("Start replacing", pod.Name)
-			fdbCluster.GetPrimary().ReplacePod(*pod, false)
+			fdbCluster.GetPrimary().ReplacePod(ctx, *pod, false)
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			// Wait until the replaced process group is removed.
-			Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
+			Expect(fdbCluster.WaitForReconciliation(ctx)).To(Succeed())
 		})
 
-		It("should roll out knob changes within expected time", func() {
+		It("should roll out knob changes within expected time", func(ctx SpecContext) {
 			Expect(
-				fdbCluster.SetCustomParameters(
+				fdbCluster.SetCustomParameters(ctx,
 					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
 						fdbv1beta2.ProcessClassGeneral: newGeneralCustomParameters,
 						fdbv1beta2.ProcessClassStorage: newStorageCustomParameters,
@@ -382,15 +388,16 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 			// In our testing pipeline we see failures due to the fact that the replacement takes a long time, e.g.
 			// when a new node must be created for the replaced pod.
 			if fdbCluster.GetPrimary().
-				GetCluster().
+				GetCluster(ctx).
 				GetSynchronizationMode() ==
 				fdbv1beta2.SynchronizationModeLocal {
 				knobRolloutTimeout += int(
-					fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds() * 2,
+					fdbCluster.GetPrimary().GetCluster(ctx).GetLockDuration().Seconds() * 2,
 				)
 			}
 
 			CheckKnobRollout(
+				ctx,
 				fdbCluster,
 				newGeneralCustomParameters,
 				newStorageCustomParameters,

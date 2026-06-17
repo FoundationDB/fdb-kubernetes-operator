@@ -21,6 +21,7 @@
 package fixtures
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -32,10 +33,11 @@ import (
 )
 
 func (factory *Factory) ensureFdbClusterExists(
+	ctx context.Context,
 	clusterSpec *fdbv1beta2.FoundationDBCluster,
 	config *ClusterConfig,
 ) (*FdbCluster, error) {
-	clusterStatus, err := factory.getClusterStatus(clusterSpec.Name, clusterSpec.Namespace)
+	clusterStatus, err := factory.getClusterStatus(ctx, clusterSpec.Name, clusterSpec.Namespace)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, fmt.Errorf("could not look up FDB cluster: %w", err)
 	}
@@ -46,7 +48,7 @@ func (factory *Factory) ensureFdbClusterExists(
 
 	log.Printf("preparing to create fdb cluster: %s/%s", clusterSpec.Namespace, clusterSpec.Name)
 	fdbCluster := factory.createFdbClusterObject(clusterSpec)
-	err = fdbCluster.Create()
+	err = fdbCluster.Create(ctx)
 	if err != nil {
 		// consider checking k8serrors.IsAlreadyExists(err), but if that's
 		// the case, we're probably running concurrently with another
@@ -54,10 +56,10 @@ func (factory *Factory) ensureFdbClusterExists(
 		return nil, err
 	}
 	// Wait until the cluster CRD object exists. The caller should wait for whatever state they care about.
-	fdbCluster.WaitUntilExists()
+	fdbCluster.WaitUntilExists(ctx)
 	// Wait until cluster is reconciled -- otherwise, the operator may not have
 	// assigned pods, etc.
-	err = fdbCluster.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))
+	err = fdbCluster.WaitForReconciliation(ctx, CreationTrackerLoggerOption(config.CreationTracker))
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +70,7 @@ func (factory *Factory) ensureFdbClusterExists(
 }
 
 func (factory *Factory) ensureHaMemberClusterExists(
+	ctx context.Context,
 	haFdbCluster *HaFdbCluster,
 	config *ClusterConfig,
 	dcID string,
@@ -87,6 +90,7 @@ func (factory *Factory) ensureHaMemberClusterExists(
 	)
 
 	spec := factory.createHaFdbClusterSpec(
+		ctx,
 		config,
 		dcID,
 		seedConnection,
@@ -96,7 +100,7 @@ func (factory *Factory) ensureHaMemberClusterExists(
 	curCluster := factory.createFdbClusterObject(spec)
 	factory.logClusterInfo(spec)
 	// We have to trigger here an update since the cluster already exists!
-	fetchedClusterStatus, err := factory.getClusterStatus(config.Name, config.Namespace)
+	fetchedClusterStatus, err := factory.getClusterStatus(ctx, config.Name, config.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			log.Printf(
@@ -104,7 +108,7 @@ func (factory *Factory) ensureHaMemberClusterExists(
 				curCluster.cluster.Namespace,
 				curCluster.cluster.Name,
 			)
-			err = curCluster.Create()
+			err = curCluster.Create(ctx)
 			if err != nil && !k8serrors.IsAlreadyExists(err) {
 				return err
 			}
@@ -114,7 +118,7 @@ func (factory *Factory) ensureHaMemberClusterExists(
 				curCluster.cluster.Name,
 			)
 
-			curCluster.WaitUntilExists()
+			curCluster.WaitUntilExists(ctx)
 			return haFdbCluster.addCluster(curCluster)
 		}
 		return err
@@ -133,13 +137,14 @@ func (factory *Factory) ensureHaMemberClusterExists(
 		fetchedCluster.cluster.Spec.DatabaseConfiguration = curCluster.cluster.Spec.DatabaseConfiguration
 		fetchedCluster.cluster.Spec.SeedConnectionString = seedConnection
 		log.Printf("update cluster: %s/%s", curCluster.cluster.Namespace, curCluster.cluster.Name)
-		fetchedCluster.UpdateClusterSpec()
+		fetchedCluster.UpdateClusterSpec(ctx)
 	}
 
 	return haFdbCluster.addCluster(fetchedCluster)
 }
 
 func (factory *Factory) ensureHAFdbClusterExists(
+	ctx context.Context,
 	config *ClusterConfig,
 ) *HaFdbCluster {
 	fdb := &HaFdbCluster{}
@@ -159,7 +164,7 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		},
 	}
 
-	namespaces := factory.MultipleNamespaces(config, dcIDs)
+	namespaces := factory.MultipleNamespaces(ctx, config, dcIDs)
 	log.Printf("ensureHAFDBClusterExists namespaces=%s", namespaces)
 
 	newConfig := config.Copy()
@@ -167,6 +172,7 @@ func (factory *Factory) ensureHAFdbClusterExists(
 	newConfig.Namespace = namespaces[0]
 
 	err := factory.ensureHaMemberClusterExists(
+		ctx,
 		fdb,
 		newConfig,
 		dcIDs[0],
@@ -174,11 +180,15 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		initialDatabaseConfiguration,
 	)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Expect(fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))).
+	gomega.Expect(fdb.WaitForReconciliation(ctx, CreationTrackerLoggerOption(config.CreationTracker))).
 		ToNot(gomega.HaveOccurred())
 	log.Printf("primary cluster is reconciled in namespaces=%s", namespaces)
 
-	cluster, err := factory.getClusterStatus(fdb.GetPrimary().Name(), fdb.GetPrimary().Namespace())
+	cluster, err := factory.getClusterStatus(
+		ctx,
+		fdb.GetPrimary().Name(),
+		fdb.GetPrimary().Namespace(),
+	)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	for idx := range dcIDs {
@@ -187,6 +197,7 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		currentConfig.Namespace = namespaces[idx]
 
 		err = factory.ensureHaMemberClusterExists(
+			ctx,
 			fdb,
 			currentConfig,
 			dcIDs[idx],
@@ -197,7 +208,7 @@ func (factory *Factory) ensureHAFdbClusterExists(
 	}
 
 	// Wait until clusters are ready
-	gomega.Expect(fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))).
+	gomega.Expect(fdb.WaitForReconciliation(ctx, CreationTrackerLoggerOption(config.CreationTracker))).
 		ToNot(gomega.HaveOccurred())
 
 	config.CreationCallback(fdb.GetPrimary())

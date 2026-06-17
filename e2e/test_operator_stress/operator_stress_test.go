@@ -44,21 +44,21 @@ var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 })
 
-var _ = AfterSuite(func() {
-	factory.Shutdown()
+var _ = AfterSuite(func(ctx SpecContext) {
+	factory.Shutdown(ctx)
 })
 
 var _ = Describe("Operator Stress", Label("e2e"), func() {
 	When("creating and deleting a cluster multiple times", func() {
-		It("should create a healthy and available cluster", func() {
+		It("should create a healthy and available cluster", func(ctx SpecContext) {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.
 			// We create and delete a cluster 10 times to ensure we don't have any flaky behaviour in the operator.
 			for range 10 {
-				fdbCluster := factory.CreateFdbCluster(
+				fdbCluster := factory.CreateFdbCluster(ctx,
 					fixtures.DefaultClusterConfig(false),
 				)
-				Expect(fdbCluster.IsAvailable()).To(BeTrue())
-				Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
+				Expect(fdbCluster.IsAvailable(ctx)).To(BeTrue())
+				Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
 			}
 		})
 	})
@@ -66,23 +66,23 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 	When("replacing processes in a continuously manner", func() {
 		var fdbCluster *fixtures.FdbCluster
 
-		BeforeEach(func() {
-			fdbCluster = factory.CreateFdbCluster(
+		BeforeEach(func(ctx SpecContext) {
+			fdbCluster = factory.CreateFdbCluster(ctx,
 				fixtures.DefaultClusterConfig(false),
 			)
-			Expect(fdbCluster.InvariantClusterStatusAvailable()).NotTo(HaveOccurred())
+			Expect(fdbCluster.InvariantClusterStatusAvailable(ctx)).NotTo(HaveOccurred())
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
+		AfterEach(func(ctx SpecContext) {
+			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
 		})
 
-		It("should replace the targeted Pod", func() {
+		It("should replace the targeted Pod", func(ctx SpecContext) {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.
 			for range 10 {
-				Expect(fdbCluster.ClearProcessGroupsToRemove()).ShouldNot(HaveOccurred())
-				pod := factory.ChooseRandomPod(fdbCluster.GetPods())
-				fdbCluster.ReplacePod(*pod, true)
+				Expect(fdbCluster.ClearProcessGroupsToRemove(ctx)).ShouldNot(HaveOccurred())
+				pod := factory.ChooseRandomPod(fdbCluster.GetPods(ctx))
+				fdbCluster.ReplacePod(ctx, *pod, true)
 			}
 		})
 	})

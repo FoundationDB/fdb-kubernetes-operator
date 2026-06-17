@@ -633,13 +633,13 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 	}
 }
 
-func (factory *Factory) ensureFDBOperatorExists(namespace string) error {
+func (factory *Factory) ensureFDBOperatorExists(ctx context.Context, namespace string) error {
 	// TODO: we also want to ensure that the CRDs are installed as an option
-	return factory.CreateFDBOperatorIfAbsent(namespace)
+	return factory.CreateFDBOperatorIfAbsent(ctx, namespace)
 }
 
 // CreateFDBOperatorIfAbsent creates the operator Deployment based on the template.
-func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
+func (factory *Factory) CreateFDBOperatorIfAbsent(ctx context.Context, namespace string) error {
 	operatorRBACTemplate, err := template.New("operatorRBAC").Parse(operatorRBAC)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
@@ -665,20 +665,20 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
 
 		gomega.Expect(
-			factory.CreateIfAbsent(unstructuredObj),
+			factory.CreateIfAbsent(ctx, unstructuredObj),
 		).NotTo(gomega.HaveOccurred())
 	}
 
 	// Make sure we delete the cluster scoped objects.
 	factory.AddShutdownHook(func() error {
-		factory.Delete(&rbacv1.ClusterRole{
+		factory.Delete(ctx, &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespace + "-operator-manager-clusterrole",
 				Namespace: namespace,
 			},
 		})
 
-		factory.Delete(&rbacv1.ClusterRoleBinding{
+		factory.Delete(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespace + "-operator-manager-clusterrolebinding",
 				Namespace: namespace,
@@ -718,18 +718,19 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
 
 		gomega.Expect(
-			factory.CreateIfAbsent(unstructuredObj),
+			factory.CreateIfAbsent(ctx, unstructuredObj),
 		).NotTo(gomega.HaveOccurred())
 	}
 
 	// Make sure the Operator Pods are running before moving forward.
-	factory.WaitUntilOperatorPodsRunning(namespace)
+	factory.WaitUntilOperatorPodsRunning(ctx, namespace)
 	return nil
 }
 
 // GetOperatorPods returns the operator Pods in the provided namespace.
-func (factory *Factory) GetOperatorPods(namespace string) *corev1.PodList {
+func (factory *Factory) GetOperatorPods(ctx context.Context, namespace string) *corev1.PodList {
 	return factory.GetOperatorPodsWithOptions(
+		ctx,
 		namespace,
 		client.MatchingFields(map[string]string{"status.phase": string(corev1.PodRunning)}),
 	)
@@ -738,6 +739,7 @@ func (factory *Factory) GetOperatorPods(namespace string) *corev1.PodList {
 // GetOperatorPodsWithOptions returns the operator Pods in the provided namespace with the additional list options.
 // The default list options contain the namespace selector and the label selector for the operator pods.
 func (factory *Factory) GetOperatorPodsWithOptions(
+	ctx context.Context,
 	namespace string,
 	options ...client.ListOption,
 ) *corev1.PodList {
@@ -752,18 +754,18 @@ func (factory *Factory) GetOperatorPodsWithOptions(
 	}
 
 	gomega.Eventually(func() error {
-		return factory.GetControllerRuntimeClient().List(context.TODO(), pods, listOptions...)
+		return factory.GetControllerRuntimeClient().List(ctx, pods, listOptions...)
 	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return pods
 }
 
 // WaitUntilOperatorPodsRunning waits until the Operator Pods are running.
-func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
+func (factory *Factory) WaitUntilOperatorPodsRunning(ctx context.Context, namespace string) {
 	deployment := &appsv1.Deployment{}
 	gomega.Expect(
 		factory.GetControllerRuntimeClient().
-			Get(context.TODO(), client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
+			Get(ctx, client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
 	).NotTo(gomega.HaveOccurred())
 
 	expectedReplicas := int(ptr.Deref(deployment.Spec.Replicas, 1))
@@ -773,7 +775,7 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 		deployment = &appsv1.Deployment{}
 		g.Expect(
 			factory.GetControllerRuntimeClient().
-				Get(context.TODO(), client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
+				Get(ctx, client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
 		).To(gomega.Succeed())
 		g.Expect(deployment.Status.UpdatedReplicas).To(gomega.BeNumerically(">=", expectedReplicas))
 
@@ -785,7 +787,7 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 			log.Println("deployment status:", string(statusBytes))
 		}
 
-		pods := factory.GetOperatorPodsWithOptions(namespace)
+		pods := factory.GetOperatorPodsWithOptions(ctx, namespace)
 		var runningReplicas int
 		for _, pod := range pods.Items {
 			if pod.Status.Phase == corev1.PodRunning && pod.DeletionTimestamp.IsZero() {
@@ -805,7 +807,7 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 					string(statusBytes),
 				)
 
-				err = factory.GetControllerRuntimeClient().Delete(context.TODO(), &pod)
+				err = factory.GetControllerRuntimeClient().Delete(ctx, &pod)
 				if k8serrors.IsNotFound(err) {
 					continue
 				}
@@ -820,12 +822,12 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 
 // RecreateOperatorPods will recreate all operator Pods in the specified namespace and wait until the new Pods are
 // up and running.
-func (factory *Factory) RecreateOperatorPods(namespace string) {
+func (factory *Factory) RecreateOperatorPods(ctx context.Context, namespace string) {
 	restartAnnotation := "foundationdb.org/restart-deployment"
 
 	gomega.Eventually(func(g gomega.Gomega) {
 		deployment := &appsv1.Deployment{}
-		g.Expect(factory.GetControllerRuntimeClient().Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: operatorDeploymentName}, deployment)).
+		g.Expect(factory.GetControllerRuntimeClient().Get(ctx, client.ObjectKey{Namespace: namespace, Name: operatorDeploymentName}, deployment)).
 			To(gomega.Succeed())
 
 		patch := client.MergeFrom(deployment.DeepCopy())
@@ -834,9 +836,9 @@ func (factory *Factory) RecreateOperatorPods(namespace string) {
 		}
 		deployment.Spec.Template.Annotations[restartAnnotation] = time.Now().String()
 		log.Println("Update deployment")
-		g.Expect(factory.GetControllerRuntimeClient().Patch(context.Background(), deployment, patch)).
+		g.Expect(factory.GetControllerRuntimeClient().Patch(ctx, deployment, patch)).
 			To(gomega.Succeed())
 	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(gomega.Succeed())
 
-	factory.WaitUntilOperatorPodsRunning(namespace)
+	factory.WaitUntilOperatorPodsRunning(ctx, namespace)
 }

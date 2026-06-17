@@ -25,7 +25,6 @@ This test suite contains destructive test cases for a multi-region FDB cluster (
 */
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"time"
@@ -47,15 +46,16 @@ func init() {
 	testOptions = fixtures.InitFlags()
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbHaCluster(
+	fdbCluster = factory.CreateFdbHaCluster(ctx,
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false))
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {
 		for _, cluster := range fdbCluster.GetAllClusters() {
 			factory.ScheduleInjectPodKill(
+				ctx,
 				fixtures.GetOperatorSelector(cluster.Namespace()),
 				"*/2 * * * *",
 				chaosmesh.OneMode,
@@ -64,11 +64,11 @@ var _ = BeforeSuite(func() {
 	}
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	if CurrentSpecReport().Failed() {
 		log.Printf("failed due to %s", CurrentSpecReport().FailureMessage())
 	}
-	factory.Shutdown()
+	factory.Shutdown(ctx)
 })
 
 // This test suite contains destructive tests which will break the cluster after the test is done.
@@ -80,7 +80,7 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 		var keyValues []fixtures.KeyValue
 		var prefix byte = 'a'
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			if factory.ChaosTestsEnabled() {
 				Skip("chaos tests are required for this test suite")
 			}
@@ -96,6 +96,7 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 			experiments = make([]*fixtures.ChaosMeshExperiment, 0, 2)
 			// Inject a partition between primary and the remote + remote satellite
 			experiments = append(experiments, factory.InjectPartitionBetween(
+				ctx,
 				chaosmesh.PodSelectorSpec{
 					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
 						Namespaces:     []string{primary.Namespace()},
@@ -113,6 +114,7 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 
 			// Inject a partition between primary satellite and the remote + remote satellite
 			experiments = append(experiments, factory.InjectPartitionBetween(
+				ctx,
 				chaosmesh.PodSelectorSpec{
 					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
 						Namespaces:     []string{primarySatellite.Namespace()},
@@ -131,21 +133,21 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 			time.Sleep(10 * time.Second)
 
 			keyValues = primary.GenerateRandomValues(10, prefix)
-			primary.WriteKeyValuesWithTimeout(keyValues, 120)
+			primary.WriteKeyValuesWithTimeout(ctx, keyValues, 120)
 			// Destroy primary and primary satellite (should have mutations that are not present in the remote side).
-			primary.SetSkipReconciliation(true)
-			primarySatellite.SetSkipReconciliation(true)
+			primary.SetSkipReconciliation(ctx, true)
+			primarySatellite.SetSkipReconciliation(ctx, true)
 			// We also destroy the remote satellite, it shouldn't matter in this case as the remote satellite
 			// has no data anyways. But the idea here is to reduce the possible interaction between the remote
 			// and the remote satellite during the forced fail-over.
-			remoteSatellite.SetSkipReconciliation(true)
+			remoteSatellite.SetSkipReconciliation(ctx, true)
 
 			// We could probably simulate that with the suspend command, but destroying the pods is a more robust solution.
 			var wg errgroup.Group
 			log.Println("Delete Pods in primary")
 			wg.Go(func() error {
-				for _, pod := range primary.GetPods().Items {
-					factory.DeletePod(&pod)
+				for _, pod := range primary.GetPods(ctx).Items {
+					factory.DeletePod(ctx, &pod)
 				}
 
 				return nil
@@ -153,8 +155,8 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 
 			log.Println("Delete Pods in primary satellite")
 			wg.Go(func() error {
-				for _, pod := range primarySatellite.GetPods().Items {
-					factory.DeletePod(&pod)
+				for _, pod := range primarySatellite.GetPods(ctx).Items {
+					factory.DeletePod(ctx, &pod)
 				}
 
 				return nil
@@ -162,8 +164,8 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 
 			log.Println("Delete Pods in remote satellite")
 			wg.Go(func() error {
-				for _, pod := range remoteSatellite.GetPods().Items {
-					factory.DeletePod(&pod)
+				for _, pod := range remoteSatellite.GetPods(ctx).Items {
+					factory.DeletePod(ctx, &pod)
 				}
 
 				return nil
@@ -175,25 +177,25 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 
 			// Ensure the cluster is unavailable.
 			Eventually(func() bool {
-				return remote.GetStatus().Client.DatabaseStatus.Available
+				return remote.GetStatus(ctx).Client.DatabaseStatus.Available
 			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeFalse())
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			for _, experiment := range experiments {
-				factory.DeleteChaosMeshExperiment(experiment)
+				factory.DeleteChaosMeshExperiment(ctx, experiment)
 			}
 		})
 
-		It("should fail-over and cause data loss", func() {
+		It("should fail-over and cause data loss", func(ctx SpecContext) {
 			remote := fdbCluster.GetRemote()
 			// Pick one operator pod and execute the recovery command
 			operatorPod := factory.RandomPickOnePod(
-				factory.GetOperatorPods(remote.Namespace()).Items,
+				factory.GetOperatorPods(ctx, remote.Namespace()).Items,
 			)
 			log.Println("operatorPod:", operatorPod.Name)
 			stdout, stderr, err := factory.ExecuteCmdOnPod(
-				context.Background(),
+				ctx,
 				&operatorPod,
 				"manager",
 				fmt.Sprintf(
@@ -208,11 +210,11 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 
 			// Ensure the cluster is available again.
 			Eventually(func() bool {
-				return remote.GetStatus().Client.DatabaseStatus.Available
+				return remote.GetStatus(ctx).Client.DatabaseStatus.Available
 			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
 
 			// Ensure we lost some data.
-			Expect(remote.GetRange([]byte{prefix}, 25, 60)).Should(BeEmpty())
+			Expect(remote.GetRange(ctx, []byte{prefix}, 25, 60)).Should(BeEmpty())
 		})
 	})
 })

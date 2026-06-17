@@ -30,7 +30,6 @@ This cluster will be used for all tests.
 */
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"strconv"
@@ -63,18 +62,19 @@ func init() {
 	testOptions = fixtures.InitFlags()
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbHaCluster(
+	fdbCluster = factory.CreateFdbHaCluster(ctx,
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false))
 
 	// Load some data into the cluster.
-	factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
+	factory.CreateDataLoaderIfAbsent(ctx, fdbCluster.GetPrimary())
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {
 		for _, cluster := range fdbCluster.GetAllClusters() {
 			factory.ScheduleInjectPodKill(
+				ctx,
 				fixtures.GetOperatorSelector(cluster.Namespace()),
 				"*/2 * * * *",
 				chaosmesh.OneMode,
@@ -83,32 +83,34 @@ var _ = BeforeSuite(func() {
 	}
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	if CurrentSpecReport().Failed() {
 		log.Printf("failed due to %s", CurrentSpecReport().FailureMessage())
 	}
-	factory.Shutdown()
+	factory.Shutdown(ctx)
 })
 
 var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 	var availabilityCheck bool
 
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		// Reset availabilityCheck if a test case removes this check.
 		availabilityCheck = true
 		if CurrentSpecReport().Failed() {
-			factory.DumpStateHaCluster(fdbCluster)
+			factory.DumpStateHaCluster(ctx, fdbCluster)
 		}
-		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
+		Expect(fdbCluster.WaitForReconciliation(ctx)).ToNot(HaveOccurred())
 		factory.StopInvariantCheck()
 		// Make sure all data is present in the cluster
-		fdbCluster.GetPrimary().EnsureTeamTrackersAreHealthy()
-		fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+		fdbCluster.GetPrimary().EnsureTeamTrackersAreHealthy(ctx)
+		fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 	})
 
-	JustBeforeEach(func() {
+	JustBeforeEach(func(ctx SpecContext) {
 		if availabilityCheck {
-			Expect(fdbCluster.GetPrimary().InvariantClusterStatusAvailable()).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.GetPrimary().InvariantClusterStatusAvailable(ctx),
+			).NotTo(HaveOccurred())
 		}
 	})
 
@@ -116,13 +118,13 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		var initialConnectionString string
 		var initialCoordinators map[string]fdbv1beta2.None
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			primary := fdbCluster.GetPrimary()
-			status := primary.GetStatus()
+			status := primary.GetStatus(ctx)
 			initialConnectionString = status.Cluster.ConnectionString
 
 			initialCoordinators = fdbstatus.GetCoordinatorsFromStatus(status)
-			primaryPods := primary.GetPods()
+			primaryPods := primary.GetPods(ctx)
 
 			coordinatorPods := make([]corev1.Pod, 0, len(initialCoordinators))
 			for _, pod := range primaryPods.Items {
@@ -140,16 +142,17 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			}
 
 			_ = factory.InjectPartitionBetween(
+				ctx,
 				fdbCluster.GetNamespaceSelector(),
 				fixtures.PodsSelector(coordinatorPods),
 			)
 		})
 
-		AfterEach(func() {
-			Expect(factory.CleanupChaosMeshExperiments()).To(Succeed())
+		AfterEach(func(ctx SpecContext) {
+			Expect(factory.CleanupChaosMeshExperiments(ctx)).To(Succeed())
 		})
 
-		It("should change the coordinators", func() {
+		It("should change the coordinators", func(ctx SpecContext) {
 			primary := fdbCluster.GetPrimary()
 
 			lastForceReconcile := time.Now()
@@ -157,13 +160,13 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				// Ensure that the coordinators are changed in a timely manner for the test case.
 				if time.Since(lastForceReconcile) > 1*time.Minute {
 					for _, cluster := range fdbCluster.GetAllClusters() {
-						cluster.ForceReconcile()
+						cluster.ForceReconcile(ctx)
 					}
 
 					lastForceReconcile = time.Now()
 				}
 
-				status := primary.GetStatus()
+				status := primary.GetStatus(ctx)
 
 				// Make sure we have the same count of coordinators again and the deleted
 				coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
@@ -179,13 +182,13 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					// The unified image has a mechanism to propagate changes in the cluster file, this allows multi-region
 					// clusters to reconcile faster. In the case of the split image we need "external" events in Kubernetes
 					// to trigger a reconciliation.
-					if !cluster.GetCluster().UseUnifiedImage() ||
+					if !cluster.GetCluster(ctx).UseUnifiedImage() ||
 						time.Since(lastForceReconcile) > 3*time.Minute {
-						cluster.ForceReconcile()
+						cluster.ForceReconcile(ctx)
 						lastForceReconcile = time.Now()
 					}
 
-					g.Expect(cluster.GetCluster().Status.ConnectionString).
+					g.Expect(cluster.GetCluster(ctx).Status.ConnectionString).
 						NotTo(Equal(initialConnectionString), fmt.Sprintf("expected for cluster \"%s\" to get the updated connection string in time", cluster.Name()))
 				}
 			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
@@ -196,9 +199,9 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		var desiredRunningPods int
 		var quota *corev1.ResourceQuota
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			satellite := fdbCluster.GetPrimarySatellite()
-			satelliteCluster := satellite.GetCluster()
+			satelliteCluster := satellite.GetCluster(ctx)
 
 			processCounts, err := satelliteCluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
@@ -215,28 +218,30 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					},
 				},
 			}
-			Expect(factory.CreateIfAbsent(quota)).NotTo(HaveOccurred())
+			Expect(factory.CreateIfAbsent(ctx, quota)).NotTo(HaveOccurred())
 
 			desiredRunningPods = processCounts.Log - satelliteCluster.DesiredFaultTolerance()
 
 			// Replace all Pods for this cluster.
-			satellite.ReplacePods(satellite.GetAllPods().Items, false)
+			satellite.ReplacePods(ctx, satellite.GetAllPods(ctx).Items, false)
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			// Make sure that the quota is deleted and new PVCs can be created.
-			factory.Delete(quota)
-			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
+			factory.Delete(ctx, quota)
+			Expect(
+				fdbCluster.GetPrimarySatellite().WaitForReconciliation(ctx),
+			).NotTo(HaveOccurred())
 		})
 
-		It("should not replace too many Pods and bring down the satellite", func() {
+		It("should not replace too many Pods and bring down the satellite", func(ctx SpecContext) {
 			satellite := fdbCluster.GetPrimarySatellite()
 			primary := fdbCluster.GetPrimary()
-			primaryDCID := primary.GetCluster().Spec.DataCenter
+			primaryDCID := primary.GetCluster(ctx).Spec.DataCenter
 
 			Consistently(func(g Gomega) int {
 				var runningPods int
-				for _, pod := range satellite.GetAllPods().Items {
+				for _, pod := range satellite.GetAllPods(ctx).Items {
 					if pod.Status.Phase != corev1.PodRunning {
 						continue
 					}
@@ -244,7 +249,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					runningPods++
 				}
 
-				status := fdbCluster.GetPrimary().GetStatus()
+				status := fdbCluster.GetPrimary().GetStatus(ctx)
 				if status.Client.DatabaseStatus.Available {
 					g.Expect(status.Cluster.DatabaseConfiguration.GetPrimaryDCID()).
 						To(Equal(primaryDCID))
@@ -257,12 +262,12 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 			// Add enough quota, so that the log processes can be updated after some time.
 			processCounts, err := fdbCluster.GetPrimarySatellite().
-				GetCluster().
+				GetCluster(ctx).
 				GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(
 				factory.GetControllerRuntimeClient().
-					Update(context.Background(), &corev1.ResourceQuota{
+					Update(ctx, &corev1.ResourceQuota{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "testing-quota",
 							Namespace: satellite.Namespace(),
@@ -278,29 +283,29 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			).To(Succeed())
 
 			// Wait until the cluster has replaced all the log processes.
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 		})
 	})
 
 	When("locality based exclusions are enabled", func() {
 		var initialUseLocalitiesForExclusion bool
 
-		BeforeEach(func() {
-			spec := fdbCluster.GetRemote().GetCluster().Spec.DeepCopy()
+		BeforeEach(func(ctx SpecContext) {
+			spec := fdbCluster.GetRemote().GetCluster(ctx).Spec.DeepCopy()
 			initialUseLocalitiesForExclusion = fdbCluster.GetRemote().
-				GetCluster().
+				GetCluster(ctx).
 				UseLocalitiesForExclusion()
 			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
-			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.GetRemote().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
+			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(ctx, spec)
+			Expect(fdbCluster.GetRemote().GetCluster(ctx).UseLocalitiesForExclusion()).To(BeTrue())
 		})
 
-		AfterEach(func() {
-			spec := fdbCluster.GetRemote().GetCluster().Spec.DeepCopy()
+		AfterEach(func(ctx SpecContext) {
+			spec := fdbCluster.GetRemote().GetCluster(ctx).Spec.DeepCopy()
 			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 				initialUseLocalitiesForExclusion,
 			)
-			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
+			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(ctx, spec)
 		})
 
 		When("a remote log has network latency issues and gets replaced", func() {
@@ -308,16 +313,16 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			var processGroupID fdbv1beta2.ProcessGroupID
 			var replacedPod corev1.Pod
 
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				// Ensure the other clusters are not interacting.
 				for _, cluster := range fdbCluster.GetAllClusters() {
-					cluster.SetSkipReconciliation(true)
+					cluster.SetSkipReconciliation(ctx, true)
 				}
 
 				remote := fdbCluster.GetRemote()
-				remote.SetSkipReconciliation(false)
-				dcID := remote.GetCluster().Spec.DataCenter
-				status := remote.GetStatus()
+				remote.SetSkipReconciliation(ctx, false)
+				dcID := remote.GetCluster(ctx).Spec.DataCenter
+				status := remote.GetStatus(ctx)
 				for _, process := range status.Cluster.Processes {
 					dc, ok := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
 					if !ok || dc != dcID {
@@ -343,7 +348,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				}
 
 				log.Println("Will inject chaos into", processGroupID, "and replace it")
-				for _, pod := range remote.GetLogPods().Items {
+				for _, pod := range remote.GetLogPods(ctx).Items {
 					if fixtures.GetProcessGroupID(pod) != processGroupID {
 						continue
 					}
@@ -353,7 +358,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				}
 
 				log.Println("Inject latency chaos")
-				experiment = factory.InjectNetworkLatency(
+				experiment = factory.InjectNetworkLatency(ctx,
 					fixtures.PodSelector(&replacedPod),
 					chaosmesh.PodSelectorSpec{
 						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
@@ -369,6 +374,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 				// TODO (johscheuer): Allow to have this as a long running task until the test is done.
 				factory.CreateDataLoaderIfAbsentWithOptions(
+					ctx,
 					fdbCluster.GetPrimary(),
 					&fixtures.DataLoaderOptions{Wait: true},
 				)
@@ -378,24 +384,24 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					"replace Pod",
 					replacedPod.Name,
 					"useLocalitiesForExclusion",
-					fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion(),
+					fdbCluster.GetPrimary().GetCluster(ctx).UseLocalitiesForExclusion(),
 				)
-				remote.ReplacePod(replacedPod, true)
+				remote.ReplacePod(ctx, replacedPod, true)
 			})
 
-			It("should exclude and remove the pod", func() {
+			It("should exclude and remove the pod", func(ctx SpecContext) {
 				excludedServer := fdbv1beta2.ExcludedServers{
 					Locality: processGroupID.GetExclusionString(),
 				}
 
 				Eventually(func(g Gomega) []fdbv1beta2.ExcludedServers {
-					status := fdbCluster.GetPrimary().GetStatus()
+					status := fdbCluster.GetPrimary().GetStatus(ctx)
 					excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
 					log.Println("excludedServers", excludedServers)
 
 					pod := &corev1.Pod{}
 					err := factory.GetControllerRuntimeClient().
-						Get(context.Background(), ctrlClient.ObjectKeyFromObject(&replacedPod), pod)
+						Get(ctx, ctrlClient.ObjectKeyFromObject(&replacedPod), pod)
 					g.Expect(err).To(HaveOccurred())
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 
@@ -403,13 +409,13 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).ShouldNot(ContainElement(excludedServer))
 			})
 
-			AfterEach(func() {
+			AfterEach(func(ctx SpecContext) {
 				for _, cluster := range fdbCluster.GetAllClusters() {
-					cluster.SetSkipReconciliation(false)
+					cluster.SetSkipReconciliation(ctx, false)
 				}
-				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).To(Succeed())
-				factory.DeleteChaosMeshExperiment(experiment)
-				factory.DeleteDataLoader(fdbCluster.GetPrimary())
+				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove(ctx)).To(Succeed())
+				factory.DeleteChaosMeshExperiment(ctx, experiment)
+				factory.DeleteDataLoader(ctx, fdbCluster.GetPrimary())
 			})
 		})
 
@@ -426,10 +432,10 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			*/
 			var experiment *fixtures.ChaosMeshExperiment
 
-			BeforeEach(func() {
-				dcID := fdbCluster.GetRemote().GetCluster().Spec.DataCenter
+			BeforeEach(func(ctx SpecContext) {
+				dcID := fdbCluster.GetRemote().GetCluster(ctx).Spec.DataCenter
 
-				status := fdbCluster.GetPrimary().GetStatus()
+				status := fdbCluster.GetPrimary().GetStatus(ctx)
 
 				var processGroupID fdbv1beta2.ProcessGroupID
 				for _, process := range status.Cluster.Processes {
@@ -458,7 +464,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 				log.Println("Will inject chaos into", processGroupID, "and replace it")
 				var replacedPod corev1.Pod
-				for _, pod := range fdbCluster.GetRemote().GetLogPods().Items {
+				for _, pod := range fdbCluster.GetRemote().GetLogPods(ctx).Items {
 					if fixtures.GetProcessGroupID(pod) != processGroupID {
 						continue
 					}
@@ -468,7 +474,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				}
 
 				log.Println("Inject latency chaos")
-				experiment = factory.InjectNetworkLatency(
+				experiment = factory.InjectNetworkLatency(ctx,
 					chaosmesh.PodSelectorSpec{
 						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
 							Namespaces: []string{fdbCluster.GetRemote().Namespace()},
@@ -501,6 +507,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 				// TODO (johscheuer): Allow to have this as a long running task until the test is done.
 				factory.CreateDataLoaderIfAbsentWithOptions(
+					ctx,
 					fdbCluster.GetPrimary(),
 					&fixtures.DataLoaderOptions{Wait: true},
 				)
@@ -510,30 +517,30 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					"replacedPod",
 					replacedPod.Name,
 					"useLocalitiesForExclusion",
-					fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion(),
+					fdbCluster.GetPrimary().GetCluster(ctx).UseLocalitiesForExclusion(),
 				)
-				fdbCluster.GetRemote().ReplacePod(replacedPod, true)
+				fdbCluster.GetRemote().ReplacePod(ctx, replacedPod, true)
 			})
 
-			It("should exclude and remove the pod", func() {
+			It("should exclude and remove the pod", func(ctx SpecContext) {
 				Eventually(func() []fdbv1beta2.ExcludedServers {
-					status := fdbCluster.GetPrimary().GetStatus()
+					status := fdbCluster.GetPrimary().GetStatus(ctx)
 					excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
 					log.Println("excludedServers", excludedServers)
 					return excludedServers
 				}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).Should(BeEmpty())
 			})
 
-			AfterEach(func() {
-				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
-				factory.DeleteChaosMeshExperiment(experiment)
+			AfterEach(func(ctx SpecContext) {
+				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove(ctx)).NotTo(HaveOccurred())
+				factory.DeleteChaosMeshExperiment(ctx, experiment)
 				// Making sure we included back all the process groups after exclusion is complete.
 				Expect(
 					fdbCluster.GetPrimary().
-						GetStatus().
+						GetStatus(ctx).
 						Cluster.DatabaseConfiguration.ExcludedServers,
 				).To(BeEmpty())
-				factory.DeleteDataLoader(fdbCluster.GetPrimary())
+				factory.DeleteDataLoader(ctx, fdbCluster.GetPrimary())
 			})
 		})
 	})

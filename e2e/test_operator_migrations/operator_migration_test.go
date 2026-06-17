@@ -26,6 +26,7 @@ expected under different scenarios.
 */
 
 import (
+	"context"
 	"log"
 	"strconv"
 	"time"
@@ -47,10 +48,14 @@ var (
 	testOptions *fixtures.FactoryOptions
 )
 
-func validateStorageClass(processClass fdbv1beta2.ProcessClass, targetStorageClass string) {
+func validateStorageClass(
+	ctx context.Context,
+	processClass fdbv1beta2.ProcessClass,
+	targetStorageClass string,
+) {
 	Eventually(func() map[string]fdbv1beta2.None {
 		storageClassNames := make(map[string]fdbv1beta2.None)
-		volumeClaims := fdbCluster.GetVolumeClaimsForProcesses(processClass)
+		volumeClaims := fdbCluster.GetVolumeClaimsForProcesses(ctx, processClass)
 		for _, volumeClaim := range volumeClaims.Items {
 			storageClassNames[*volumeClaim.Spec.StorageClassName] = fdbv1beta2.None{}
 		}
@@ -77,35 +82,35 @@ func init() {
 	testOptions = fixtures.InitFlags()
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbCluster(
+	fdbCluster = factory.CreateFdbCluster(ctx,
 		fixtures.DefaultClusterConfig(false),
 	)
 	// Load some data into the cluster.
-	factory.CreateDataLoaderIfAbsent(fdbCluster)
+	factory.CreateDataLoaderIfAbsent(ctx, fdbCluster)
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	if CurrentSpecReport().Failed() {
 		log.Printf("failed due to %s", CurrentSpecReport().FailureMessage())
 	}
-	factory.Shutdown()
+	factory.Shutdown(ctx)
 })
 
 var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() {
-			factory.DumpState(fdbCluster)
+			factory.DumpState(ctx, fdbCluster)
 		}
-		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
+		Expect(fdbCluster.WaitForReconciliation(ctx)).ToNot(HaveOccurred())
 	})
 
 	When("a migration is triggered and the namespace quota is limited", func() {
 		var quota *corev1.ResourceQuota
 
-		BeforeEach(func() {
-			processCounts, err := fdbCluster.GetCluster().GetProcessCountsWithDefaults()
+		BeforeEach(func(ctx SpecContext) {
+			processCounts, err := fdbCluster.GetCluster(ctx).GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 			// Create Quota to limit the additional Pods that can be created to 5, the actual value here is 7, because we run
 			// 2 Operator Pods.
@@ -120,7 +125,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 					},
 				},
 			}
-			Expect(factory.CreateIfAbsent(quota)).NotTo(HaveOccurred())
+			Expect(factory.CreateIfAbsent(ctx, quota)).NotTo(HaveOccurred())
 
 			logSettings := fdbCluster.GetProcessSettings(fdbv1beta2.ProcessClassLog).DeepCopy()
 			for idx, container := range logSettings.PodTemplate.Spec.Containers {
@@ -136,30 +141,30 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 				logSettings.PodTemplate.Spec.Containers[idx] = container
 			}
 
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			spec.Processes[fdbv1beta2.ProcessClassLog] = *logSettings
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 
-			Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
+			Expect(fdbCluster.WaitForReconciliation(ctx)).To(Succeed())
 		})
 
-		AfterEach(func() {
-			factory.Delete(quota)
+		AfterEach(func(ctx SpecContext) {
+			factory.Delete(ctx, quota)
 		})
 
-		It("should add the new env variable to all log pods", func() {
+		It("should add the new env variable to all log pods", func(ctx SpecContext) {
 			lastForcedReconciliationTime := time.Now()
 			forceReconcileDuration := 4 * time.Minute
 
 			Eventually(func(g Gomega) {
 				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
 				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
-					fdbCluster.ForceReconcile()
+					fdbCluster.ForceReconcile(ctx)
 					lastForcedReconciliationTime = time.Now()
 				}
 
 				// Check if all log pods are migrated
-				for _, pod := range fdbCluster.GetLogPods().Items {
+				for _, pod := range fdbCluster.GetLogPods(ctx).Items {
 					for _, container := range pod.Spec.Containers {
 						if container.Name != fdbv1beta2.MainContainerName {
 							continue
@@ -176,21 +181,21 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 	})
 
 	When("changing the public IP source", func() {
-		BeforeEach(func() {
-			if fdbCluster.GetCluster().UseDNSInClusterFile() {
+		BeforeEach(func(ctx SpecContext) {
+			if fdbCluster.GetCluster(ctx).UseDNSInClusterFile() {
 				Skip("using DNS and public IP from service is not tested")
 			}
 
 			log.Printf("set public IP source to %s", fdbv1beta2.PublicIPSourceService)
 			Expect(
-				fdbCluster.SetPublicIPSource(fdbv1beta2.PublicIPSourceService),
+				fdbCluster.SetPublicIPSource(ctx, fdbv1beta2.PublicIPSourceService),
 			).ShouldNot(HaveOccurred())
 		})
 
-		It("should change the public IP source and create/delete services", func() {
+		It("should change the public IP source and create/delete services", func(ctx SpecContext) {
 			Eventually(func() bool {
-				pods := fdbCluster.GetPods()
-				svcList := fdbCluster.GetServices()
+				pods := fdbCluster.GetPods(ctx)
+				svcList := fdbCluster.GetServices(ctx)
 
 				svcMap := make(map[string]struct{}, len(svcList.Items))
 				for _, svc := range svcList.Items {
@@ -219,12 +224,12 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			}).Should(BeTrue())
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			log.Printf("set public IP source to %s", fdbv1beta2.PublicIPSourcePod)
 			Expect(
-				fdbCluster.SetPublicIPSource(fdbv1beta2.PublicIPSourcePod),
+				fdbCluster.SetPublicIPSource(ctx, fdbv1beta2.PublicIPSourcePod),
 			).ShouldNot(HaveOccurred())
-			svcList := fdbCluster.GetServices()
+			svcList := fdbCluster.GetServices(ctx)
 
 			var expectedSvcCnt int
 			if fdbCluster.HasHeadlessService() {
@@ -238,10 +243,10 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 		var initialLogPods []string
 		var newSize resource.Quantity
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			var err error
 
-			pods := fdbCluster.GetLogPods()
+			pods := fdbCluster.GetLogPods(ctx)
 			for _, pod := range pods.Items {
 				initialLogPods = append(initialLogPods, pod.Name)
 			}
@@ -252,12 +257,12 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			newSize = initialStorageSize.DeepCopy()
 			newSize.Add(resource.MustParse("10G"))
 			Expect(
-				fdbCluster.SetVolumeSize(fdbv1beta2.ProcessClassLog, newSize),
+				fdbCluster.SetVolumeSize(ctx, fdbv1beta2.ProcessClassLog, newSize),
 			).NotTo(HaveOccurred())
 		})
 
-		It("should replace all the log Pods and use the new volume size", func() {
-			pods := fdbCluster.GetLogPods()
+		It("should replace all the log Pods and use the new volume size", func(ctx SpecContext) {
+			pods := fdbCluster.GetLogPods(ctx)
 			newLogPods := make([]string, 0, len(pods.Items))
 			for _, pod := range pods.Items {
 				// Ignore pods that are marked for deletion.
@@ -270,6 +275,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 
 			Expect(newLogPods).NotTo(ContainElements(initialLogPods))
 			volumeClaims := fdbCluster.GetVolumeClaimsForProcesses(
+				ctx,
 				fdbv1beta2.ProcessClassLog,
 			)
 
@@ -286,33 +292,33 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 		var initialPods []string
 		var podIPFamily = fdbv1beta2.PodIPFamilyIPv4
 
-		BeforeEach(func() {
-			pods := fdbCluster.GetPods()
+		BeforeEach(func(ctx SpecContext) {
+			pods := fdbCluster.GetPods(ctx)
 			for _, pod := range pods.Items {
 				initialPods = append(initialPods, pod.Name)
 			}
 
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			spec.Routing.PodIPFamily = ptr.To(podIPFamily)
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+			Expect(fdbCluster.WaitForReconciliation(ctx)).To(Succeed())
 		})
 
-		AfterEach(func() {
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+		AfterEach(func(ctx SpecContext) {
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			spec.Routing.PodIPFamily = nil
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 			Expect(
-				fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true)),
+				fdbCluster.WaitForReconciliation(ctx, fixtures.SoftReconcileOption(true)),
 			).To(Succeed())
 		})
 
-		It("should replace all pods and configure them properly", func() {
-			pods := fdbCluster.GetPods()
+		It("should replace all pods and configure them properly", func(ctx SpecContext) {
+			pods := fdbCluster.GetPods(ctx)
 			podIPFamilyString := strconv.Itoa(podIPFamily)
 			var expectedContainerWithEnv string
 			// In the case of the split image the sidecar will have that env variable.
-			if fdbCluster.GetCluster().UseUnifiedImage() {
+			if fdbCluster.GetCluster(ctx).UseUnifiedImage() {
 				expectedContainerWithEnv = fdbv1beta2.MainContainerName
 			} else {
 				expectedContainerWithEnv = fdbv1beta2.SidecarContainerName
@@ -371,102 +377,108 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 		var initialPodUpdateStrategy fdbv1beta2.PodUpdateStrategy
 		var initialReplaceInstancesWhenResourcesChange *bool
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			// Remember the current settings before updating the spec
-			initialConcurrentReplacements = fdbCluster.GetCluster().Spec.AutomationOptions.MaxConcurrentReplacements
-			initialPodUpdateStrategy = fdbCluster.GetClusterSpec().AutomationOptions.PodUpdateStrategy
-			initialReplaceInstancesWhenResourcesChange = fdbCluster.GetCluster().Spec.ReplaceInstancesWhenResourcesChange
+			initialConcurrentReplacements = fdbCluster.GetCluster(
+				ctx,
+			).Spec.AutomationOptions.MaxConcurrentReplacements
+			initialPodUpdateStrategy = fdbCluster.GetClusterSpec(
+				ctx,
+			).AutomationOptions.PodUpdateStrategy
+			initialReplaceInstancesWhenResourcesChange = fdbCluster.GetCluster(
+				ctx,
+			).Spec.ReplaceInstancesWhenResourcesChange
 			// Allow to replacement of 3 pods concurrently, as there are 5 storage servers, there need to be at least 2 rounds of replacements to replace all.
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(3)
 			spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
 			spec.ReplaceInstancesWhenResourcesChange = ptr.To(true)
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			// Reset to the initial settings
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			spec.AutomationOptions.MaxConcurrentReplacements = initialConcurrentReplacements
 			spec.AutomationOptions.PodUpdateStrategy = initialPodUpdateStrategy
 			spec.ReplaceInstancesWhenResourcesChange = initialReplaceInstancesWhenResourcesChange
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 		})
 
 		When("a change that requires a replacement of all storage pods", func() {
 			var initialVolumeClaims []types.UID
 			var newCPURequest, initialCPURequest resource.Quantity
 
-			BeforeEach(func() {
-				initialVolumeClaims = fdbCluster.GetListOfUIDsFromVolumeClaims(
+			BeforeEach(func(ctx SpecContext) {
+				initialVolumeClaims = fdbCluster.GetListOfUIDsFromVolumeClaims(ctx,
 					fdbv1beta2.ProcessClassStorage,
 				)
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 				initialCPURequest = spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU]
 				newCPURequest = initialCPURequest.DeepCopy()
 
 				// An increase in request requires a replacement when ReplaceInstancesWhenResourcesChange is set to true
 				newCPURequest.Add(resource.MustParse("1m"))
 				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = newCPURequest
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 
 				// Wait for the reconciliation to finish
-				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+				Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 			})
 
-			AfterEach(func() {
+			AfterEach(func(ctx SpecContext) {
 				// Undo the change to cpu requests
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = initialCPURequest
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 
 				// Wait for the reconciliation to finish
-				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+				Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 			})
 
-			It("should replace all storage pods", func() {
+			It("should replace all storage pods", func(ctx SpecContext) {
 				// A replacement of a storage pod will create a new PVC. After reconciliation the set of PVCs should be completely changed.
 				Expect(
 					initialVolumeClaims,
-				).NotTo(ContainElements(fdbCluster.GetListOfUIDsFromVolumeClaims(fdbv1beta2.ProcessClassStorage)), "PVC should not be present in the new set of PVCs")
+				).NotTo(ContainElements(fdbCluster.GetListOfUIDsFromVolumeClaims(ctx, fdbv1beta2.ProcessClassStorage)), "PVC should not be present in the new set of PVCs")
 			})
 		})
 	})
 
 	When("migrating a cluster to make use of DNS in the cluster file", func() {
-		BeforeEach(func() {
-			if fdbCluster.GetCluster().UseDNSInClusterFile() {
+		BeforeEach(func(ctx SpecContext) {
+			if fdbCluster.GetCluster(ctx).UseDNSInClusterFile() {
 				Skip("cluster already uses DNS")
 			}
 
-			Expect(fdbCluster.SetUseDNSInClusterFile(true)).ToNot(HaveOccurred())
+			Expect(fdbCluster.SetUseDNSInClusterFile(ctx, true)).ToNot(HaveOccurred())
 		})
 
-		It("should migrate the cluster", func() {
-			cluster := fdbCluster.GetCluster()
+		It("should migrate the cluster", func(ctx SpecContext) {
+			cluster := fdbCluster.GetCluster(ctx)
 			Eventually(func() string {
-				return fdbCluster.GetStatus().Cluster.ConnectionString
+				return fdbCluster.GetStatus(ctx).Cluster.ConnectionString
 			}).Should(ContainSubstring(cluster.GetDNSDomain()))
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.SetUseDNSInClusterFile(false)).ToNot(HaveOccurred())
+		AfterEach(func(ctx SpecContext) {
+			Expect(fdbCluster.SetUseDNSInClusterFile(ctx, false)).ToNot(HaveOccurred())
 		})
 	})
 
 	When("Migrating a cluster to a different storage class", func() {
 		var defaultStorageClass, targetStorageClass string
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			// This will only return StorageClasses that have a label foundationdb.org/operator-testing=true defined.
-			storageClasses := factory.GetStorageClasses(map[string]string{
+			storageClasses := factory.GetStorageClasses(ctx, map[string]string{
 				"foundationdb.org/operator-testing": "true",
 			})
 			if len(storageClasses.Items) < 2 {
 				Skip("This test requires at least two available StorageClasses")
 			}
 
-			defaultStorageClass = factory.GetDefaultStorageClass()
+			defaultStorageClass = factory.GetDefaultStorageClass(ctx)
 			// Select all StorageClasses that are not the default one as candidate.
 			candidates := make([]string, 0, len(storageClasses.Items))
 			for _, storageClass := range storageClasses.Items {
@@ -479,19 +491,19 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 
 			targetStorageClass = candidates[factory.Intn(len(candidates))]
 
-			Expect(fdbCluster.UpdateStorageClass(
+			Expect(fdbCluster.UpdateStorageClass(ctx,
 				targetStorageClass,
 				fdbv1beta2.ProcessClassLog,
 			)).NotTo(HaveOccurred())
 		})
 
-		It("should migrate the cluster", func() {
-			validateStorageClass(fdbv1beta2.ProcessClassLog, targetStorageClass)
+		It("should migrate the cluster", func(ctx SpecContext) {
+			validateStorageClass(ctx, fdbv1beta2.ProcessClassLog, targetStorageClass)
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			if defaultStorageClass != "" {
-				Expect(fdbCluster.UpdateStorageClass(
+				Expect(fdbCluster.UpdateStorageClass(ctx,
 					defaultStorageClass,
 					fdbv1beta2.ProcessClassLog,
 				)).NotTo(HaveOccurred())
@@ -502,64 +514,70 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 	When("Changing the TLS setting", func() {
 		var initialTLSSetting bool
 
-		BeforeEach(func() {
-			initialTLSSetting = fdbCluster.GetCluster().Spec.MainContainer.EnableTLS
+		BeforeEach(func(ctx SpecContext) {
+			initialTLSSetting = fdbCluster.GetCluster(ctx).Spec.MainContainer.EnableTLS
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			Expect(
-				fdbCluster.SetTLS(
+				fdbCluster.SetTLS(ctx,
 					initialTLSSetting,
-					fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS,
+					fdbCluster.GetCluster(ctx).Spec.SidecarContainer.EnableTLS,
 				),
 			).NotTo(HaveOccurred())
-			Expect(fdbCluster.HasTLSEnabled()).To(Equal(initialTLSSetting))
-			checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), initialTLSSetting)
+			Expect(fdbCluster.HasTLSEnabled(ctx)).To(Equal(initialTLSSetting))
+			checkCoordinatorsTLSFlag(fdbCluster.GetCluster(ctx), initialTLSSetting)
 		})
 
 		When("the pod spec stays the same", func() {
-			It("should update the TLS setting  and keep the cluster available", func() {
-				// Only change the TLS setting for the cluster and not for the sidecar otherwise we have to recreate
-				// all Pods which takes a long time since we recreate the Pods one by one.
-				Expect(
-					fdbCluster.SetTLS(
-						!initialTLSSetting,
-						fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS,
-					),
-				).NotTo(HaveOccurred())
-				Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
-				checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
-			})
+			It(
+				"should update the TLS setting  and keep the cluster available",
+				func(ctx SpecContext) {
+					// Only change the TLS setting for the cluster and not for the sidecar otherwise we have to recreate
+					// all Pods which takes a long time since we recreate the Pods one by one.
+					Expect(
+						fdbCluster.SetTLS(ctx,
+							!initialTLSSetting,
+							fdbCluster.GetCluster(ctx).Spec.SidecarContainer.EnableTLS,
+						),
+					).NotTo(HaveOccurred())
+					Expect(fdbCluster.HasTLSEnabled(ctx)).To(Equal(!initialTLSSetting))
+					checkCoordinatorsTLSFlag(fdbCluster.GetCluster(ctx), !initialTLSSetting)
+				},
+			)
 		})
 
 		When("the pod spec is changed", func() {
-			It("should update the TLS setting  and keep the cluster available", func() {
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.MainContainer.EnableTLS = !initialTLSSetting
+			It(
+				"should update the TLS setting  and keep the cluster available",
+				func(ctx SpecContext) {
+					spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
+					spec.MainContainer.EnableTLS = !initialTLSSetting
 
-				// Add a new env variable to ensure this will cause some additional replacements.
-				processSettings := fdbCluster.GetProcessSettings(fdbv1beta2.ProcessClassLog)
-				for i, container := range processSettings.PodTemplate.Spec.Containers {
-					if container.Name != fdbv1beta2.MainContainerName {
-						continue
+					// Add a new env variable to ensure this will cause some additional replacements.
+					processSettings := fdbCluster.GetProcessSettings(fdbv1beta2.ProcessClassLog)
+					for i, container := range processSettings.PodTemplate.Spec.Containers {
+						if container.Name != fdbv1beta2.MainContainerName {
+							continue
+						}
+
+						container.Env = append(container.Env, corev1.EnvVar{
+							Name:  "TESTING_TLS_CHANGE",
+							Value: "EMPTY",
+						})
+
+						processSettings.PodTemplate.Spec.Containers[i] = container
+						break
 					}
 
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  "TESTING_TLS_CHANGE",
-						Value: "EMPTY",
-					})
+					spec.Processes[fdbv1beta2.ProcessClassLog] = *processSettings
 
-					processSettings.PodTemplate.Spec.Containers[i] = container
-					break
-				}
-
-				spec.Processes[fdbv1beta2.ProcessClassLog] = *processSettings
-
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
-				Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
-				Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
-				checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
-			})
+					fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+					Expect(fdbCluster.WaitForReconciliation(ctx)).To(Succeed())
+					Expect(fdbCluster.HasTLSEnabled(ctx)).To(Equal(!initialTLSSetting))
+					checkCoordinatorsTLSFlag(fdbCluster.GetCluster(ctx), !initialTLSSetting)
+				},
+			)
 		})
 	})
 
@@ -567,10 +585,10 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 	PWhen("migrating the storage engine", func() {
 		var newStorageEngine fdbv1beta2.StorageEngine
 
-		BeforeEach(func() {
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+		BeforeEach(func(ctx SpecContext) {
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			initialEngine := spec.DatabaseConfiguration.NormalizeConfiguration(
-				fdbCluster.GetCluster(),
+				fdbCluster.GetCluster(ctx),
 			).StorageEngine
 			log.Println("initialEngine", initialEngine)
 			if initialEngine == fdbv1beta2.StorageEngineSSD2 {
@@ -584,23 +602,23 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			spec.DatabaseConfiguration.StorageMigrationType = &migrationType
 			spec.DatabaseConfiguration.PerpetualStorageWiggle = ptr.To(1)
 			spec.DatabaseConfiguration.StorageEngine = newStorageEngine
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 		})
 
-		It("should add the prefix to all instances", func() {
+		It("should add the prefix to all instances", func(ctx SpecContext) {
 			lastForcedReconciliationTime := time.Now()
 			forceReconcileDuration := 4 * time.Minute
 
 			Eventually(func() fdbv1beta2.StorageEngine {
 				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
 				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
-					fdbCluster.ForceReconcile()
+					fdbCluster.ForceReconcile(ctx)
 					lastForcedReconciliationTime = time.Now()
 				}
 
-				return fdbCluster.GetStatus().Cluster.DatabaseConfiguration.StorageEngine
+				return fdbCluster.GetStatus(ctx).Cluster.DatabaseConfiguration.StorageEngine
 			}).WithTimeout(40 * time.Minute).WithPolling(5 * time.Second).Should(Equal(newStorageEngine))
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 		})
 	})
 })

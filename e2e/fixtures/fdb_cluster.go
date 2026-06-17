@@ -57,32 +57,36 @@ type FdbCluster struct {
 }
 
 // GetFDBImage return the FDB image used for the current version, defined in the FoundationDBClusterSpec.
-func (fdbCluster *FdbCluster) GetFDBImage() string {
-	return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec().MainContainer.ImageConfigs, fdbCluster.cluster.Spec.Version).
+func (fdbCluster *FdbCluster) GetFDBImage(ctx context.Context) string {
+	return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec(ctx).MainContainer.ImageConfigs, fdbCluster.cluster.Spec.Version).
 		Image()
 }
 
 // GetSidecarImageForVersion return the sidecar image used for the specified version.
-func (fdbCluster *FdbCluster) GetSidecarImageForVersion(version string) string {
+func (fdbCluster *FdbCluster) GetSidecarImageForVersion(
+	ctx context.Context,
+	version string,
+) string {
 	// In the case of the unified image the sidecar will also be the main container image.
 	if fdbCluster.cluster.UseUnifiedImage() {
-		return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec().MainContainer.ImageConfigs, version).
+		return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec(ctx).MainContainer.ImageConfigs, version).
 			Image()
 	}
 
-	return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec().SidecarContainer.ImageConfigs, version).
+	return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec(ctx).SidecarContainer.ImageConfigs, version).
 		Image()
 }
 
 // ExecuteCmdOnPod will run the provided command in a Shell.
 func (fdbCluster *FdbCluster) ExecuteCmdOnPod(
+	ctx context.Context,
 	pod corev1.Pod,
 	container string,
 	command string,
 	printOutput bool,
 ) (string, string, error) {
 	return fdbCluster.factory.ExecuteCmd(
-		context.Background(),
+		ctx,
 		pod.Namespace,
 		pod.Name,
 		container,
@@ -120,24 +124,24 @@ func (fdbCluster *FdbCluster) Namespace() string {
 }
 
 // WaitUntilExists synchronously waits until the cluster exists.  Usually called after Create().
-func (fdbCluster *FdbCluster) WaitUntilExists() {
+func (fdbCluster *FdbCluster) WaitUntilExists(ctx context.Context) {
 	clusterRequest := fdbv1beta2.FoundationDBCluster{}
 	key := client.ObjectKeyFromObject(fdbCluster.cluster)
 
 	gomega.Eventually(func() error {
 		return fdbCluster.getClient().
-			Get(context.Background(), key, &clusterRequest)
+			Get(ctx, key, &clusterRequest)
 	}).WithTimeout(2 * time.Minute).ShouldNot(gomega.HaveOccurred())
 }
 
 // Create asynchronously creates this FDB cluster.
-func (fdbCluster *FdbCluster) Create() error {
-	return fdbCluster.getClient().Create(context.Background(), fdbCluster.cluster)
+func (fdbCluster *FdbCluster) Create(ctx context.Context) error {
+	return fdbCluster.getClient().Create(ctx, fdbCluster.cluster)
 }
 
 // Update asynchronously updates this FDB cluster definition.
-func (fdbCluster *FdbCluster) Update() error {
-	return fdbCluster.getClient().Update(context.Background(), fdbCluster.cluster)
+func (fdbCluster *FdbCluster) Update(ctx context.Context) error {
+	return fdbCluster.getClient().Update(ctx, fdbCluster.cluster)
 }
 
 // ReconciliationOptions defines the different reconciliation options.
@@ -212,10 +216,14 @@ func MakeReconciliationOptionsStruct(
 }
 
 // WaitForReconciliation waits for the cluster to be reconciled based on the provided options.
-func (fdbCluster *FdbCluster) WaitForReconciliation(options ...func(*ReconciliationOptions)) error {
+func (fdbCluster *FdbCluster) WaitForReconciliation(
+	ctx context.Context,
+	options ...func(*ReconciliationOptions),
+) error {
 	reconciliationOptions := MakeReconciliationOptionsStruct(options...)
 
 	return fdbCluster.waitForReconciliationToGeneration(
+		ctx,
 		reconciliationOptions.minimumGeneration,
 		reconciliationOptions.allowSoftReconciliation,
 		reconciliationOptions.creationTrackerLogger,
@@ -226,6 +234,7 @@ func (fdbCluster *FdbCluster) WaitForReconciliation(options ...func(*Reconciliat
 
 // waitForReconciliationToGeneration waits for a specific generation to be reached.
 func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
+	ctx context.Context,
 	minimumGeneration int64,
 	softReconciliationAllowed bool,
 	creationTrackerLogger CreationTrackerLogger,
@@ -264,7 +273,7 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 
 	checkIfReconciliationIsDone := func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 		if creationTracker != nil {
-			creationTracker.trackProgress(cluster)
+			creationTracker.trackProgress(ctx, cluster)
 		}
 
 		var reconciled bool
@@ -295,6 +304,7 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 	}
 
 	err := fdbCluster.WaitUntilWithForceReconcile(
+		ctx,
 		pollTimeInSeconds,
 		timeOutInSeconds,
 		checkIfReconciliationIsDone,
@@ -308,23 +318,24 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 
 // WaitUntilWithForceReconcile will wait either until the checkMethod returns true or until the timeout is hit.
 func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(
+	ctx context.Context,
 	pollTimeInSeconds int,
 	timeOutInSeconds int,
 	checkMethod func(cluster *fdbv1beta2.FoundationDBCluster) bool,
 ) error {
 	// Printout the initial state of the cluster before we're moving forward waiting for the checkMethod to return true.
-	fdbCluster.factory.DumpState(fdbCluster)
+	fdbCluster.factory.DumpState(ctx, fdbCluster)
 
 	lastForcedReconciliationTime := time.Now()
 	forceReconcileDuration := 4 * time.Minute
 
 	// TODO (johscheuer): Convert this into a gomega statement.
-	return wait.PollUntilContextTimeout(context.Background(),
+	return wait.PollUntilContextTimeout(ctx,
 		time.Duration(pollTimeInSeconds)*time.Second,
 		time.Duration(timeOutInSeconds)*time.Second,
 		true,
 		func(_ context.Context) (bool, error) {
-			resCluster := fdbCluster.GetCluster()
+			resCluster := fdbCluster.GetCluster(ctx)
 
 			if checkMethod(resCluster) {
 				return true, nil
@@ -332,7 +343,7 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(
 
 			// Force a reconcile if needed.
 			if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
-				fdbCluster.ForceReconcile()
+				fdbCluster.ForceReconcile(ctx)
 				lastForcedReconciliationTime = time.Now()
 			}
 
@@ -343,12 +354,12 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(
 
 // ForceReconcile will add an annotation with the current timestamp on the FoundationDBCluster resource to make sure
 // the operator reconciliation loop is triggered. This is used to speed up some test cases.
-func (fdbCluster *FdbCluster) ForceReconcile() {
+func (fdbCluster *FdbCluster) ForceReconcile(ctx context.Context) {
 	log.Printf("ForceReconcile: Status Generations=%s, Metadata Generation=%d",
 		ToJSON(fdbCluster.cluster.Status.Generations),
 		fdbCluster.cluster.ObjectMeta.Generation)
 
-	fdbCluster.factory.DumpState(fdbCluster)
+	fdbCluster.factory.DumpState(ctx, fdbCluster)
 	patch := client.MergeFrom(fdbCluster.cluster.DeepCopy())
 	if fdbCluster.cluster.Annotations == nil {
 		fdbCluster.cluster.Annotations = make(map[string]string)
@@ -361,7 +372,7 @@ func (fdbCluster *FdbCluster) ForceReconcile() {
 	// This will apply an Annotation to the object which will trigger the reconcile loop.
 	// This should speed up the reconcile phase.
 	err := fdbCluster.getClient().Patch(
-		context.Background(),
+		ctx,
 		fdbCluster.cluster,
 		patch)
 	if err != nil {
@@ -370,12 +381,13 @@ func (fdbCluster *FdbCluster) ForceReconcile() {
 }
 
 // GetCluster returns the FoundationDBCluster of the cluster. This will fetch the latest value from  the Kubernetes API.
-func (fdbCluster *FdbCluster) GetCluster() *fdbv1beta2.FoundationDBCluster {
+func (fdbCluster *FdbCluster) GetCluster(ctx context.Context) *fdbv1beta2.FoundationDBCluster {
 	var cluster *fdbv1beta2.FoundationDBCluster
 
 	gomega.Eventually(func() error {
 		var err error
 		cluster, err = fdbCluster.factory.getClusterStatus(
+			ctx,
 			fdbCluster.Name(),
 			fdbCluster.Namespace(),
 		)
@@ -408,23 +420,24 @@ func (fdbCluster *FdbCluster) GetCachedCluster() *fdbv1beta2.FoundationDBCluster
 
 // SetDatabaseConfiguration sets the provided DatabaseConfiguration for the FoundationDBCluster.
 func (fdbCluster *FdbCluster) SetDatabaseConfiguration(
+	ctx context.Context,
 	config fdbv1beta2.DatabaseConfiguration,
 	waitForReconcile bool,
 ) error {
 	fdbCluster.cluster.Spec.DatabaseConfiguration = config
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !waitForReconcile {
 		return nil
 	}
 
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // UpdateClusterStatus updates the FoundationDBCluster status. This method allows to modify the status sub-resource of
 // the FoundationDBCluster resource.
-func (fdbCluster *FdbCluster) UpdateClusterStatus() {
-	fdbCluster.UpdateClusterStatusWithStatus(fdbCluster.cluster.Status.DeepCopy())
+func (fdbCluster *FdbCluster) UpdateClusterStatus(ctx context.Context) {
+	fdbCluster.UpdateClusterStatusWithStatus(ctx, fdbCluster.cluster.Status.DeepCopy())
 }
 
 // UpdateClusterStatusWithStatus ensures that the FoundationDBCluster status will be updated in Kubernetes. This method has a retry mechanism
@@ -443,6 +456,7 @@ func (fdbCluster *FdbCluster) UpdateClusterStatus() {
 //		// Make sure the operator picks up the work again
 //		fdbCluster.SetSkipReconciliation(false)
 func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(
+	ctx context.Context,
 	desiredStatus *fdbv1beta2.FoundationDBClusterStatus,
 ) {
 	fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
@@ -451,7 +465,7 @@ func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(
 	// Try a few times before giving up.
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		err := fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
+			Get(ctx, client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching cluster")
 
 		updated := equality.Semantic.DeepEqual(fetchedCluster.Status, *desiredStatus)
@@ -461,7 +475,7 @@ func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(
 		}
 
 		desiredStatus.DeepCopyInto(&fetchedCluster.Status)
-		err = fdbCluster.getClient().Status().Update(context.Background(), fetchedCluster)
+		err = fdbCluster.getClient().Status().Update(ctx, fetchedCluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "error updating cluster status")
 		// Retry here and let the method fetch the latest version of the cluster again until the spec is updated.
 		return false
@@ -472,8 +486,8 @@ func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(
 
 // UpdateClusterSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method has a retry mechanism
 // implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes.
-func (fdbCluster *FdbCluster) UpdateClusterSpec() {
-	fdbCluster.UpdateClusterSpecWithSpec(fdbCluster.cluster.Spec.DeepCopy())
+func (fdbCluster *FdbCluster) UpdateClusterSpec(ctx context.Context) {
+	fdbCluster.UpdateClusterSpecWithSpec(ctx, fdbCluster.cluster.Spec.DeepCopy())
 }
 
 // UpdateClusterSpecWithSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method has a retry mechanism
@@ -486,6 +500,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpec() {
 //
 //	fdbCluster.UpdateClusterSpecWithSpec(spec) // Update the spec.
 func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(
+	ctx context.Context,
 	desiredSpec *fdbv1beta2.FoundationDBClusterSpec,
 ) {
 	fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
@@ -494,7 +509,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(
 	// Try a few times before giving up.
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		err := fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
+			Get(ctx, client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching cluster")
 
 		specUpdated := equality.Semantic.DeepEqual(fetchedCluster.Spec, *desiredSpec)
@@ -504,7 +519,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(
 		}
 
 		desiredSpec.DeepCopyInto(&fetchedCluster.Spec)
-		err = fdbCluster.getClient().Update(context.Background(), fetchedCluster)
+		err = fdbCluster.getClient().Update(ctx, fetchedCluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "error updating cluster spec")
 		// Retry here and let the method fetch the latest version of the cluster again until the spec is updated.
 		return false
@@ -514,23 +529,23 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(
 }
 
 // GetAllPods returns all pods, even if not running.
-func (fdbCluster *FdbCluster) GetAllPods() *corev1.PodList {
+func (fdbCluster *FdbCluster) GetAllPods(ctx context.Context) *corev1.PodList {
 	podList := &corev1.PodList{}
 
 	gomega.Eventually(func() error {
 		return fdbCluster.getClient().
-			List(context.Background(), podList, client.MatchingLabels(fdbCluster.cluster.GetMatchLabels()))
+			List(ctx, podList, client.MatchingLabels(fdbCluster.cluster.GetMatchLabels()))
 	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return podList
 }
 
 // GetPods returns only running Pods.
-func (fdbCluster *FdbCluster) GetPods() *corev1.PodList {
+func (fdbCluster *FdbCluster) GetPods(ctx context.Context) *corev1.PodList {
 	podList := &corev1.PodList{}
 
 	gomega.Eventually(func() error {
-		return fdbCluster.getClient().List(context.Background(), podList,
+		return fdbCluster.getClient().List(ctx, podList,
 			client.InNamespace(fdbCluster.Namespace()),
 			client.MatchingLabels(fdbCluster.cluster.GetMatchLabels()),
 			client.MatchingFields(map[string]string{"status.phase": string(corev1.PodRunning)}),
@@ -541,9 +556,9 @@ func (fdbCluster *FdbCluster) GetPods() *corev1.PodList {
 }
 
 // GetPodsNames GetS all Running Pods and return their names.
-func (fdbCluster *FdbCluster) GetPodsNames() []string {
+func (fdbCluster *FdbCluster) GetPodsNames(ctx context.Context) []string {
 	results := make([]string, 0)
-	podList := fdbCluster.GetPods()
+	podList := fdbCluster.GetPods(ctx)
 
 	for _, pod := range podList.Items {
 		results = append(results, pod.Name)
@@ -553,12 +568,13 @@ func (fdbCluster *FdbCluster) GetPodsNames() []string {
 }
 
 func (fdbCluster *FdbCluster) getPodsByProcessClass(
+	ctx context.Context,
 	processClass fdbv1beta2.ProcessClass,
 ) *corev1.PodList {
 	podList := &corev1.PodList{}
 
 	gomega.Eventually(func() error {
-		return fdbCluster.getClient().List(context.Background(), podList,
+		return fdbCluster.getClient().List(ctx, podList,
 			client.InNamespace(fdbCluster.Namespace()),
 			client.MatchingLabels(map[string]string{
 				fdbv1beta2.FDBClusterLabel:      fdbCluster.cluster.Name,
@@ -569,27 +585,27 @@ func (fdbCluster *FdbCluster) getPodsByProcessClass(
 }
 
 // GetLogPods returns all Pods of this cluster that have the process class log.
-func (fdbCluster *FdbCluster) GetLogPods() *corev1.PodList {
-	return fdbCluster.getPodsByProcessClass(fdbv1beta2.ProcessClassLog)
+func (fdbCluster *FdbCluster) GetLogPods(ctx context.Context) *corev1.PodList {
+	return fdbCluster.getPodsByProcessClass(ctx, fdbv1beta2.ProcessClassLog)
 }
 
 // GetStatelessPods returns all Pods of this cluster that have the process class stateless.
-func (fdbCluster *FdbCluster) GetStatelessPods() *corev1.PodList {
-	return fdbCluster.getPodsByProcessClass(fdbv1beta2.ProcessClassStateless)
+func (fdbCluster *FdbCluster) GetStatelessPods(ctx context.Context) *corev1.PodList {
+	return fdbCluster.getPodsByProcessClass(ctx, fdbv1beta2.ProcessClassStateless)
 }
 
 // GetStoragePods returns all Pods of this cluster that have the process class storage.
-func (fdbCluster *FdbCluster) GetStoragePods() *corev1.PodList {
-	return fdbCluster.getPodsByProcessClass(fdbv1beta2.ProcessClassStorage)
+func (fdbCluster *FdbCluster) GetStoragePods(ctx context.Context) *corev1.PodList {
+	return fdbCluster.getPodsByProcessClass(ctx, fdbv1beta2.ProcessClassStorage)
 }
 
 // GetPod returns the Pod with the given name that runs in the same namespace as the FoundationDBCluster.
-func (fdbCluster *FdbCluster) GetPod(name string) *corev1.Pod {
+func (fdbCluster *FdbCluster) GetPod(ctx context.Context, name string) *corev1.Pod {
 	pod := &corev1.Pod{}
-	// Retry if for some reasons an error is returned
+	// Retry if for some reason an error is returned
 	gomega.Eventually(func() error {
 		return fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKey{Name: name, Namespace: fdbCluster.Namespace()}, pod)
+			Get(ctx, client.ObjectKey{Name: name, Namespace: fdbCluster.Namespace()}, pod)
 	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return pod
@@ -597,9 +613,10 @@ func (fdbCluster *FdbCluster) GetPod(name string) *corev1.Pod {
 
 // GetPodIDs returns all the process group IDs for all Pods of this cluster that have the matching process class.
 func (fdbCluster *FdbCluster) GetPodIDs(
+	ctx context.Context,
 	processClass fdbv1beta2.ProcessClass,
 ) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None {
-	pods := fdbCluster.GetPods()
+	pods := fdbCluster.GetPods(ctx)
 
 	podIDs := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(pods.Items))
 	for _, pod := range pods.Items {
@@ -617,12 +634,13 @@ func (fdbCluster *FdbCluster) GetPodIDs(
 
 // GetVolumeClaimsForProcesses returns a list of volume claims belonging to this cluster and the specific process class.
 func (fdbCluster *FdbCluster) GetVolumeClaimsForProcesses(
+	ctx context.Context,
 	processClass fdbv1beta2.ProcessClass,
 ) *corev1.PersistentVolumeClaimList {
 	volumeClaimList := &corev1.PersistentVolumeClaimList{}
 	gomega.Expect(
 		fdbCluster.getClient().
-			List(context.Background(), volumeClaimList,
+			List(ctx, volumeClaimList,
 				client.InNamespace(fdbCluster.Namespace()),
 				client.MatchingLabels(map[string]string{
 					fdbv1beta2.FDBClusterLabel:      fdbCluster.cluster.Name,
@@ -640,16 +658,17 @@ func (fdbCluster *FdbCluster) GetLogServersPerPod() int {
 
 // SetLogServersPerPod set the LogServersPerPod field in the cluster spec.
 func (fdbCluster *FdbCluster) SetLogServersPerPod(
+	ctx context.Context,
 	serverPerPod int,
 	waitForReconcile bool,
 ) error {
 	fdbCluster.cluster.Spec.LogServersPerPod = serverPerPod
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !waitForReconcile {
 		return nil
 	}
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // GetStorageServerPerPod returns the current expected storage server per pod.
@@ -658,66 +677,76 @@ func (fdbCluster *FdbCluster) GetStorageServerPerPod() int {
 }
 
 func (fdbCluster *FdbCluster) setStorageServerPerPod(
+	ctx context.Context,
 	serverPerPod int,
 	waitForReconcile bool,
 ) error {
 	fdbCluster.cluster.Spec.StorageServersPerPod = serverPerPod
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !waitForReconcile {
 		return nil
 	}
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // SetStorageServerPerPod set the SetStorageServerPerPod field in the cluster spec.
-func (fdbCluster *FdbCluster) SetStorageServerPerPod(serverPerPod int) error {
-	return fdbCluster.setStorageServerPerPod(serverPerPod, true)
+func (fdbCluster *FdbCluster) SetStorageServerPerPod(ctx context.Context, serverPerPod int) error {
+	return fdbCluster.setStorageServerPerPod(ctx, serverPerPod, true)
 }
 
 // ReplacePod replaces the provided Pod if it's part of the FoundationDBCluster.
-func (fdbCluster *FdbCluster) ReplacePod(pod corev1.Pod, waitForReconcile bool) {
-	cluster := fdbCluster.GetCluster()
+func (fdbCluster *FdbCluster) ReplacePod(
+	ctx context.Context,
+	pod corev1.Pod,
+	waitForReconcile bool,
+) {
+	cluster := fdbCluster.GetCluster(ctx)
 	fdbCluster.cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
 		GetProcessGroupID(pod),
 	}
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !waitForReconcile {
 		return
 	}
 
-	gomega.Expect(fdbCluster.WaitForReconciliation(SoftReconcileOption(true), MinimumGenerationOption(cluster.Generation+1))).
+	gomega.Expect(fdbCluster.WaitForReconciliation(ctx, SoftReconcileOption(true), MinimumGenerationOption(cluster.Generation+1))).
 		NotTo(gomega.HaveOccurred())
 }
 
 // ReplacePods replaces the provided Pods in the current FoundationDBCluster.
-func (fdbCluster *FdbCluster) ReplacePods(pods []corev1.Pod, waitForReconcile bool) {
+func (fdbCluster *FdbCluster) ReplacePods(
+	ctx context.Context,
+	pods []corev1.Pod,
+	waitForReconcile bool,
+) {
 	for _, pod := range pods {
 		fdbCluster.cluster.Spec.ProcessGroupsToRemove = append(
 			fdbCluster.cluster.Spec.ProcessGroupsToRemove,
 			GetProcessGroupID(pod),
 		)
 	}
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !waitForReconcile {
 		return
 	}
 
-	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(gomega.HaveOccurred())
 }
 
 // ClearProcessGroupsToRemove clears the InstancesToRemove list in the cluster
 // spec.
-func (fdbCluster *FdbCluster) ClearProcessGroupsToRemove() error {
+func (fdbCluster *FdbCluster) ClearProcessGroupsToRemove(ctx context.Context) error {
 	fdbCluster.cluster.Spec.ProcessGroupsToRemove = nil
-	fdbCluster.UpdateClusterSpec()
-	return fdbCluster.WaitForReconciliation()
+	fdbCluster.UpdateClusterSpec(ctx)
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // SetVolumeSize updates the volume size for the specified process class.
 func (fdbCluster *FdbCluster) SetVolumeSize(
+	ctx context.Context,
 	processClass fdbv1beta2.ProcessClass,
 	size resource.Quantity,
 ) error {
@@ -739,8 +768,8 @@ func (fdbCluster *FdbCluster) SetVolumeSize(
 		processSettings.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage] = size
 	}
 	fdbCluster.cluster.Spec.Processes[processClass] = *processSettings
-	fdbCluster.UpdateClusterSpec()
-	return fdbCluster.WaitForReconciliation()
+	fdbCluster.UpdateClusterSpec(ctx)
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // GetVolumeSize returns the volume size for the specified process class.
@@ -756,36 +785,43 @@ func (fdbCluster *FdbCluster) GetVolumeSize(
 }
 
 func (fdbCluster *FdbCluster) updateLogProcessCount(
+	ctx context.Context,
 	newLogProcessCount int,
 	waitForReconcile bool,
 ) error {
 	fdbCluster.cluster.Spec.ProcessCounts.Log = newLogProcessCount
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 	if !waitForReconcile {
 		return nil
 	}
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // UpdateLogProcessCount updates the log process count in the cluster spec.
-func (fdbCluster *FdbCluster) UpdateLogProcessCount(newLogProcessCount int) error {
-	return fdbCluster.updateLogProcessCount(newLogProcessCount, true)
+func (fdbCluster *FdbCluster) UpdateLogProcessCount(
+	ctx context.Context,
+	newLogProcessCount int,
+) error {
+	return fdbCluster.updateLogProcessCount(ctx, newLogProcessCount, true)
 }
 
 // SetPodAsUnschedulable sets the provided Pod on the NoSchedule list of the current FoundationDBCluster. This will make
 // sure that the Pod is stuck in Pending.
-func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) {
-	fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{GetProcessGroupID(pod)})
+func (fdbCluster *FdbCluster) SetPodAsUnschedulable(ctx context.Context, pod corev1.Pod) {
+	fdbCluster.SetProcessGroupsAsUnschedulable(
+		ctx,
+		[]fdbv1beta2.ProcessGroupID{GetProcessGroupID(pod)},
+	)
 
 	gomega.Eventually(func(g gomega.Gomega) string {
 		fetchedPod := &corev1.Pod{}
 		err := fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKeyFromObject(&pod), fetchedPod)
+			Get(ctx, client.ObjectKeyFromObject(&pod), fetchedPod)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// Try deleting the Pod as a workaround until the operator handle all cases.
 		if fetchedPod.Spec.NodeName != "" && fetchedPod.DeletionTimestamp.IsZero() {
-			g.Expect(fdbCluster.getClient().Delete(context.Background(), &pod)).
+			g.Expect(fdbCluster.getClient().Delete(ctx, &pod)).
 				NotTo(gomega.HaveOccurred())
 		}
 
@@ -796,38 +832,44 @@ func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) {
 // SetProcessGroupsAsUnschedulable sets the provided process groups on the NoSchedule list of the current FoundationDBCluster. This will make
 // sure that the Pod is stuck in Pending.
 func (fdbCluster *FdbCluster) SetProcessGroupsAsUnschedulable(
+	ctx context.Context,
 	processGroups []fdbv1beta2.ProcessGroupID,
 ) {
 	fdbCluster.cluster.Spec.Buggify.NoSchedule = processGroups
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 }
 
 // ClearBuggifyNoSchedule this will reset the NoSchedule setting for the current FoundationDBCluster.
-func (fdbCluster *FdbCluster) ClearBuggifyNoSchedule(waitForReconcile bool) error {
+func (fdbCluster *FdbCluster) ClearBuggifyNoSchedule(
+	ctx context.Context,
+	waitForReconcile bool,
+) error {
 	fdbCluster.cluster.Spec.Buggify.NoSchedule = nil
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !waitForReconcile {
 		return nil
 	}
 
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 func (fdbCluster *FdbCluster) setPublicIPSource(
+	ctx context.Context,
 	publicIPSource fdbv1beta2.PublicIPSource,
 	waitForReconcile bool,
 ) error {
 	fdbCluster.cluster.Spec.Routing.PublicIPSource = &publicIPSource
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 	if !waitForReconcile {
 		return nil
 	}
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // SetTLS will enabled or disable the TLS setting in the current FoundationDBCluster.
 func (fdbCluster *FdbCluster) SetTLS(
+	ctx context.Context,
 	enableMainContainerTLS bool,
 	enableSidecarContainerTLS bool,
 ) error {
@@ -839,21 +881,24 @@ func (fdbCluster *FdbCluster) SetTLS(
 	)
 	fdbCluster.cluster.Spec.MainContainer.EnableTLS = enableMainContainerTLS
 	fdbCluster.cluster.Spec.SidecarContainer.EnableTLS = enableSidecarContainerTLS
-	fdbCluster.UpdateClusterSpec()
-	return fdbCluster.WaitForReconciliation()
+	fdbCluster.UpdateClusterSpec(ctx)
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // SetPublicIPSource will set the public IP source of the current FoundationDBCluster to the provided IP source.
-func (fdbCluster *FdbCluster) SetPublicIPSource(publicIPSource fdbv1beta2.PublicIPSource) error {
-	return fdbCluster.setPublicIPSource(publicIPSource, true)
+func (fdbCluster *FdbCluster) SetPublicIPSource(
+	ctx context.Context,
+	publicIPSource fdbv1beta2.PublicIPSource,
+) error {
+	return fdbCluster.setPublicIPSource(ctx, publicIPSource, true)
 }
 
 // GetServices returns the services associated with the current FoundationDBCluster.
-func (fdbCluster *FdbCluster) GetServices() *corev1.ServiceList {
+func (fdbCluster *FdbCluster) GetServices(ctx context.Context) *corev1.ServiceList {
 	serviceList := &corev1.ServiceList{}
 	gomega.Expect(
 		fdbCluster.getClient().List(
-			context.Background(),
+			ctx,
 			serviceList,
 			client.InNamespace(fdbCluster.Namespace()),
 			client.MatchingLabels(fdbCluster.GetResourceLabels())),
@@ -863,13 +908,18 @@ func (fdbCluster *FdbCluster) GetServices() *corev1.ServiceList {
 }
 
 // SetAutoReplacements will enabled or disable the auto replacement feature and allows to specify the detection time for a replacement.
-func (fdbCluster *FdbCluster) SetAutoReplacements(enabled bool, detectionTime time.Duration) error {
-	return fdbCluster.SetAutoReplacementsWithWait(enabled, detectionTime, true)
+func (fdbCluster *FdbCluster) SetAutoReplacements(
+	ctx context.Context,
+	enabled bool,
+	detectionTime time.Duration,
+) error {
+	return fdbCluster.SetAutoReplacementsWithWait(ctx, enabled, detectionTime, true)
 }
 
 // SetAutoReplacementsWithWait set the auto replacement setting on the operator and only waits for the cluster to reconcile
 // if wait is set to true.
 func (fdbCluster *FdbCluster) SetAutoReplacementsWithWait(
+	ctx context.Context,
 	enabled bool,
 	detectionTime time.Duration,
 	wait bool,
@@ -877,42 +927,43 @@ func (fdbCluster *FdbCluster) SetAutoReplacementsWithWait(
 	detectionTimeSec := int(detectionTime.Seconds())
 	fdbCluster.cluster.Spec.AutomationOptions.Replacements.Enabled = &enabled
 	fdbCluster.cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = &detectionTimeSec
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !wait {
 		return nil
 	}
 
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // UpdateCoordinatorSelection allows to update the coordinator selection for the current FoundationDBCluster.
 func (fdbCluster *FdbCluster) UpdateCoordinatorSelection(
+	ctx context.Context,
 	setting []fdbv1beta2.CoordinatorSelectionSetting,
 ) error {
 	fdbCluster.cluster.Spec.CoordinatorSelection = setting
-	fdbCluster.UpdateClusterSpec()
-	return fdbCluster.WaitForReconciliation()
+	fdbCluster.UpdateClusterSpec(ctx)
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // SetProcessGroupPrefix will set the process group prefix setting.
-func (fdbCluster *FdbCluster) SetProcessGroupPrefix(prefix string) error {
+func (fdbCluster *FdbCluster) SetProcessGroupPrefix(ctx context.Context, prefix string) error {
 	fdbCluster.cluster.Spec.ProcessGroupIDPrefix = prefix
-	fdbCluster.UpdateClusterSpec()
-	return fdbCluster.WaitForReconciliation()
+	fdbCluster.UpdateClusterSpec(ctx)
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // SetSkipReconciliation will set the skip setting for the current FoundationDBCluster. This setting will make sure that
 // the operator is not taking any actions on this cluster.
-func (fdbCluster *FdbCluster) SetSkipReconciliation(skip bool) {
+func (fdbCluster *FdbCluster) SetSkipReconciliation(ctx context.Context, skip bool) {
 	fdbCluster.cluster.Spec.Skip = skip
 	// Skip wait for reconciliation since this spec update is in the operator itself and by setting it, the operator
 	// skips reconciliation.
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 }
 
 // WaitForPodRemoval will wait until the specified Pod is deleted.
-func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
+func (fdbCluster *FdbCluster) WaitForPodRemoval(ctx context.Context, pod *corev1.Pod) {
 	if pod == nil {
 		return
 	}
@@ -928,7 +979,7 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
 	fetchedPod := &corev1.Pod{}
 	gomega.Eventually(func() bool {
 		err := fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKeyFromObject(pod), fetchedPod)
+			Get(ctx, client.ObjectKeyFromObject(pod), fetchedPod)
 		if err != nil && kubeErrors.IsNotFound(err) {
 			return true
 		}
@@ -939,7 +990,7 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
 			return true
 		}
 
-		resCluster := fdbCluster.GetCluster()
+		resCluster := fdbCluster.GetCluster(ctx)
 		// We have to force a reconcile because the operator only reacts to events.
 		// The network partition of the Pod won't trigger any reconcile and we would have to wait for 10h.
 		if counter >= forceReconcile {
@@ -954,7 +1005,7 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
 			// This will apply an Annotation to the object which will trigger the reconcile loop.
 			// This should speed up the reconcile phase.
 			_ = fdbCluster.getClient().Patch(
-				context.Background(),
+				ctx,
 				resCluster,
 				patch)
 			counter = -1
@@ -966,21 +1017,24 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
 }
 
 // GetClusterSpec returns the current cluster spec.
-func (fdbCluster *FdbCluster) GetClusterSpec() fdbv1beta2.FoundationDBClusterSpec {
+func (fdbCluster *FdbCluster) GetClusterSpec(
+	ctx context.Context,
+) fdbv1beta2.FoundationDBClusterSpec {
 	// Ensure we fetch the latest state to ensure we return the latest spec and not a cached state.
-	_ = fdbCluster.GetCluster()
+	_ = fdbCluster.GetCluster(ctx)
 	return fdbCluster.cluster.Spec
 }
 
 // BounceClusterWithoutWait will restart all fdberver processes in the current FoundationDBCluster without waiting for the
 // cluster to become available again.
-func (fdbCluster *FdbCluster) BounceClusterWithoutWait() error {
+func (fdbCluster *FdbCluster) BounceClusterWithoutWait(ctx context.Context) error {
 	var retries int
 	var err error
 
 	// We try to execute the bounce command 5 times
 	for retries < 5 {
 		_, _, err = fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+			ctx,
 			"kill; kill all; sleep 5",
 			true,
 			30,
@@ -999,32 +1053,38 @@ func (fdbCluster *FdbCluster) BounceClusterWithoutWait() error {
 
 // SetFinalizerForPvc allows to set the finalizers for the provided PVC.
 func (fdbCluster *FdbCluster) SetFinalizerForPvc(
+	ctx context.Context,
 	finalizers []string,
 	pvc corev1.PersistentVolumeClaim,
 ) error {
 	patch := client.MergeFrom(pvc.DeepCopy())
 	pvc.SetFinalizers(finalizers)
-	return fdbCluster.getClient().Patch(context.Background(), &pvc, patch)
+	return fdbCluster.getClient().Patch(ctx, &pvc, patch)
 }
 
 // UpdateStorageClass this will set the StorageClass for the provided process class of the current FoundationDBCluster.
 func (fdbCluster *FdbCluster) UpdateStorageClass(
+	ctx context.Context,
 	storageClass string,
 	processClass fdbv1beta2.ProcessClass,
 ) error {
 	log.Println("Updating storage class for", processClass, "to", storageClass)
-	resCluster := fdbCluster.GetCluster()
+	resCluster := fdbCluster.GetCluster(ctx)
 	patch := client.MergeFrom(resCluster.DeepCopy())
 	resCluster.Spec.Processes[processClass].VolumeClaimTemplate.Spec.StorageClassName = &storageClass
-	_ = fdbCluster.getClient().Patch(context.Background(), resCluster, patch)
-	return fdbCluster.WaitForReconciliation()
+	_ = fdbCluster.getClient().Patch(ctx, resCluster, patch)
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // UpgradeCluster will upgrade the cluster to the specified version. If waitForReconciliation is set to true this method will
 // block until the cluster is fully upgraded and all Pods are running the new image version.
-func (fdbCluster *FdbCluster) UpgradeCluster(version string, waitForReconciliation bool) error {
+func (fdbCluster *FdbCluster) UpgradeCluster(
+	ctx context.Context,
+	version string,
+	waitForReconciliation bool,
+) error {
 	// Ensure we have pulled that latest state of the cluster.
-	_ = fdbCluster.GetCluster()
+	_ = fdbCluster.GetCluster(ctx)
 
 	log.Printf(
 		"Upgrading cluster from version %s to version %s",
@@ -1034,13 +1094,14 @@ func (fdbCluster *FdbCluster) UpgradeCluster(version string, waitForReconciliati
 
 	fdbCluster.cluster.Spec.Version = version
 	log.Println("Spec version", fdbCluster.cluster.Spec.Version)
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 	// Ensure the version is actually upgraded.
 	gomega.Expect(fdbCluster.cluster.Spec.Version).To(gomega.Equal(version))
 
 	if waitForReconciliation {
 		log.Println("Waiting for generation:", fdbCluster.cluster.Generation)
 		return fdbCluster.WaitForReconciliation(
+			ctx,
 			MinimumGenerationOption(fdbCluster.cluster.Generation),
 		)
 	}
@@ -1050,13 +1111,14 @@ func (fdbCluster *FdbCluster) UpgradeCluster(version string, waitForReconciliati
 
 // SetClusterTaintConfig set fdbCluster's TaintReplacementOptions
 func (fdbCluster *FdbCluster) SetClusterTaintConfig(
+	ctx context.Context,
 	taintOption []fdbv1beta2.TaintReplacementOption,
 	taintReplacementTimeSeconds *int,
 ) {
-	curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
+	curClusterSpec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 	curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions = taintOption
 	curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = taintReplacementTimeSeconds
-	fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
+	fdbCluster.UpdateClusterSpecWithSpec(ctx, curClusterSpec)
 }
 
 // GetProcessCounts returns the process counts of the current FoundationDBCluster.
@@ -1071,10 +1133,11 @@ func (fdbCluster *FdbCluster) HasHeadlessService() bool {
 
 // SetCustomParameters allows to set the custom parameters of the provided process class.
 func (fdbCluster *FdbCluster) SetCustomParameters(
+	ctx context.Context,
 	customParameters map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters,
 	waitForReconcile bool,
 ) error {
-	cluster := fdbCluster.GetCluster()
+	cluster := fdbCluster.GetCluster(ctx)
 
 	for processClass, parameters := range customParameters {
 		setting, ok := cluster.Spec.Processes[processClass]
@@ -1086,12 +1149,12 @@ func (fdbCluster *FdbCluster) SetCustomParameters(
 		cluster.Spec.Processes[processClass] = setting
 	}
 
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 	if !waitForReconcile {
 		return nil
 	}
 
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // GetCustomParameters returns the current custom parameters for the specified process class.
@@ -1103,6 +1166,7 @@ func (fdbCluster *FdbCluster) GetCustomParameters(
 
 // SetPodTemplateSpec allows to set the pod template spec of the provided process class.
 func (fdbCluster *FdbCluster) SetPodTemplateSpec(
+	ctx context.Context,
 	processClass fdbv1beta2.ProcessClass,
 	podTemplateSpec *corev1.PodSpec,
 	waitForReconcile bool,
@@ -1114,12 +1178,12 @@ func (fdbCluster *FdbCluster) SetPodTemplateSpec(
 	setting.PodTemplate.Spec = *podTemplateSpec
 
 	fdbCluster.cluster.Spec.Processes[processClass] = setting
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 	if !waitForReconcile {
 		return nil
 	}
 
-	return fdbCluster.WaitForReconciliation()
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // GetPodTemplateSpec returns the current pod template spec for the specified process class.
@@ -1146,10 +1210,10 @@ func (fdbCluster *FdbCluster) GetProcessSettings(
 }
 
 // CheckPodIsDeleted return true if Pod no longer exists at the executed time point
-func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) bool {
+func (fdbCluster *FdbCluster) CheckPodIsDeleted(ctx context.Context, podName string) bool {
 	pod := &corev1.Pod{}
 	err := fdbCluster.getClient().
-		Get(context.Background(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
+		Get(ctx, client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
 
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
@@ -1163,6 +1227,7 @@ func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) bool {
 // EnsurePodIsDeletedWithCustomTimeout validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
 // It times out after timeoutMinutes.
 func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(
+	ctx context.Context,
 	podName string,
 	timeoutMinutes int,
 ) {
@@ -1171,36 +1236,42 @@ func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(
 		// Force a reconciliation every minute to ensure the deletion will be done in a more timely manner (without
 		// the reconciliation getting delayed by the requeue mechanism).
 		if time.Since(lastForceReconcile) > 1*time.Minute {
-			fdbCluster.ForceReconcile()
+			fdbCluster.ForceReconcile(ctx)
 			lastForceReconcile = time.Now()
 		}
 
-		return fdbCluster.CheckPodIsDeleted(podName)
+		return fdbCluster.CheckPodIsDeleted(ctx, podName)
 	}).WithTimeout(time.Duration(timeoutMinutes) * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
 }
 
 // EnsurePodIsDeleted validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
-func (fdbCluster *FdbCluster) EnsurePodIsDeleted(podName string) {
-	fdbCluster.EnsurePodIsDeletedWithCustomTimeout(podName, 5)
+func (fdbCluster *FdbCluster) EnsurePodIsDeleted(ctx context.Context, podName string) {
+	fdbCluster.EnsurePodIsDeletedWithCustomTimeout(ctx, podName, 5)
 }
 
 // SetUseDNSInClusterFile enables DNS in the cluster file. Enable this setting to use DNS instead of IP addresses in
 // the connection string.
-func (fdbCluster *FdbCluster) SetUseDNSInClusterFile(useDNSInClusterFile bool) error {
+func (fdbCluster *FdbCluster) SetUseDNSInClusterFile(
+	ctx context.Context,
+	useDNSInClusterFile bool,
+) error {
 	fdbCluster.cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(useDNSInClusterFile)
-	fdbCluster.UpdateClusterSpec()
-	return fdbCluster.WaitForReconciliation()
+	fdbCluster.UpdateClusterSpec(ctx)
+	return fdbCluster.WaitForReconciliation(ctx)
 }
 
 // Destroy will remove the underlying cluster.
-func (fdbCluster *FdbCluster) Destroy() error {
-	return fdbCluster.DestroyWithWaitForTearDown(false)
+func (fdbCluster *FdbCluster) Destroy(ctx context.Context) error {
+	return fdbCluster.DestroyWithWaitForTearDown(ctx, false)
 }
 
 // DestroyWithWaitForTearDown will remove the underlying cluster and wait for the resources to be removed.
-func (fdbCluster *FdbCluster) DestroyWithWaitForTearDown(waitForTearDown bool) error {
+func (fdbCluster *FdbCluster) DestroyWithWaitForTearDown(
+	ctx context.Context,
+	waitForTearDown bool,
+) error {
 	err := fdbCluster.getClient().
-		Delete(context.Background(), fdbCluster.cluster)
+		Delete(ctx, fdbCluster.cluster)
 	if err != nil {
 		return err
 	}
@@ -1213,7 +1284,7 @@ func (fdbCluster *FdbCluster) DestroyWithWaitForTearDown(waitForTearDown bool) e
 	gomega.Eventually(func(g gomega.Gomega) {
 		podList := &corev1.PodList{}
 
-		g.Expect(fdbCluster.getClient().List(context.Background(), podList,
+		g.Expect(fdbCluster.getClient().List(ctx, podList,
 			client.InNamespace(fdbCluster.cluster.Namespace),
 			client.MatchingLabels(fdbCluster.cluster.GetMatchLabels()),
 		)).To(gomega.Succeed())
@@ -1225,32 +1296,36 @@ func (fdbCluster *FdbCluster) DestroyWithWaitForTearDown(waitForTearDown bool) e
 }
 
 // SetIgnoreMissingProcessesSeconds sets the IgnoreMissingProcessesSeconds setting.
-func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(duration time.Duration) {
+func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(
+	ctx context.Context,
+	duration time.Duration,
+) {
 	fdbCluster.cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds = ptr.To(
 		int(duration.Seconds()),
 	)
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 }
 
 // SetKillProcesses sets the automation option to allow the operator to restart processes or not.
-func (fdbCluster *FdbCluster) SetKillProcesses(allowKill bool, wait bool) {
+func (fdbCluster *FdbCluster) SetKillProcesses(ctx context.Context, allowKill bool, wait bool) {
 	fdbCluster.cluster.Spec.AutomationOptions.KillProcesses = ptr.To(allowKill)
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !wait {
 		return
 	}
 
-	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(gomega.HaveOccurred())
 }
 
 // AllProcessGroupsHaveCondition returns true if all process groups have the specified condition. If allowOtherConditions is
 // set to true only this condition is allowed.
 func (fdbCluster *FdbCluster) AllProcessGroupsHaveCondition(
+	ctx context.Context,
 	condition fdbv1beta2.ProcessGroupConditionType,
 	ignoreMissing bool,
 ) bool {
-	cluster := fdbCluster.GetCluster()
+	cluster := fdbCluster.GetCluster(ctx)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
@@ -1275,26 +1350,31 @@ func (fdbCluster *FdbCluster) AllProcessGroupsHaveCondition(
 
 // SetCrashLoopContainers sets the crashLoopContainers of the FoundationDBCluster spec.
 func (fdbCluster *FdbCluster) SetCrashLoopContainers(
+	ctx context.Context,
 	crashLoopContainers []fdbv1beta2.CrashLoopContainerObject,
 	waitForReconcile bool,
 ) {
 	fdbCluster.cluster.Spec.Buggify.CrashLoopContainers = crashLoopContainers
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 	if !waitForReconcile {
 		return
 	}
-	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(gomega.HaveOccurred())
 }
 
 // SetIgnoreDuringRestart sets the buggify option for the operator.
-func (fdbCluster *FdbCluster) SetIgnoreDuringRestart(processes []fdbv1beta2.ProcessGroupID) {
+func (fdbCluster *FdbCluster) SetIgnoreDuringRestart(
+	ctx context.Context,
+	processes []fdbv1beta2.ProcessGroupID,
+) {
 	fdbCluster.cluster.Spec.Buggify.IgnoreDuringRestart = processes
-	fdbCluster.UpdateClusterSpec()
-	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
+	fdbCluster.UpdateClusterSpec(ctx)
+	gomega.Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(gomega.HaveOccurred())
 }
 
 // UpdateContainerImage sets the image for the provided Pod for the provided container.
 func (fdbCluster *FdbCluster) UpdateContainerImage(
+	ctx context.Context,
 	pod *corev1.Pod,
 	containerName string,
 	image string,
@@ -1302,7 +1382,7 @@ func (fdbCluster *FdbCluster) UpdateContainerImage(
 	gomega.Eventually(func(g gomega.Gomega) error {
 		updatePod := &corev1.Pod{}
 
-		g.Expect(fdbCluster.getClient().Get(context.Background(), client.ObjectKeyFromObject(pod), updatePod)).
+		g.Expect(fdbCluster.getClient().Get(ctx, client.ObjectKeyFromObject(pod), updatePod)).
 			To(gomega.Succeed())
 
 		for idx, container := range updatePod.Spec.Containers {
@@ -1314,14 +1394,17 @@ func (fdbCluster *FdbCluster) UpdateContainerImage(
 		}
 
 		return fdbCluster.factory.GetControllerRuntimeClient().
-			Update(context.Background(), updatePod)
+			Update(ctx, updatePod)
 	}).ShouldNot(gomega.HaveOccurred())
 }
 
 // SetBuggifyBlockRemoval will set the provided list of process group IDs to be blocked for removal.
-func (fdbCluster *FdbCluster) SetBuggifyBlockRemoval(blockRemovals []fdbv1beta2.ProcessGroupID) {
+func (fdbCluster *FdbCluster) SetBuggifyBlockRemoval(
+	ctx context.Context,
+	blockRemovals []fdbv1beta2.ProcessGroupID,
+) {
 	fdbCluster.cluster.Spec.Buggify.BlockRemoval = blockRemovals
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 }
 
 // GetAutomationOptions return the fdbCluster's AutomationOptions
@@ -1332,13 +1415,14 @@ func (fdbCluster *FdbCluster) GetAutomationOptions() fdbv1beta2.FoundationDBClus
 // ValidateProcessesCount will make sure that the cluster has the expected count of ProcessGroups and processes running
 // with the provided ProcessClass.
 func (fdbCluster *FdbCluster) ValidateProcessesCount(
+	ctx context.Context,
 	processClass fdbv1beta2.ProcessClass,
 	countProcessGroups int,
 	countServer int,
 ) {
 	gomega.Eventually(func() int {
 		var cnt int
-		for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+		for _, processGroup := range fdbCluster.GetCluster(ctx).Status.ProcessGroups {
 			if processGroup.ProcessClass != processClass {
 				continue
 			}
@@ -1354,11 +1438,11 @@ func (fdbCluster *FdbCluster) ValidateProcessesCount(
 	}).Should(gomega.BeNumerically("==", countProcessGroups))
 
 	gomega.Eventually(func() int {
-		return fdbCluster.GetProcessCountByProcessClass(processClass)
+		return fdbCluster.GetProcessCountByProcessClass(ctx, processClass)
 	}).Should(gomega.BeNumerically("==", countServer))
 
 	// Make sure that all process group have a fault domain set.
-	for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+	for _, processGroup := range fdbCluster.GetCluster(ctx).Status.ProcessGroups {
 		gomega.Expect(processGroup.FaultDomain).NotTo(gomega.BeEmpty())
 	}
 }
@@ -1377,6 +1461,7 @@ func (fdbCluster *FdbCluster) ValidateProcessesCount(
 
 */
 func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(
+	ctx context.Context,
 	annotations map[string]string,
 	labels map[string]string,
 ) {
@@ -1384,7 +1469,7 @@ func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(
 	gomega.Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
 		err := fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
+			Get(ctx, client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
 		if err != nil {
 			return err
 		}
@@ -1394,21 +1479,21 @@ func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(
 		fetchedCluster.Labels = labels
 
 		return fdbCluster.getClient().Patch(
-			context.Background(),
+			ctx,
 			fetchedCluster,
 			patch)
 	})).NotTo(gomega.HaveOccurred())
 
 	// Make sure the current reference is updated.
-	fdbCluster.GetCluster()
+	fdbCluster.GetCluster(ctx)
 }
 
 // VerifyVersion Checks if cluster is running at the expectedVersion. This is done by checking the status of the FoundationDBCluster status.
 // Before that we checked the cluster status json by checking the reported version of all processes. This approach only worked for
 // version compatible upgrades, since incompatible processes won't be part of the cluster anyway. To simplify the check
 // we verify the reported running version from the operator.
-func (fdbCluster *FdbCluster) VerifyVersion(version string) {
-	gomega.Expect(fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+func (fdbCluster *FdbCluster) VerifyVersion(ctx context.Context, version string) {
+	gomega.Expect(fdbCluster.WaitUntilWithForceReconcile(ctx, 2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 		return cluster.Status.RunningVersion == version
 	})).
 		NotTo(gomega.HaveOccurred())
@@ -1416,30 +1501,30 @@ func (fdbCluster *FdbCluster) VerifyVersion(version string) {
 
 // UpgradeAndVerify will upgrade the cluster to the new version and perform a check at the end that the running version
 // matched the new version.
-func (fdbCluster *FdbCluster) UpgradeAndVerify(version string) {
+func (fdbCluster *FdbCluster) UpgradeAndVerify(ctx context.Context, version string) {
 	startTime := time.Now()
 	defer func() {
 		log.Println("Upgrade took:", time.Since(startTime).String())
 	}()
 
-	gomega.Expect(fdbCluster.UpgradeCluster(version, true)).NotTo(gomega.HaveOccurred())
-	fdbCluster.VerifyVersion(version)
+	gomega.Expect(fdbCluster.UpgradeCluster(ctx, version, true)).NotTo(gomega.HaveOccurred())
+	fdbCluster.VerifyVersion(ctx, version)
 }
 
 // EnsureTeamTrackersAreHealthy will check if the machine-readable status suggest that the team trackers are healthy
 // and all data is present.
-func (fdbCluster *FdbCluster) EnsureTeamTrackersAreHealthy() {
+func (fdbCluster *FdbCluster) EnsureTeamTrackersAreHealthy(ctx context.Context) {
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		// If the status is initializing the team trackers will be missing. This can happen in cases where e.g.
 		// the DD is restarted or when the SS are restarted. This state is only intermediate and will change once the
 		// DD is done analyzing the current state. If we are not checking for this state, we might see intermediate failures
 		// because of a short period where the DD is restarted and therefore the team trackers are empty.
-		if fdbCluster.GetStatus().Cluster.Data.State.Name == "initializing" {
+		if fdbCluster.GetStatus(ctx).Cluster.Data.State.Name == "initializing" {
 			return true
 		}
 
 		// Make sure that the team trackers are reporting.
-		teamTrackers := fdbCluster.GetStatus().Cluster.Data.TeamTrackers
+		teamTrackers := fdbCluster.GetStatus(ctx).Cluster.Data.TeamTrackers
 		g.Expect(teamTrackers).NotTo(gomega.BeEmpty())
 		for _, tracker := range teamTrackers {
 			if !tracker.State.Healthy {
@@ -1453,10 +1538,10 @@ func (fdbCluster *FdbCluster) EnsureTeamTrackersAreHealthy() {
 
 // EnsureTeamTrackersHaveMinReplicas will check if the machine-readable status suggest that the team trackers min_replicas
 // match the expected replicas.
-func (fdbCluster *FdbCluster) EnsureTeamTrackersHaveMinReplicas() {
+func (fdbCluster *FdbCluster) EnsureTeamTrackersHaveMinReplicas(ctx context.Context) {
 	desiredFaultTolerance := fdbCluster.GetCachedCluster().DesiredFaultTolerance()
 	gomega.Eventually(func(g gomega.Gomega) int {
-		status := fdbCluster.GetStatus()
+		status := fdbCluster.GetStatus(ctx)
 		// If the status is initializing the team trackers will be missing. This can happen in cases where e.g.
 		// the DD is restarted or when the SS are restarted. This state is only intermediate and will change once the
 		// DD is done analyzing the current state. If we are not checking for this state, we might see intermediate failures
@@ -1480,9 +1565,10 @@ func (fdbCluster *FdbCluster) EnsureTeamTrackersHaveMinReplicas() {
 
 // GetListOfUIDsFromVolumeClaims will return of list of UIDs for the current volume claims for the provided processes class.
 func (fdbCluster *FdbCluster) GetListOfUIDsFromVolumeClaims(
+	ctx context.Context,
 	processClass fdbv1beta2.ProcessClass,
 ) []types.UID {
-	volumesClaims := fdbCluster.GetVolumeClaimsForProcesses(processClass)
+	volumesClaims := fdbCluster.GetVolumeClaimsForProcesses(ctx, processClass)
 
 	uids := make([]types.UID, 0, len(volumesClaims.Items))
 	for _, volumeClaim := range volumesClaims.Items {
@@ -1493,21 +1579,24 @@ func (fdbCluster *FdbCluster) GetListOfUIDsFromVolumeClaims(
 }
 
 // UpdateConnectionString will update the connection string in the ConfigMap and the SeedConnectionString of the custer.
-func (fdbCluster *FdbCluster) UpdateConnectionString(connectionString string) {
+func (fdbCluster *FdbCluster) UpdateConnectionString(ctx context.Context, connectionString string) {
 	fdbCluster.cluster.Spec.SeedConnectionString = connectionString
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.UpdateClusterSpec(ctx)
 
 	cm := &corev1.ConfigMap{}
-	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Get(context.Background(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: fdbCluster.Name() + "-config"}, cm)).
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Get(ctx, client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: fdbCluster.Name() + "-config"}, cm)).
 		NotTo(gomega.HaveOccurred())
 	gomega.Expect(cm.Data).To(gomega.HaveKey(fdbv1beta2.ClusterFileKey))
 	cm.Data[fdbv1beta2.ClusterFileKey] = connectionString
-	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Update(context.Background(), cm)).
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Update(ctx, cm)).
 		NotTo(gomega.HaveOccurred())
 }
 
 // CreateTesterDeployment will create a deployment that runs tester processes with the specified number of replicas.
-func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deployment {
+func (fdbCluster *FdbCluster) CreateTesterDeployment(
+	ctx context.Context,
+	replicas int,
+) *appsv1.Deployment {
 	deploymentName := fdbCluster.Name() + "-tester"
 
 	deploymentLabels := map[string]string{
@@ -1739,12 +1828,12 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 		},
 	}
 
-	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Create(context.Background(), deploy)).
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Create(ctx, deploy)).
 		NotTo(gomega.HaveOccurred())
 	gomega.Eventually(func(g gomega.Gomega) int {
 		pods := &corev1.PodList{}
 
-		err := fdbCluster.factory.controllerRuntimeClient.List(context.Background(), pods,
+		err := fdbCluster.factory.controllerRuntimeClient.List(ctx, pods,
 			client.InNamespace(fdbCluster.Namespace()),
 			client.MatchingLabels(map[string]string{"app": deploymentName}))
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -1764,8 +1853,13 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 }
 
 // GetClusterVersion returns the cluster's version
-func (fdbCluster *FdbCluster) GetClusterVersion() uint64 {
-	stdout, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry("getversion", false, 30)
+func (fdbCluster *FdbCluster) GetClusterVersion(ctx context.Context) uint64 {
+	stdout, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+		ctx,
+		"getversion",
+		false,
+		30,
+	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	version, err := strconv.ParseUint(strings.TrimSpace(stdout), 10, 64)
@@ -1775,12 +1869,12 @@ func (fdbCluster *FdbCluster) GetClusterVersion() uint64 {
 }
 
 // ClearRange will delete the provided range.
-func (fdbCluster *FdbCluster) ClearRange(prefixBytes []byte, timeout int) {
+func (fdbCluster *FdbCluster) ClearRange(ctx context.Context, prefixBytes []byte, timeout int) {
 	begin := FdbPrintable(prefixBytes)
 	endBytes, err := FdbStrinc(prefixBytes)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	end := FdbPrintable(endBytes)
-	_, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf(
+	_, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(ctx, fmt.Sprintf(
 		"writemode on; option on ACCESS_SYSTEM_KEYS; clearrange %s %s",
 		begin,
 		end,
@@ -1807,6 +1901,7 @@ func (keyValue *KeyValue) GetValue() string {
 
 // GetRange will return the values of the provided range.
 func (fdbCluster *FdbCluster) GetRange(
+	ctx context.Context,
 	prefixBytes []byte,
 	limit int,
 	timeout int,
@@ -1814,7 +1909,7 @@ func (fdbCluster *FdbCluster) GetRange(
 	endBytes, err := FdbStrinc(prefixBytes)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	stdout, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf(
+	stdout, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(ctx, fmt.Sprintf(
 		"option on ACCESS_SYSTEM_KEYS; getrange %s %s %d",
 		FdbPrintable(prefixBytes),
 		FdbPrintable(endBytes),
@@ -1863,11 +1958,13 @@ func (fdbCluster *FdbCluster) GenerateRandomValues(
 
 // WriteKeyValue writes a single key value pair into FDB.
 func (fdbCluster *FdbCluster) WriteKeyValue(
+	ctx context.Context,
 	keyValue KeyValue,
 	timeout int,
 ) {
 	gomega.Eventually(func(g gomega.Gomega) {
 		_, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+			ctx,
 			fmt.Sprintf("writemode on; set %s %s", keyValue.GetKey(), keyValue.GetValue()),
 			false,
 			timeout,
@@ -1878,13 +1975,17 @@ func (fdbCluster *FdbCluster) WriteKeyValue(
 }
 
 // WriteKeyValuesWithTimeout writes multiples key values into FDB with the specified timeout.
-func (fdbCluster *FdbCluster) WriteKeyValuesWithTimeout(keyValues []KeyValue, timeout int) {
+func (fdbCluster *FdbCluster) WriteKeyValuesWithTimeout(
+	ctx context.Context,
+	keyValues []KeyValue,
+	timeout int,
+) {
 	for _, kv := range keyValues {
-		fdbCluster.WriteKeyValue(kv, timeout)
+		fdbCluster.WriteKeyValue(ctx, kv, timeout)
 	}
 }
 
 // WriteKeyValues writes multiples key values into FDB.
-func (fdbCluster *FdbCluster) WriteKeyValues(keyValues []KeyValue) {
-	fdbCluster.WriteKeyValuesWithTimeout(keyValues, 30)
+func (fdbCluster *FdbCluster) WriteKeyValues(ctx context.Context, keyValues []KeyValue) {
+	fdbCluster.WriteKeyValuesWithTimeout(ctx, keyValues, 30)
 }

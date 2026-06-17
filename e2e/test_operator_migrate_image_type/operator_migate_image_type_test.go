@@ -50,48 +50,48 @@ var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	if CurrentSpecReport().Failed() {
 		log.Printf("failed due to %s", CurrentSpecReport().FailureMessage())
 	}
-	factory.Shutdown()
+	factory.Shutdown(ctx)
 })
 
 var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from split to unified", func() {
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			config := fixtures.DefaultClusterConfig(false)
 			config.UseUnifiedImage = ptr.To(false)
-			fdbCluster = factory.CreateFdbCluster(
+			fdbCluster = factory.CreateFdbCluster(ctx,
 				config,
 			)
 
 			// Load some data async into the cluster. We will only block as long as the Job is created.
-			factory.CreateDataLoaderIfAbsent(fdbCluster)
+			factory.CreateDataLoaderIfAbsent(ctx, fdbCluster)
 
 			// Update the cluster spec to run with the unified image.
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			imageType := fdbv1beta2.ImageTypeUnified
 			spec.ImageType = &imageType
 			// Generate the new config to make use of the unified images.
 			overrides := factory.GetMainContainerOverrides(config)
 			overrides.EnableTLS = spec.MainContainer.EnableTLS
 			spec.MainContainer = overrides
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
+		AfterEach(func(ctx SpecContext) {
+			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
 		})
 
-		It("should convert the cluster", func() {
+		It("should convert the cluster", func(ctx SpecContext) {
 			// Make sure we didn't lose data.
-			fdbCluster.EnsureTeamTrackersAreHealthy()
-			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.EnsureTeamTrackersAreHealthy(ctx)
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 
 			unifiedImage := factory.GetUnifiedFoundationDBImage()
-			pods := fdbCluster.GetPods()
+			pods := fdbCluster.GetPods(ctx)
 			for _, pod := range pods.Items {
 				// Ignore Pods that are pending the deletion.
 				if !pod.DeletionTimestamp.IsZero() {
@@ -107,45 +107,45 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	})
 
 	When("migrating from split to unified with Pod IP family set", func() {
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			config := fixtures.DefaultClusterConfig(false)
 			config.UseUnifiedImage = ptr.To(false)
-			fdbCluster = factory.CreateFdbCluster(
+			fdbCluster = factory.CreateFdbCluster(ctx,
 				config,
 			)
 
 			// Set the Pod IP Family
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			spec.Routing.PodIPFamily = ptr.To(4)
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 
 			// Load some data async into the cluster. We will only block as long as the Job is created.
-			factory.CreateDataLoaderIfAbsent(fdbCluster)
+			factory.CreateDataLoaderIfAbsent(ctx, fdbCluster)
 
 			// Update the cluster spec to run with the unified image.
-			spec = fdbCluster.GetCluster().Spec.DeepCopy()
+			spec = fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			imageType := fdbv1beta2.ImageTypeUnified
 			spec.ImageType = &imageType
 			// Generate the new config to make use of the unified images.
 			overrides := factory.GetMainContainerOverrides(config)
 			overrides.EnableTLS = spec.MainContainer.EnableTLS
 			spec.MainContainer = overrides
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
+		AfterEach(func(ctx SpecContext) {
+			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
 		})
 
-		It("should convert the cluster", func() {
+		It("should convert the cluster", func(ctx SpecContext) {
 			// Make sure we didn't lose data.
-			fdbCluster.EnsureTeamTrackersAreHealthy()
-			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.EnsureTeamTrackersAreHealthy(ctx)
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 
 			unifiedImage := factory.GetUnifiedFoundationDBImage()
-			pods := fdbCluster.GetPods()
+			pods := fdbCluster.GetPods(ctx)
 			for _, pod := range pods.Items {
 				// Ignore Pods that are pending the deletion.
 				if !pod.DeletionTimestamp.IsZero() {
@@ -161,40 +161,40 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	})
 
 	When("migrating from unified to split", func() {
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			config := fixtures.DefaultClusterConfig(false)
 			config.UseUnifiedImage = ptr.To(true)
-			fdbCluster = factory.CreateFdbCluster(
+			fdbCluster = factory.CreateFdbCluster(ctx,
 				config,
 			)
 
 			// Load some data async into the cluster. We will only block as long as the Job is created.
-			factory.CreateDataLoaderIfAbsent(fdbCluster)
+			factory.CreateDataLoaderIfAbsent(ctx, fdbCluster)
 
 			// Update the cluster spec to run with the split image.
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			imageType := fdbv1beta2.ImageTypeSplit
 			spec.ImageType = &imageType
 			// Generate the new config to make use of the split images.
 			overrides := factory.GetMainContainerOverrides(config)
 			overrides.EnableTLS = spec.MainContainer.EnableTLS
 			spec.MainContainer = overrides
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
+		AfterEach(func(ctx SpecContext) {
+			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
 		})
 
-		It("should convert the cluster", func() {
+		It("should convert the cluster", func(ctx SpecContext) {
 			// Make sure we didn't lose data.
-			fdbCluster.EnsureTeamTrackersAreHealthy()
-			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.EnsureTeamTrackersAreHealthy(ctx)
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 
 			fdbImage := factory.GetFoundationDBImage()
 			sidecarImage := factory.GetSidecarImage()
-			pods := fdbCluster.GetPods()
+			pods := fdbCluster.GetPods(ctx)
 			for _, pod := range pods.Items {
 				// Ignore Pods that are pending the deletion.
 				if !pod.DeletionTimestamp.IsZero() {

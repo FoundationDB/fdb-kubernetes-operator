@@ -28,7 +28,7 @@ import (
 var _ = Describe("FDB Cluster", func() {
 	DescribeTable(
 		"when generating the reconciliation options",
-		func(expected *ReconciliationOptions, options ...func(*ReconciliationOptions)) {
+		func(_ SpecContext, expected *ReconciliationOptions, options ...func(*ReconciliationOptions)) {
 			reconciliationOptions := MakeReconciliationOptionsStruct(options...)
 			Expect(reconciliationOptions).To(Equal(expected))
 		},

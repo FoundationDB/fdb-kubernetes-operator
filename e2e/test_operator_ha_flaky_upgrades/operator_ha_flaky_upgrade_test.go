@@ -27,6 +27,7 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 */
 
 import (
+	"context"
 	"log"
 
 	"k8s.io/utils/ptr"
@@ -55,6 +56,7 @@ var _ = AfterSuite(func() {
 })
 
 func clusterSetupWithHealthCheckOption(
+	ctx context.Context,
 	beforeVersion string,
 	enableOperatorPodChaos bool,
 	enableHealthCheck bool,
@@ -62,16 +64,17 @@ func clusterSetupWithHealthCheckOption(
 	config := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
 	config.Version = ptr.To(beforeVersion)
 
-	fdbCluster = factory.CreateFdbHaCluster(config)
+	fdbCluster = factory.CreateFdbHaCluster(ctx, config)
 	if enableHealthCheck {
 		Expect(
-			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(),
+			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(ctx),
 		).ShouldNot(HaveOccurred())
 	}
 
 	if enableOperatorPodChaos && factory.ChaosTestsEnabled() {
 		for _, curCluster := range fdbCluster.GetAllClusters() {
 			factory.ScheduleInjectPodKill(
+				ctx,
 				fixtures.GetOperatorSelector(curCluster.Namespace()),
 				"*/5 * * * *",
 				chaosmesh.OneMode,
@@ -80,32 +83,32 @@ func clusterSetupWithHealthCheckOption(
 	}
 }
 
-func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
-	clusterSetupWithHealthCheckOption(beforeVersion, enableOperatorPodChaos, true)
+func clusterSetup(ctx context.Context, beforeVersion string, enableOperatorPodChaos bool) {
+	clusterSetupWithHealthCheckOption(ctx, beforeVersion, enableOperatorPodChaos, true)
 }
 
 var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
-	BeforeEach(func() {
+	BeforeEach(func(_ SpecContext) {
 		factory = fixtures.CreateFactory(testOptions)
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() {
-			fdbCluster.DumpState()
+			fdbCluster.DumpState(ctx)
 		}
-		factory.Shutdown()
+		factory.Shutdown(ctx)
 	})
 
 	// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/172, debug why this test is flaky and how
 	// to make it stable.
 	DescribeTable(
 		"when no remote processes are restarted",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, false)
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			clusterSetup(ctx, beforeVersion, false)
 
 			// Select remote processes and use the buggify option to skip those
 			// processes during the restart command.
-			remoteProcessGroups := fdbCluster.GetRemote().GetCluster().Status.ProcessGroups
+			remoteProcessGroups := fdbCluster.GetRemote().GetCluster(ctx).Status.ProcessGroups
 			ignoreDuringRestart := make(
 				[]fdbv1beta2.ProcessGroupID,
 				0,
@@ -127,13 +130,13 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 
 			// We have to set this to all clusters as any operator could be doing the cluster wide restart.
 			for _, cluster := range fdbCluster.GetAllClusters() {
-				cluster.SetIgnoreDuringRestart(ignoreDuringRestart)
+				cluster.SetIgnoreDuringRestart(ctx, ignoreDuringRestart)
 			}
 
 			// The cluster should still be able to upgrade.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 
 			// TODO add validation here processes are updated new version
 		},
