@@ -224,14 +224,17 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				)
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 
-			expectedBinaryPath := fmt.Sprintf("/var/fdb/shared-binaries/bin/%s/fdbserver", targetVersion)
+			expectedBinaryPath := fmt.Sprintf(
+				"/var/fdb/shared-binaries/bin/%s/fdbserver",
+				targetVersion,
+			)
 			Eventually(func(g Gomega) {
 				// Restart the fdbserver process to pick up the new configuration and run with the newer version.
 				_, _, err := fdbCluster.ExecuteCmdOnPod(
 					ctx,
 					selectedCoordinator,
 					fdbv1beta2.MainContainerName,
-					"pkill -9 fdbserver",
+					"pkill fdbserver",
 					false,
 				)
 				g.Expect(err).NotTo(HaveOccurred())
