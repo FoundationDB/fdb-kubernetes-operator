@@ -142,7 +142,7 @@ func GetRemainingMap(
 	status *fdbv1beta2.FoundationDBStatus,
 	minRecoverySeconds float64,
 ) (map[string]bool, error) {
-	remainingMap, addresses := getAddressesToValidateBeforeRemoval(logger, cluster)
+	remainingMap, addresses := getAddressesToValidateBeforeRemoval(logger, cluster, status)
 	if len(addresses) == 0 {
 		return nil, nil
 	}
@@ -178,11 +178,26 @@ func GetRemainingMap(
 func getAddressesToValidateBeforeRemoval(
 	logger logr.Logger,
 	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
 ) (map[string]bool, []fdbv1beta2.ProcessAddress) {
+	processGroupsInStatus := processGroupIDsInStatus(cluster, status)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.IsMarkedForRemoval() || processGroup.IsExcluded() {
+		if !processGroup.IsMarkedForRemoval() {
 			continue
+		}
+
+		// Trust IsExcluded() only when the process is currently visible in the live status.
+		// Otherwise force re-validation via the missingInStatus path in CanSafelyRemoveFromStatus.
+		if processGroup.IsExcluded() {
+			if _, present := processGroupsInStatus[processGroup.ProcessGroupID]; present {
+				continue
+			}
+			logger.Info(
+				"Re-validating exclusion: process group is flagged excluded but missing from machine-readable status",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
 		}
 
 		// If we use localities for exclusions we don't have to care about the addresses.
@@ -226,6 +241,30 @@ func getAddressesToValidateBeforeRemoval(
 	}
 
 	return remainingMap, addresses
+}
+
+// processGroupIDsInStatus returns the set of process group IDs that have at least one process
+// reporting in the machine-readable status for the cluster's DC. Multi-process pods share an
+// instance ID across all their processes, so a single locality lookup per process is enough.
+func processGroupIDsInStatus(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None {
+	if status == nil {
+		return nil
+	}
+	present := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
+	for _, process := range status.Cluster.Processes {
+		if !cluster.ProcessSharesDC(process) {
+			continue
+		}
+		id, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if !ok {
+			continue
+		}
+		present[fdbv1beta2.ProcessGroupID(id)] = fdbv1beta2.None{}
+	}
+	return present
 }
 
 // RemovalAllowed returns if we are allowed to remove the process group or if we have to wait to ensure a safe deletion.

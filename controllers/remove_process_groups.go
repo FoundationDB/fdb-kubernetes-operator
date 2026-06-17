@@ -69,18 +69,6 @@ func (u removeProcessGroups) reconcile(
 		}
 	}
 
-	// Stale exclusion guard for https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1912.
-	// When FDB reports no processes for this cluster's DC, checkAndSetProcessStatus took the
-	// early-return path in update_status.go and ExclusionTimestamp on each process group is
-	// whatever it was before — possibly stale. Trusting the cached IsExcluded() flag in
-	// getProcessGroupsToRemove would risk removing a partially-excluded data-bearing process.
-	if hasUnverifiableExcludedRemoval(cluster, status) {
-		return &requeue{
-			message: "Removals blocked: FDB reported no processes, exclusion state cannot be verified",
-			delay:   30 * time.Second,
-		}
-	}
-
 	remainingMap, err := removals.GetRemainingMap(
 		logger,
 		adminClient,
@@ -600,25 +588,20 @@ func getProcessesToInclude(
 	return fdbProcessesToInclude, processGroups[:idx]
 }
 
-// hasUnverifiableExcludedRemoval reports whether the cluster has at least one process group
-// marked for removal whose IsExcluded() flag cannot be re-verified against live cluster state
-// in this reconcile cycle. The flag is unverifiable when the FDB machine-readable status
-// reports no processes sharing the cluster's DC — the same condition under which
-// checkAndSetProcessStatus skips refreshing ExclusionTimestamp.
-func hasUnverifiableExcludedRemoval(
-	cluster *fdbv1beta2.FoundationDBCluster,
-	status *fdbv1beta2.FoundationDBStatus,
+// processGroupAddressesRemaining returns true if any of the process group's addresses
+// (IP-based or locality-based) appear in remainingMap with a value of true, meaning the
+// live re-exclude check could not confirm them fully excluded. Returns false when none
+// of the addresses appear in the map, which is the normal case for groups that
+// getAddressesToValidateBeforeRemoval already trusts as excluded.
+func processGroupAddressesRemaining(
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+	remainingMap map[string]bool,
 ) bool {
-	if status == nil {
-		return false
+	if remaining, ok := remainingMap[processGroup.GetExclusionString()]; ok && remaining {
+		return true
 	}
-	for _, process := range status.Cluster.Processes {
-		if cluster.ProcessSharesDC(process) {
-			return false
-		}
-	}
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
+	for _, addr := range processGroup.Addresses {
+		if remaining, ok := remainingMap[addr]; ok && remaining {
 			return true
 		}
 	}
@@ -656,7 +639,20 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(
 		}
 
 		// ProcessGroup is already marked as excluded we can add it to the processGroupsToRemove and skip further checks.
+		// Exception: when getAddressesToValidateBeforeRemoval forced re-validation (because the process is missing
+		// from the machine-readable status), any of its addresses with remainingMap[addr] == true means the live
+		// re-exclude check could not confirm the process is fully excluded — so trust the live signal over the
+		// possibly-stale ExclusionTimestamp. See https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1912.
 		if processGroup.IsExcluded() {
+			if processGroupAddressesRemaining(processGroup, remainingMap) {
+				logger.Info(
+					"ExclusionTimestamp set but live re-exclude reports addresses still remaining; not removing",
+					"processGroupID",
+					processGroup.ProcessGroupID,
+				)
+				allExcluded = false
+				continue
+			}
 			processGroupsToRemove = append(processGroupsToRemove, processGroup)
 			continue
 		}

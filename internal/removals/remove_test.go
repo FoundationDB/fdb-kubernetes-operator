@@ -267,7 +267,11 @@ var _ = Describe("remove", func() {
 	DescribeTable(
 		"when getting the addresses to validate before removal",
 		func(cluster *fdbv1beta2.FoundationDBCluster, expected []fdbv1beta2.ProcessAddress) {
-			remainingMap, addresses := getAddressesToValidateBeforeRemoval(logr.Discard(), cluster)
+			remainingMap, addresses := getAddressesToValidateBeforeRemoval(
+				logr.Discard(),
+				cluster,
+				statusForAllProcessGroups(cluster),
+			)
 			Expect(addresses).To(ConsistOf(expected))
 			for _, address := range addresses {
 				Expect(remainingMap).To(HaveKeyWithValue(address.String(), false))
@@ -642,4 +646,87 @@ var _ = Describe("remove", func() {
 			},
 		),
 	)
+
+	DescribeTable(
+		"when a process group flagged excluded is missing from machine-readable status",
+		func(cluster *fdbv1beta2.FoundationDBCluster, missingProcessGroupID fdbv1beta2.ProcessGroupID, expected []fdbv1beta2.ProcessAddress) {
+			status := statusForAllProcessGroups(cluster)
+			delete(status.Cluster.Processes, missingProcessGroupID)
+			_, addresses := getAddressesToValidateBeforeRemoval(logr.Discard(), cluster, status)
+			Expect(addresses).To(ConsistOf(expected))
+		},
+		Entry(
+			"its addresses are forced into validation so the live exclude command can re-verify them",
+			&fdbv1beta2.FoundationDBCluster{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
+					},
+				},
+			},
+			fdbv1beta2.ProcessGroupID("storage-1"),
+			[]fdbv1beta2.ProcessAddress{
+				{
+					IPAddress: net.ParseIP("192.0.0.1"),
+				},
+			},
+		),
+		Entry(
+			"a flagged-excluded group still present in status is trusted and not re-validated",
+			&fdbv1beta2.FoundationDBCluster{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+						},
+					},
+				},
+			},
+			fdbv1beta2.ProcessGroupID("storage-2"),
+			nil,
+		),
+	)
 })
+
+// statusForAllProcessGroups builds a synthetic FoundationDBStatus that contains a process
+// for every process group in the cluster, mirroring how the operator's update_status sees
+// a fully-reporting cluster. Test entries can delete entries from the result to model a
+// process going missing.
+func statusForAllProcessGroups(
+	cluster *fdbv1beta2.FoundationDBCluster,
+) *fdbv1beta2.FoundationDBStatus {
+	processes := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
+	for _, pg := range cluster.Status.ProcessGroups {
+		processes[pg.ProcessGroupID] = fdbv1beta2.FoundationDBStatusProcessInfo{
+			Locality: map[string]string{
+				fdbv1beta2.FDBLocalityInstanceIDKey: string(pg.ProcessGroupID),
+			},
+		}
+	}
+	return &fdbv1beta2.FoundationDBStatus{
+		Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+			Processes: processes,
+		},
+	}
+}
