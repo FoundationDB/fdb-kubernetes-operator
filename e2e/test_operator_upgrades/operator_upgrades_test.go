@@ -247,11 +247,11 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					selectedCoordinator,
 					fdbv1beta2.MainContainerName,
 					"pgrep -a fdbserver",
-					true,
+					false,
 				)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(stdout).To(ContainSubstring(expectedBinaryPath))
-			})
+			}).WithTimeout(300 * time.Second).WithPolling(4 * time.Second).Should(Succeed())
 
 			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
 			Eventually(func(g Gomega) map[string]fdbv1beta2.None {
@@ -268,7 +268,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					g.Expect(err).NotTo(HaveOccurred())
 					result[parsedAddr.MachineAddress()] = fdbv1beta2.None{}
 				}
-				g
+
 				return result
 			}).WithTimeout(300 * time.Second).WithPolling(4 * time.Second).Should(And(HaveLen(1), HaveKey(selectedCoordinator.Status.PodIP)))
 
