@@ -32,6 +32,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -450,4 +451,47 @@ func (fdbBackup *FdbBackup) ForceReconcile(ctx context.Context) {
 	if err != nil {
 		log.Println("error patching annotation to force reconcile, error:", err.Error())
 	}
+}
+
+// UpdateBackupSpec ensures that the FoundationDBBackup will be updated in Kubernetes. This method has a retry mechanism
+// implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes.
+func (fdbBackup *FdbBackup) UpdateBackupSpec() {
+	fdbBackup.UpdateBackupSpecWithSpec(fdbBackup.backup.Spec.DeepCopy())
+}
+
+// UpdateBackupSpecWithSpec ensures that the FoundationDBBackup will be updated in Kubernetes. This method has a retry mechanism
+// implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes. You must make sure that you call
+// backup.GetBackup() before updating the spec, to make sure you are not overwriting the current state with an outdated state.
+// An example on how to update a field with this method:
+//
+//	spec := backup.GetBackup().Spec.DeepCopy() // Fetch the current Spec.
+//	spec.AgentCount = "42" // Make your changes.
+//
+//	backup.UpdateBackupSpecWithSpec(backupSpec) // Update the spec.
+func (fdbBackup *FdbBackup) UpdateBackupSpecWithSpec(
+	desiredSpec *fdbv1beta2.FoundationDBBackupSpec,
+) {
+	fetchedBackup := &fdbv1beta2.FoundationDBBackup{}
+
+	// This is flaky. It sometimes responds with an error saying that the object has been updated.
+	// Try a few times before giving up.
+	gomega.Eventually(func(g gomega.Gomega) bool {
+		err := fdbBackup.fdbCluster.getClient().
+			Get(context.Background(), client.ObjectKeyFromObject(fdbBackup.backup), fetchedBackup)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching backup")
+
+		specUpdated := equality.Semantic.DeepEqual(fetchedBackup.Spec, *desiredSpec)
+		log.Println("UpdateBackupSpec: specUpdated:", specUpdated)
+		if specUpdated {
+			return true
+		}
+
+		desiredSpec.DeepCopyInto(&fetchedBackup.Spec)
+		err = fdbBackup.fdbCluster.getClient().Update(context.Background(), fetchedBackup)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error updating backup spec")
+		// Retry here and let the method fetch the latest version of the backup again until the spec is updated.
+		return false
+	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+
+	fdbBackup.backup = fetchedBackup
 }

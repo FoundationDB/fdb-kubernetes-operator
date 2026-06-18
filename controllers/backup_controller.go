@@ -54,6 +54,8 @@ type FoundationDBBackupReconciler struct {
 	// is unset in AllowedPodModifications, we allow everything to not break the current setups. In a new major release we could
 	// change this and enforce that fields are only allowed to change if the according AllowedPodModifications is set.
 	AllowedPodModifications *fdbv1beta2.AllowedPodModifications
+	// MinimumAgeForTerminalPodDeletion defines the minimum age of a terminal pod before it will be deleted.
+	MinimumAgeForTerminalPodDeletion time.Duration
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
