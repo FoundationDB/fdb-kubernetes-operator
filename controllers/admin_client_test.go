@@ -268,8 +268,20 @@ var _ = Describe("admin_client_test", func() {
 		var backup *fdbv1beta2.FoundationDBBackup
 
 		JustBeforeEach(func() {
-			status, err = mockAdminClient.GetBackupStatus()
+			status, err = mockAdminClient.GetBackupStatus(backup)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		BeforeEach(func() {
+			backup = &fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						BackupName:  "test-backup",
+						AccountName: "@test",
+					},
+					SnapshotPeriodSeconds: ptr.To(10),
+				},
+			}
 		})
 
 		Context("with a basic cluster", func() {
@@ -282,16 +294,6 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a backup running", func() {
 			BeforeEach(func() {
-				backup = &fdbv1beta2.FoundationDBBackup{
-					Spec: fdbv1beta2.FoundationDBBackupSpec{
-						BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
-							BackupName:  "test-backup",
-							AccountName: "@test",
-						},
-						SnapshotPeriodSeconds: ptr.To(10),
-					},
-				}
-
 				Expect(mockAdminClient.StartBackup(backup)).To(Succeed())
 			})
 
@@ -306,8 +308,7 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a paused backup", func() {
 				BeforeEach(func() {
-					err = mockAdminClient.PauseBackups()
-					Expect(err).NotTo(HaveOccurred())
+					Expect(mockAdminClient.PauseBackups()).To(Succeed())
 				})
 
 				It("should mark the backup as paused", func() {

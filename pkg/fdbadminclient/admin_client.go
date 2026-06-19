@@ -91,7 +91,9 @@ type AdminClient interface {
 	ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) error
 
 	// GetBackupStatus gets the status of the current backup.
-	GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error)
+	GetBackupStatus(
+		backup *fdbv1beta2.FoundationDBBackup,
+	) (*fdbv1beta2.FoundationDBLiveBackupStatus, error)
 
 	// StartRestore starts a new restore.
 	StartRestore(

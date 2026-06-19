@@ -106,7 +106,7 @@ func (s updateBackupStatus) reconcile(
 		_ = adminClient.Close()
 	}()
 
-	liveStatus, err := adminClient.GetBackupStatus()
+	liveStatus, err := adminClient.GetBackupStatus(backup)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -117,6 +117,7 @@ func (s updateBackupStatus) reconcile(
 		Paused:                liveStatus.BackupAgentsPaused,
 		SnapshotPeriodSeconds: liveStatus.SnapshotIntervalSeconds,
 		Restorable:            ptr.Deref(liveStatus.Restorable, false),
+		Tag:                   ptr.Deref(liveStatus.Tag, fdbv1beta2.DefaultBackupTagBackupTag),
 	}
 
 	originalStatus := backup.Status.DeepCopy()

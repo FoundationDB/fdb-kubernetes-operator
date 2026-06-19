@@ -140,54 +140,94 @@ var _ = Describe("backup_controller", func() {
 				generationGap = 0
 			})
 
-			It("should create the backup deployment", func() {
-				deployment := &appsv1.Deployment{}
-				deploymentName := fmt.Sprintf("%s-backup-agents", cluster.Name)
+			When("the default tag is used", func() {
+				It("should create the backup deployment", func() {
+					deployment := &appsv1.Deployment{}
+					deploymentName := fmt.Sprintf("%s-backup-agents", cluster.Name)
 
-				err := k8sClient.Get(
-					context.TODO(),
-					types.NamespacedName{Namespace: cluster.Namespace, Name: deploymentName},
-					deployment,
-				)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
-				Expect(
-					deployment.Spec.Template.Spec.Containers[0].Image,
-				).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
-				Expect(backup.Finalizers).To(BeNil())
+					err := k8sClient.Get(
+						context.TODO(),
+						types.NamespacedName{Namespace: cluster.Namespace, Name: deploymentName},
+						deployment,
+					)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
+					Expect(
+						deployment.Spec.Template.Spec.Containers[0].Image,
+					).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
+					Expect(backup.Finalizers).To(BeNil())
+				})
+
+				It("should update the status on the resource", func() {
+					Expect(backup.Status).To(Equal(fdbv1beta2.FoundationDBBackupStatus{
+						AgentCount:           3,
+						DeploymentConfigured: true,
+						BackupDetails: &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
+							URL:                   "blobstore://test@test-service:443/test-backup?bucket=fdb-backups",
+							Running:               true,
+							SnapshotPeriodSeconds: 864000,
+							Tag:                   fdbv1beta2.DefaultBackupTagBackupTag,
+						},
+						Generations: fdbv1beta2.BackupGenerationStatus{
+							Reconciled: 1,
+						},
+					}))
+				})
+
+				It("should start a backup", func() {
+					status, err := adminClient.GetBackupStatus(backup)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(
+						status.DestinationURL,
+					).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
+					Expect(status.Status.Running).To(BeTrue())
+					Expect(status.BackupAgentsPaused).To(BeFalse())
+					Expect(status.Tag).To(Equal(ptr.To("default")))
+				})
 			})
 
-			It("should update the status on the resource", func() {
-				Expect(backup.Status).To(Equal(fdbv1beta2.FoundationDBBackupStatus{
-					AgentCount:           3,
-					DeploymentConfigured: true,
-					BackupDetails: &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
-						URL:                   "blobstore://test@test-service:443/test-backup?bucket=fdb-backups",
-						Running:               true,
-						SnapshotPeriodSeconds: 864000,
-					},
-					Generations: fdbv1beta2.BackupGenerationStatus{
-						Reconciled: 1,
-					},
-				}))
-			})
+			When("a custom tag is used", func() {
+				customTag := "custom"
 
-			It("should start a backup", func() {
-				status, err := adminClient.GetBackupStatus()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(
-					status.DestinationURL,
-				).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
-				Expect(status.Status.Running).To(BeTrue())
-				Expect(status.BackupAgentsPaused).To(BeFalse())
+				BeforeEach(func() {
+					generationGap = 1
+					backup.Spec.Tag = ptr.To[fdbv1beta2.BackupTag](fdbv1beta2.BackupTag(customTag))
+					Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+				})
+
+				It("should update the status on the resource", func() {
+					Expect(backup.Status).To(Equal(fdbv1beta2.FoundationDBBackupStatus{
+						AgentCount:           3,
+						DeploymentConfigured: true,
+						BackupDetails: &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
+							URL:                   "blobstore://test@test-service:443/test-backup?bucket=fdb-backups",
+							Running:               true,
+							SnapshotPeriodSeconds: 864000,
+							Tag:                   customTag,
+						},
+						Generations: fdbv1beta2.BackupGenerationStatus{
+							Reconciled: 2,
+						},
+					}))
+				})
+
+				It("should start a backup", func() {
+					status, err := adminClient.GetBackupStatus(backup)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(
+						status.DestinationURL,
+					).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
+					Expect(status.Status.Running).To(BeTrue())
+					Expect(status.BackupAgentsPaused).To(BeFalse())
+					Expect(status.Tag).To(Equal(ptr.To(customTag)))
+				})
 			})
 		})
 
 		Context("with a nil backup agent count", func() {
 			BeforeEach(func() {
 				backup.Spec.AgentCount = nil
-				err = k8sClient.Update(context.TODO(), backup)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
 			})
 
 			It("should set the default replica count", func() {
@@ -223,7 +263,7 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should stop the backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.Status.Running).To(BeFalse())
 			})
@@ -236,7 +276,7 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should pause the backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.BackupAgentsPaused).To(BeTrue())
 			})
@@ -253,7 +293,7 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should resume the backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
 			})
@@ -268,7 +308,7 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should modify the backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.SnapshotIntervalSeconds).To(Equal(100000))
 			})
@@ -372,7 +412,7 @@ var _ = Describe("backup_controller", func() {
 
 					// Backup should still be running (was started before switching to unmanaged)
 					// but operator won't manage it anymore
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(status.Status.Running).To(BeTrue())
 				})
@@ -387,7 +427,7 @@ var _ = Describe("backup_controller", func() {
 				})
 
 				It("should not modify the backup", func() {
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					// Should still be the original default value
 					Expect(status.SnapshotIntervalSeconds).To(Equal(864000))
@@ -403,7 +443,7 @@ var _ = Describe("backup_controller", func() {
 				})
 
 				It("should not modify the backup URL", func() {
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					// Should still be the original URL
 					Expect(
@@ -420,7 +460,7 @@ var _ = Describe("backup_controller", func() {
 				})
 
 				It("should not stop the backup", func() {
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					// Backup state should not be affected
 					Expect(status.Status.Running).To(BeTrue())
@@ -435,7 +475,7 @@ var _ = Describe("backup_controller", func() {
 				})
 
 				It("should not pause the backup", func() {
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(status.BackupAgentsPaused).To(BeFalse())
 				})

@@ -103,6 +103,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 			factory.RecreateOperatorPods(ctx, namespace)
 		})
 
+		// TODO create a test case with two different backups.
+
 		When("the default backup system is used", func() {
 			// shouldPauseBackup controls whether the backup is paused or stopped after reaching a restorable version.
 			// Use pause when the test needs to resume the same backup (e.g. to run modify), since pause suspends
@@ -210,6 +212,25 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							Expect(
 								fdbCluster.GetRange(ctx, []byte{prefix}, 25, 60),
 							).Should(Equal(keyValues))
+						},
+					)
+				})
+
+				When("a custom tag is used", func() {
+					JustBeforeEach(func() {
+						backupConfiguration.Tag = ptr.To(fdbv1beta2.BackupTag("testing"))
+					})
+
+					It(
+						"should create the backup with the custom tag",
+						func(ctx SpecContext) {
+							Eventually(func(g Gomega) {
+								status := backup.RunStatusCommand(ctx)
+								g.Expect(status).ShouldNot(BeNil())
+								g.Expect(status.Tag).ShouldNot(BeNil())
+								g.Expect(status.Tag).
+									Should(Equal(ptr.Deref(backupConfiguration.Tag, "")))
+							})
 						},
 					)
 				})

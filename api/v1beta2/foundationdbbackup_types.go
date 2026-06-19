@@ -39,6 +39,7 @@ import (
 // +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Restorable",type="boolean",JSONPath=".status.backupDetails.restorable",description="If the backup is restorable",priority=0
+// +kubebuilder:printcolumn:name="Tag",type="string",JSONPath=".status.backupDetails.tag",description="The current backup tag",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
 // +kubebuilder:ac:generate=true
@@ -154,7 +155,17 @@ type FoundationDBBackupSpec struct {
 	// +kubebuilder:validation:Enum=continuous;oneTime
 	// +kubebuilder:default:=continuous
 	BackupMode *BackupMode `json:"backupMode,omitempty"`
+
+	// Tag defines the backup tag that should be used. Using different tags allows to have multiple backups
+	// for the same cluster.
+	// Default: "default".
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="BackupTag is immutable"
+	Tag *BackupTag `json:"tag,omitempty"`
 }
+
+// BackupTag defines the backup tag that should be used for the backup.
+// +kubebuilder:validation:MaxLength=64
+type BackupTag string
 
 // BackupType defines the backup type that should be used for the backup.
 // +kubebuilder:validation:MaxLength=64
@@ -171,6 +182,9 @@ const (
 	// BackupTypeUnmanaged is a special backup type. If this backup type is used the operator will only manage
 	// the backup agent pods but not manage the actual backup.
 	BackupTypeUnmanaged BackupType = "unmanaged"
+
+	// DefaultBackupTagBackupTag represents the "default" tag for backups.
+	DefaultBackupTagBackupTag = "default"
 )
 
 // BackupDeletionPolicy defines the deletion policy when the backup is deleted.
@@ -228,6 +242,7 @@ type FoundationDBBackupStatusBackupDetails struct {
 	Paused                bool   `json:"paused,omitempty"`
 	SnapshotPeriodSeconds int    `json:"snapshotTime,omitempty"`
 	Restorable            bool   `json:"restorable,omitempty"`
+	Tag                   string `json:"tag,omitempty"`
 }
 
 // BackupGenerationStatus stores information on which generations have reached
@@ -397,6 +412,9 @@ type FoundationDBLiveBackupStatus struct {
 
 	// UID is the unique identifier of the backup.
 	UID *string `json:"UID,omitempty"`
+
+	// Tag is the tag of the backup.
+	Tag *string `json:"Tag,omitempty"`
 }
 
 // FoundationDBLiveBackupStatusState provides the state of a backup in the
@@ -520,6 +538,11 @@ func (backup *FoundationDBBackup) GetBackupMode() BackupMode {
 // UseUnifiedImage returns true if the unified image should be used.
 func (backup *FoundationDBBackup) UseUnifiedImage() bool {
 	return ptr.Deref(backup.Spec.ImageType, ImageTypeUnified) == ImageTypeUnified
+}
+
+// GetBackupTag returns the backup tag for this backup.
+func (backup *FoundationDBBackup) GetBackupTag() BackupTag {
+	return ptr.Deref(backup.Spec.Tag, DefaultBackupTagBackupTag)
 }
 
 // Validate checks if all settings in the FoundationDBBackup are valid, if not an error will be returned.
