@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
@@ -56,18 +55,6 @@ func (s modifyBackup) reconcile(
 		defer func() {
 			_ = adminClient.Close()
 		}()
-
-		// Ensure that the tag was not changed, e.g. in a case where someone creates a new backup with the same name
-		// but a different tag.
-		if backup.Status.BackupDetails.Tag != string(backup.GetBackupTag()) {
-			return &requeue{
-				curError: fmt.Errorf(
-					"current tag: %s cannot be changed to %s, backup tags are immutable",
-					backup.Status.BackupDetails.Tag,
-					backup.GetBackupTag(),
-				),
-			}
-		}
 
 		err = adminClient.ModifyBackup(backup)
 		if err != nil {

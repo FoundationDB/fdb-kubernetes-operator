@@ -103,7 +103,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 			factory.RecreateOperatorPods(ctx, namespace)
 		})
 
-		// TODO create a test case with two different backups.
+		// TODO (johscheuer): Create a test case with two different backups.
 
 		When("the default backup system is used", func() {
 			// shouldPauseBackup controls whether the backup is paused or stopped after reaching a restorable version.
@@ -216,7 +216,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					)
 				})
 
-				When("a custom tag is used", func() {
+				// TODO (johscheuer): Enable once the CRD is updated.
+				PWhen("a custom tag is used", func() {
 					JustBeforeEach(func() {
 						backupConfiguration.Tag = ptr.To(fdbv1beta2.BackupTag("testing"))
 					})

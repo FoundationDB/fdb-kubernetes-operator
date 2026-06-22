@@ -139,6 +139,10 @@ If one resource has `backupState: Paused` and another has no state (running), th
 
 Always keep `backupState` in sync across all `FoundationDBBackup` resources that target the same cluster.
 
+**Warning — a single deployment will be created**
+
+The operator will create a single `Deployment` for the backup agents if you are using multiple tags, ensure that the `agentCount` matches to prevent the operator to be stuck in a up-scale and down-scale loop.
+
 ## Example Continuous Backup
 
 This is a sample configuration for running a continuous backup of a cluster.

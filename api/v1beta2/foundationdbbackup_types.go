@@ -444,6 +444,11 @@ func (backup *FoundationDBBackup) GetDesiredAgentCount() int {
 
 // NeedsBackupReconfiguration determines if the backup needs to be reconfigured.
 func (backup *FoundationDBBackup) NeedsBackupReconfiguration() bool {
+	// If the backup is not running we don't have to modify it.
+	if backup.Status.BackupDetails == nil || !backup.Status.BackupDetails.Running {
+		return false
+	}
+
 	hasSnapshotSecondsChanged := backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds
 	currentBackupURL, err := backup.BackupURL()
 	// In case that the backup URL cannot be parsed, we opt to return false here to not cause a constant reconfiguration

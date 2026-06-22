@@ -59,23 +59,6 @@ var _ = Describe("modifyBackup reconciler", func() {
 		}
 	}
 
-	When("the status tag differs from the spec tag", func() {
-		It("should requeue with an immutability error and not call ModifyBackup", func() {
-			backup.Status.BackupDetails = buildBackupDetails("old-tag")
-			backup.Spec.SnapshotPeriodSeconds = ptr.To(100000)
-
-			req := modifyBackup{}.reconcile(context.TODO(), backupReconciler, backup)
-
-			Expect(req).NotTo(BeNil())
-			Expect(req.curError).To(MatchError(ContainSubstring("backup tags are immutable")))
-
-			// ModifyBackup must not have been called — snapshot period is unchanged.
-			status, err := adminClient.GetBackupStatus(backup)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(status.SnapshotIntervalSeconds).To(Equal(864000))
-		})
-	})
-
 	When("the backup mode is one-time", func() {
 		It("should skip ModifyBackup even when the snapshot period changed", func() {
 			backup.Status.BackupDetails = buildBackupDetails(fdbv1beta2.DefaultBackupTagBackupTag)
