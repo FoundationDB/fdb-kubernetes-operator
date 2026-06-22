@@ -355,7 +355,7 @@ func GetMinimumUptimeAndAddressMap(
 		}
 
 		addressMap[fdbv1beta2.ProcessGroupID(processGroupID)] = append(
-			addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])],
+			addressMap[fdbv1beta2.ProcessGroupID(processGroupID)],
 			process.Address,
 		)
 
@@ -373,7 +373,7 @@ func GetMinimumUptimeAndAddressMap(
 		// cases where only storage processes are restarted.
 		if process.UptimeSeconds < minimumUptime {
 			logger.V(1).
-				Info("Process uptime is less than the last recovery", "processGroupID", process.Address, "minimumUptime", minimumUptime, "process.UptimeSeconds", process.UptimeSeconds)
+				Info("Process uptime is less than the last recovery", "processGroupID", processGroupID, "minimumUptime", minimumUptime, "process.UptimeSeconds", process.UptimeSeconds, "process.Address", process.Address)
 			minimumUptime = process.UptimeSeconds
 		}
 	}
@@ -396,13 +396,26 @@ func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStat
 			region = "remote"
 		}
 
-		if !tracker.State.Healthy {
-			return fmt.Errorf("team tracker in %s is in unhealthy state", region)
-		}
-
+		// We are not checking the health state here because any data-movement, except for rebalancing will mean this
+		// flag is set to false. This means the operator would always wait until all storage servers are fully excluded.
+		// This behaviour is too restrictive for the operator, especially in large scale deployments. The operator
+		// performs the exclusion check before trying to remove a pod, so this is an additional safety guard but the
+		// tracker.State.MinReplicasRemaining is a better check for this.
+		//
+		// The data distributor (DD) has those states in the team tracker:
+		//
+		//  healthy=false, name=missing_data       → min_replicas_remaining = 0
+		//  healthy=false, name=healing (1 left)   → min_replicas_remaining = 1
+		//  healthy=false, name=healing (2 left)   → min_replicas_remaining = 2
+		//  healthy=false, name=healing            → min_replicas_remaining = storageTeamSize  ← PRIORITY_TEAM_UNHEALTHY
+		//  healthy=true,  all other states        → min_replicas_remaining = storageTeamSize
+		//
+		// In the case of a triple replicated cluster, minimumRequiredReplicas would be 3 and during a planned exclusions
+		// min_replicas_remaining would be 3, so the deletion would be allowed. If another process is absent min_replicas_remaining
+		// would be 2 and the deletion would be blocked as expected.
 		if tracker.State.MinReplicasRemaining < minimumRequiredReplicas {
 			return fmt.Errorf(
-				"team tracker in %s has %d replicas left but we require more than %d",
+				"team tracker in %s has %d replicas left but we require at least %d",
 				region,
 				tracker.State.MinReplicasRemaining,
 				minimumRequiredReplicas,
@@ -525,7 +538,7 @@ func HasDesiredFaultToleranceFromStatus(
 		return false
 	}
 
-	// Should we also add a method to check the different process classes? Currently the degraded log fault tolerance
+	// Should we also add a method to check the different process classes? Currently, the degraded log fault tolerance
 	// will block the removal of a storage process.
 	err := DoStorageServerFaultDomainCheckOnStatus(status)
 	if err != nil {
