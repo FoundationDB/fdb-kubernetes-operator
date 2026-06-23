@@ -920,8 +920,6 @@ func (client *cliAdminClient) DeleteBackup(backup *fdbv1beta2.FoundationDBBackup
 			"delete",
 			"-d",
 			backupURL,
-			"-t",
-			string(backup.GetBackupTag()),
 		},
 		// Increase the default timeout here, deleting large backups will probably take even more time.
 		timeout: 10 * time.Minute,
