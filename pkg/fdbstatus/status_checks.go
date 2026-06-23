@@ -396,8 +396,8 @@ func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStat
 			region = "remote"
 		}
 
-		// We are not checking the health state here because any data-movement, except for rebalancing will mean this
-		// flag is set to false. This means the operator would always wait until all storage servers are fully excluded.
+		// We are not checking the health state here because any data-movement, except for rebalancing will mean that
+		// tracker.State.Healthy is set to false. This means the operator would always wait until all storage servers are fully excluded.
 		// This behaviour is too restrictive for the operator, especially in large scale deployments. The operator
 		// performs the exclusion check before trying to remove a pod, so this is an additional safety guard but the
 		// tracker.State.MinReplicasRemaining is a better check for this.
