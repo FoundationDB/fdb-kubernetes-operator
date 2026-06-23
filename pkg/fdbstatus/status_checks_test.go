@@ -1425,7 +1425,9 @@ var _ = Describe("status_checks", func() {
 			It("do storage server fault domain check", func() {
 				err := DoFaultDomainChecksOnStatus(status, true, false, false)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
+				Expect(
+					err.Error(),
+				).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
 			})
 
 			It("do log server fault domain check", func() {
@@ -1443,13 +1445,17 @@ var _ = Describe("status_checks", func() {
 			It("do storage server and log server fault domain checks", func() {
 				err := DoFaultDomainChecksOnStatus(status, true, true, false)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
+				Expect(
+					err.Error(),
+				).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
 			})
 
 			It("do all fault domain checks", func() {
 				err := DoFaultDomainChecksOnStatus(status, true, true, true)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
+				Expect(
+					err.Error(),
+				).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
 			})
 		})
 	})
