@@ -222,7 +222,7 @@ func (factory *Factory) CreateBackupForClusterFromSpec(
 	}
 
 	factory.AddShutdownHook(func() error {
-		curBackup.Destroy(ctx)
+		curBackup.Destroy(context.Background())
 
 		return nil
 	})

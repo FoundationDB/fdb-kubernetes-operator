@@ -120,6 +120,9 @@ func (factory *Factory) StopInvariantCheck() {
 }
 
 // AddShutdownHook will add the provided shut down hook.
+// Methods that are called by AddShutdownHook should not use the provided SpecContext as the context will be canceled
+// after the Ginkgo node was executed. In another PR, we could pass a ctx to the invocation of the shutdown handlers.
+// Right now a generic context.Background() is used to ensure that the cleanup methods will always be executed.
 func (factory *Factory) AddShutdownHook(f func() error) {
 	factory.shutdownHooks.Defer(f)
 }

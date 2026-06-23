@@ -671,14 +671,14 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(ctx context.Context, namespace
 
 	// Make sure we delete the cluster scoped objects.
 	factory.AddShutdownHook(func() error {
-		factory.Delete(ctx, &rbacv1.ClusterRole{
+		factory.Delete(context.Background(), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespace + "-operator-manager-clusterrole",
 				Namespace: namespace,
 			},
 		})
 
-		factory.Delete(ctx, &rbacv1.ClusterRoleBinding{
+		factory.Delete(context.Background(), &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespace + "-operator-manager-clusterrolebinding",
 				Namespace: namespace,

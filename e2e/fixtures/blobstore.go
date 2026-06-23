@@ -221,7 +221,7 @@ func (factory *Factory) waitUntilBlobstorePodsRunning(ctx context.Context, names
 	).NotTo(gomega.HaveOccurred())
 
 	factory.AddShutdownHook(func() error {
-		err := factory.GetControllerRuntimeClient().Delete(ctx, deployment)
+		err := factory.GetControllerRuntimeClient().Delete(context.Background(), deployment)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return nil

@@ -172,7 +172,7 @@ func (factory *Factory) createNamespace(ctx context.Context, suffix string) stri
 		gomega.Eventually(func(g gomega.Gomega) {
 			podList := &corev1.PodList{}
 			err := factory.controllerRuntimeClient.List(
-				ctx,
+				context.Background(),
 				podList,
 				client.InNamespace(namespace),
 			)
@@ -181,13 +181,13 @@ func (factory *Factory) createNamespace(ctx context.Context, suffix string) stri
 			for _, pod := range podList.Items {
 				if len(pod.Finalizers) > 0 {
 					log.Printf("Removing finalizer from Pod %s/%s\n", namespace, pod.Name)
-					factory.SetFinalizerForPod(ctx, &pod, []string{})
+					factory.SetFinalizerForPod(context.Background(), &pod, []string{})
 				}
 			}
 
 			backupList := &fdbv1beta2.FoundationDBBackupList{}
 			err = factory.controllerRuntimeClient.List(
-				ctx,
+				context.Background(),
 				backupList,
 				client.InNamespace(namespace),
 			)
@@ -199,7 +199,7 @@ func (factory *Factory) createNamespace(ctx context.Context, suffix string) stri
 					gomega.Eventually(func(g gomega.Gomega) {
 						fetchedBackup := &fdbv1beta2.FoundationDBBackup{}
 						err = factory.controllerRuntimeClient.Get(
-							ctx,
+							context.Background(),
 							client.ObjectKeyFromObject(ptr.To(backup)),
 							fetchedBackup,
 						)
@@ -210,7 +210,7 @@ func (factory *Factory) createNamespace(ctx context.Context, suffix string) stri
 						g.Expect(err).NotTo(gomega.HaveOccurred())
 						if len(fetchedBackup.Finalizers) > 0 {
 							fetchedBackup.SetFinalizers([]string{})
-							g.Expect(factory.controllerRuntimeClient.Update(ctx, fetchedBackup)).
+							g.Expect(factory.controllerRuntimeClient.Update(context.Background(), fetchedBackup)).
 								NotTo(gomega.HaveOccurred())
 						}
 
@@ -220,7 +220,7 @@ func (factory *Factory) createNamespace(ctx context.Context, suffix string) stri
 			}
 		}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Succeed())
 
-		factory.Delete(ctx, &corev1.Namespace{
+		factory.Delete(context.Background(), &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
@@ -395,14 +395,14 @@ func (factory *Factory) ensureRBACSetupExists(ctx context.Context, namespace str
 	})).ToNot(gomega.HaveOccurred())
 
 	factory.AddShutdownHook(func() error {
-		factory.Delete(ctx, &rbacv1.ClusterRole{
+		factory.Delete(context.Background(), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nodeRoleName,
 				Namespace: namespace,
 			},
 		})
 
-		factory.Delete(ctx, &rbacv1.ClusterRoleBinding{
+		factory.Delete(context.Background(), &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nodeRoleName,
 				Namespace: namespace,

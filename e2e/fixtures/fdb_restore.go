@@ -70,7 +70,7 @@ func (factory *Factory) CreateRestoreForCluster(
 	gomega.Expect(factory.CreateIfAbsent(ctx, restore.restore)).NotTo(gomega.HaveOccurred())
 
 	factory.AddShutdownHook(func() error {
-		restore.Destroy(ctx)
+		restore.Destroy(context.Background())
 		return nil
 	})
 
