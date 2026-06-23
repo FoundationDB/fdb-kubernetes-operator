@@ -1025,14 +1025,14 @@ var _ = Describe("status_checks", func() {
 										Description:          "",
 										Healthy:              true,
 										Name:                 "healthy",
-										MinReplicasRemaining: 4,
+										MinReplicasRemaining: 3,
 									},
 								},
 							},
 						},
 					},
 				}
-				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).NotTo(HaveOccurred())
+				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).To(Succeed())
 			})
 
 			It("primary storage server team unhealthy", func() {
@@ -1046,7 +1046,7 @@ var _ = Describe("status_checks", func() {
 										Description:          "",
 										Healthy:              false,
 										Name:                 "healthy",
-										MinReplicasRemaining: 4,
+										MinReplicasRemaining: 3,
 									},
 								},
 								{
@@ -1055,16 +1055,14 @@ var _ = Describe("status_checks", func() {
 										Description:          "",
 										Healthy:              true,
 										Name:                 "healthy",
-										MinReplicasRemaining: 0,
+										MinReplicasRemaining: 3,
 									},
 								},
 							},
 						},
 					},
 				}
-				err := DoStorageServerFaultDomainCheckOnStatus(status)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("team tracker in primary is in unhealthy state"))
+				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).To(Succeed())
 			})
 
 			It("remote storage server team unhealthy", func() {
@@ -1078,7 +1076,7 @@ var _ = Describe("status_checks", func() {
 										Description:          "",
 										Healthy:              true,
 										Name:                 "healthy",
-										MinReplicasRemaining: 4,
+										MinReplicasRemaining: 3,
 									},
 								},
 								{
@@ -1087,16 +1085,14 @@ var _ = Describe("status_checks", func() {
 										Description:          "",
 										Healthy:              false,
 										Name:                 "healthy",
-										MinReplicasRemaining: 0,
+										MinReplicasRemaining: 3,
 									},
 								},
 							},
 						},
 					},
 				}
-				err := DoStorageServerFaultDomainCheckOnStatus(status)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("team tracker in remote is in unhealthy state"))
+				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).To(Succeed())
 			})
 		})
 
@@ -1429,7 +1425,9 @@ var _ = Describe("status_checks", func() {
 			It("do storage server fault domain check", func() {
 				err := DoFaultDomainChecksOnStatus(status, true, false, false)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("team tracker in remote is in unhealthy state"))
+				Expect(
+					err.Error(),
+				).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
 			})
 
 			It("do log server fault domain check", func() {
@@ -1447,13 +1445,17 @@ var _ = Describe("status_checks", func() {
 			It("do storage server and log server fault domain checks", func() {
 				err := DoFaultDomainChecksOnStatus(status, true, true, false)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("team tracker in remote is in unhealthy state"))
+				Expect(
+					err.Error(),
+				).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
 			})
 
 			It("do all fault domain checks", func() {
 				err := DoFaultDomainChecksOnStatus(status, true, true, true)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("team tracker in remote is in unhealthy state"))
+				Expect(
+					err.Error(),
+				).To(Equal("team tracker in remote has 0 replicas left but we require at least 2"))
 			})
 		})
 	})

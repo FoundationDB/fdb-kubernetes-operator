@@ -208,8 +208,9 @@ var _ = Describe("remove_process_groups", func() {
 							{
 								Primary: true,
 								State: fdbv1beta2.FoundationDBStatusDataState{
-									Healthy:              false,
-									MinReplicasRemaining: 2,
+									Healthy: false,
+									// The cluster uses double replication and one shard is down.
+									MinReplicasRemaining: 1,
 								},
 							},
 						}
@@ -334,42 +335,6 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(err).To(BeNil())
 						Expect(include).To(BeTrue())
 					})
-				})
-
-				When("storage have 2 replicas", func() {
-					BeforeEach(func() {
-						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-						Expect(err).NotTo(HaveOccurred())
-						adminClient.TeamTracker = []fdbv1beta2.FoundationDBStatusTeamTracker{
-							{
-								Primary: true,
-								State: fdbv1beta2.FoundationDBStatusDataState{
-									Healthy:              true,
-									MinReplicasRemaining: 2,
-								},
-							},
-						}
-					})
-					It(
-						"should not remove the process group and should not exclude processes",
-						func() {
-							Expect(result).NotTo(BeNil())
-							Expect(
-								result.message,
-							).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
-							// Ensure resources are not deleted
-							include, err := confirmRemoval(
-								context.Background(),
-								globalControllerLogger,
-								clusterReconciler,
-								cluster,
-								removedProcessGroup,
-							)
-							Expect(err).NotTo(BeNil())
-							Expect(internal.IsResourceNotDeleted(err)).To(BeTrue())
-							Expect(include).To(BeFalse())
-						},
-					)
 				})
 			})
 
