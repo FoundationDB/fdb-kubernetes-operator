@@ -21,6 +21,8 @@
 package fixtures
 
 import (
+	"context"
+
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -28,30 +30,32 @@ import (
 
 // InjectPodStress injects pod stress on the target.
 func (factory *Factory) InjectPodStress(
+	ctx context.Context,
 	target chaosmesh.PodSelectorSpec,
 	containerNames []string,
 	memoryStressor *chaosmesh.MemoryStressor,
 	cpuStressor *chaosmesh.CPUStressor,
 ) *ChaosMeshExperiment {
-	return factory.CreateExperiment(&chaosmesh.StressChaos{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      factory.RandStringRunes(32),
-			Namespace: factory.GetChaosNamespace(),
-			Labels:    factory.GetDefaultLabels(),
-		},
-		Spec: chaosmesh.StressChaosSpec{
-			Duration: ptr.To(ChaosDurationForever),
-			Stressors: &chaosmesh.Stressors{
-				MemoryStressor: memoryStressor,
-				CPUStressor:    cpuStressor,
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.StressChaos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      factory.RandStringRunes(32),
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
 			},
-			ContainerSelector: chaosmesh.ContainerSelector{
-				PodSelector: chaosmesh.PodSelector{
-					Selector: target,
-					Mode:     chaosmesh.AllMode,
+			Spec: chaosmesh.StressChaosSpec{
+				Duration: ptr.To(ChaosDurationForever),
+				Stressors: &chaosmesh.Stressors{
+					MemoryStressor: memoryStressor,
+					CPUStressor:    cpuStressor,
 				},
-				ContainerNames: containerNames,
+				ContainerSelector: chaosmesh.ContainerSelector{
+					PodSelector: chaosmesh.PodSelector{
+						Selector: target,
+						Mode:     chaosmesh.AllMode,
+					},
+					ContainerNames: containerNames,
+				},
 			},
-		},
-	})
+		})
 }

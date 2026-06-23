@@ -52,7 +52,7 @@ const ChaosDurationForever = "998h"
 
 // CleanupChaosMeshExperiments deletes any chaos experiments created by this handle.  Invoked at shutdown.  Tests
 // that need to delete experiments should invoke Delete on their ChaosMeshExperiment objects.
-func (factory *Factory) CleanupChaosMeshExperiments() error {
+func (factory *Factory) CleanupChaosMeshExperiments(ctx context.Context) error {
 	if len(factory.chaosExperiments) == 0 {
 		return nil
 	}
@@ -68,7 +68,7 @@ func (factory *Factory) CleanupChaosMeshExperiments() error {
 	for _, resource := range factory.chaosExperiments {
 		targetResource := resource // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
-			err := factory.deleteChaosMeshExperiment(&targetResource)
+			err := factory.deleteChaosMeshExperiment(ctx, &targetResource)
 			if err != nil {
 				log.Printf(
 					"error in cleaning up chaos experiement %s/%s: %s",
@@ -89,17 +89,28 @@ func (factory *Factory) CleanupChaosMeshExperiments() error {
 }
 
 // DeleteChaosMeshExperiment will delete a running Chaos Mesh experiment.
-func (factory *Factory) DeleteChaosMeshExperiment(experiment *ChaosMeshExperiment) {
-	gomega.Expect(factory.deleteChaosMeshExperiment(experiment)).ToNot(gomega.HaveOccurred())
+func (factory *Factory) DeleteChaosMeshExperiment(
+	ctx context.Context,
+	experiment *ChaosMeshExperiment,
+) {
+	gomega.Expect(factory.deleteChaosMeshExperiment(ctx, experiment)).ToNot(gomega.HaveOccurred())
 }
 
-func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperiment) error {
+func (factory *Factory) deleteChaosMeshExperiment(
+	ctx context.Context,
+	experiment *ChaosMeshExperiment,
+) error {
 	if experiment == nil {
 		return nil
 	}
 
 	log.Println("Start deleting", experiment.name)
-	err := factory.getChaosExperiment(experiment.name, experiment.namespace, experiment.chaosObject)
+	err := factory.getChaosExperiment(
+		ctx,
+		experiment.name,
+		experiment.namespace,
+		experiment.chaosObject,
+	)
 	if err != nil {
 		// The experiment is already deleted.
 		if k8serrors.IsNotFound(err) {
@@ -119,24 +130,25 @@ func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperimen
 	) // verbose compared to "true", but fixes annoying linter warning
 	experiment.chaosObject.SetAnnotations(annotations)
 
-	err = factory.GetControllerRuntimeClient().Update(context.Background(), experiment.chaosObject)
+	err = factory.GetControllerRuntimeClient().Update(ctx, experiment.chaosObject)
 	if err != nil {
 		log.Println("Could not update the annotation to set the experiment into pause state", err)
 	}
 
-	err = factory.GetControllerRuntimeClient().Delete(context.Background(), experiment.chaosObject)
+	err = factory.GetControllerRuntimeClient().Delete(ctx, experiment.chaosObject)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
 	log.Println("Chaos", experiment.name, "is deleted.")
 	err = wait.PollUntilContextTimeout(
-		context.Background(),
+		ctx,
 		1*time.Second,
 		5*time.Minute,
 		true,
 		func(_ context.Context) (done bool, err error) {
 			err = factory.getChaosExperiment(
+				ctx,
 				experiment.name,
 				experiment.namespace,
 				experiment.chaosObject,
@@ -158,20 +170,24 @@ func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperimen
 
 // getChaosExperiment gets the chaos experiments in the cluster with specified name.
 func (factory *Factory) getChaosExperiment(
+	ctx context.Context,
 	name string,
 	namespace string,
 	chaosOut client.Object,
 ) error {
-	return factory.GetControllerRuntimeClient().Get(context.Background(), client.ObjectKey{
+	return factory.GetControllerRuntimeClient().Get(ctx, client.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
 	}, chaosOut)
 }
 
 // CreateExperiment creates a chaos experiment in the cluster with specified type, name and chaos object.
-func (factory *Factory) CreateExperiment(chaos client.Object) *ChaosMeshExperiment {
+func (factory *Factory) CreateExperiment(
+	ctx context.Context,
+	chaos client.Object,
+) *ChaosMeshExperiment {
 	log.Printf("CreateExperiment name=%s, spec=%s", chaos.GetName(), ToJSON(chaos))
-	gomega.Expect(factory.CreateIfAbsent(chaos)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(factory.CreateIfAbsent(ctx, chaos)).NotTo(gomega.HaveOccurred())
 
 	experiment := ChaosMeshExperiment{
 		chaosObject: chaos,
@@ -180,23 +196,24 @@ func (factory *Factory) CreateExperiment(chaos client.Object) *ChaosMeshExperime
 	}
 	factory.addChaosExperiment(experiment)
 
-	gomega.Expect(factory.waitUntilExperimentRunning(experiment, chaos)).
+	gomega.Expect(factory.waitUntilExperimentRunning(ctx, experiment, chaos)).
 		NotTo(gomega.HaveOccurred())
 
 	return &experiment
 }
 
 func (factory *Factory) waitUntilExperimentRunning(
+	ctx context.Context,
 	experiment ChaosMeshExperiment,
 	out client.Object,
 ) error {
 	err := wait.PollUntilContextTimeout(
-		context.Background(),
+		ctx,
 		1*time.Second,
 		20*time.Minute,
 		true,
 		func(_ context.Context) (bool, error) {
-			err := factory.getChaosExperiment(experiment.name, experiment.namespace, out)
+			err := factory.getChaosExperiment(ctx, experiment.name, experiment.namespace, out)
 			if err != nil {
 				log.Println("error fetching chaos experiment", err)
 				return false, nil

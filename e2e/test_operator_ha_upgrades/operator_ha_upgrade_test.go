@@ -27,6 +27,7 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 */
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strconv"
@@ -67,7 +68,7 @@ type testConfig struct {
 	clusterConfig          *fixtures.ClusterConfig
 }
 
-func clusterSetupWithTestConfig(config testConfig) {
+func clusterSetupWithTestConfig(ctx context.Context, config testConfig) {
 	if config.clusterConfig == nil {
 		config.clusterConfig = fixtures.DefaultClusterConfigWithHaMode(
 			fixtures.HaFourZoneSingleSat,
@@ -76,22 +77,22 @@ func clusterSetupWithTestConfig(config testConfig) {
 	}
 
 	config.clusterConfig.Version = ptr.To(config.beforeVersion)
-	fdbCluster = factory.CreateFdbHaCluster(config.clusterConfig)
+	fdbCluster = factory.CreateFdbHaCluster(ctx, config.clusterConfig)
 
 	if config.enableHealthCheck {
 		Expect(
-			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(),
+			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(ctx),
 		).ShouldNot(HaveOccurred())
 	}
 
 	if config.loadData {
 		// Load some data async into the cluster. We will only block as long as the Job is created.
-		factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
+		factory.CreateDataLoaderIfAbsent(ctx, fdbCluster.GetPrimary())
 	}
 
 	if config.enableOperatorPodChaos && factory.ChaosTestsEnabled() {
 		for _, curCluster := range fdbCluster.GetAllClusters() {
-			factory.ScheduleInjectPodKill(
+			factory.ScheduleInjectPodKill(ctx,
 				fixtures.GetOperatorSelector(curCluster.Namespace()),
 				"*/5 * * * *",
 				chaosmesh.OneMode,
@@ -100,8 +101,8 @@ func clusterSetupWithTestConfig(config testConfig) {
 	}
 }
 
-func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
-	clusterSetupWithTestConfig(
+func clusterSetup(ctx context.Context, beforeVersion string, enableOperatorPodChaos bool) {
+	clusterSetupWithTestConfig(ctx,
 		testConfig{
 			beforeVersion:          beforeVersion,
 			enableOperatorPodChaos: enableOperatorPodChaos,
@@ -118,14 +119,14 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 //
 // Note: we tried doing this by polling for "UpgradeRequeued" event on primary/remote/primary-satellite data centers,
 // but we found that that approach is not very reliable.
-func verifyBouncingIsBlocked() {
+func verifyBouncingIsBlocked(ctx context.Context) {
 	Eventually(func(g Gomega) {
 		for _, cluster := range fdbCluster.GetAllClusters() {
 			if strings.HasSuffix(cluster.Name(), fixtures.RemoteSatelliteID) {
 				continue
 			}
 
-			g.Expect(cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine, true)).
+			g.Expect(cluster.AllProcessGroupsHaveCondition(ctx, fdbv1beta2.IncorrectCommandLine, true)).
 				To(BeTrue(), fmt.Sprintf("all process groups in cluster %s should have the incorrect command line condition", cluster.Name()))
 		}
 	}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(Succeed())
@@ -138,15 +139,15 @@ var _ = AfterSuite(func() {
 })
 
 var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
-	BeforeEach(func() {
+	BeforeEach(func(_ SpecContext) {
 		factory = fixtures.CreateFactory(testOptions)
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() {
-			fdbCluster.DumpState()
+			fdbCluster.DumpState(ctx)
 		}
-		factory.Shutdown()
+		factory.Shutdown(ctx)
 	})
 
 	// Ginkgo lacks the support for AfterEach and BeforeEach in tables, so we have to put everything inside the testing function
@@ -154,11 +155,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	// for different versions without hard coding or having multiple flags.
 	PDescribeTable(
 		"without chaos",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, false)
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			clusterSetup(ctx, beforeVersion, false)
 
-			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
-			fdbCluster.VerifyVersion(targetVersion)
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, true)).NotTo(HaveOccurred())
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 		},
 		EntryDescription("Upgrade from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -166,19 +167,19 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	DescribeTable(
 		"with operator pod chaos and without foundationdb pod chaos",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetupWithTestConfig(testConfig{
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			clusterSetupWithTestConfig(ctx, testConfig{
 				beforeVersion:          beforeVersion,
 				enableOperatorPodChaos: true,
 				enableHealthCheck:      true,
 				loadData:               true,
 			})
-			initialGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
+			initialGeneration := fdbCluster.GetPrimary().GetStatus(ctx).Cluster.Generation
 			// Make use of a sync.Map here as we have to modify it concurrently.
 			var transactionSystemProcessGroups sync.Map
 			// Fetch all initial process groups before starting the upgrade.
 			for _, cluster := range fdbCluster.GetAllClusters() {
-				processGroups := cluster.GetCluster().Status.ProcessGroups
+				processGroups := cluster.GetCluster(ctx).Status.ProcessGroups
 				for _, processGroup := range processGroups {
 					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 						continue
@@ -193,7 +194,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			startTime := time.Now()
 			// Start the upgrade for the whole cluster
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 
 			// Wait until all clusters are reconciled and collect the process groups during that time.
 			g := new(errgroup.Group)
@@ -201,7 +202,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				targetCluster := fdbCluster // https://golang.org/doc/faq#closures_and_goroutines
 
 				g.Go(func() error {
-					err := targetCluster.WaitUntilWithForceReconcile(
+					err := targetCluster.WaitUntilWithForceReconcile(ctx,
 						2,
 						1200,
 						func(cluster *fdbv1beta2.FoundationDBCluster) bool {
@@ -267,7 +268,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// Make sure we haven't replaced to many transaction processes.
 			Expect(processCounts).To(BeNumerically("<=", expectedProcessCounts))
 
-			finalGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
+			finalGeneration := fdbCluster.GetPrimary().GetStatus(ctx).Cluster.Generation
 			log.Println(
 				"upgrade took:",
 				time.Since(startTime).String(),
@@ -289,8 +290,8 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// change, which happens a number of times, during an upgrade).
 			Expect(finalGeneration).To(BeNumerically("<=", initialGeneration+80))
 			// Make sure the cluster has no data loss
-			fdbCluster.GetPrimary().EnsureTeamTrackersAreHealthy()
-			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.GetPrimary().EnsureTeamTrackersAreHealthy(ctx)
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -298,20 +299,20 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	DescribeTable(
 		"one dc is upgraded before the other dcs started the upgrade",
-		func(beforeVersion string, targetVersion string) {
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Skip("skipping test since those versions are protocol compatible")
 			}
 
-			clusterSetup(beforeVersion, true /* = enableOperatorPodChaos */)
+			clusterSetup(ctx, beforeVersion, true /* = enableOperatorPodChaos */)
 
 			// Upgrade the primary cluster before upgrading the rest.
 			primary := fdbCluster.GetPrimary()
-			Expect(primary.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(primary.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 
 			// Should update all sidecars of the primary cluster.
 			Eventually(func() bool {
-				pods := primary.GetPods()
+				pods := primary.GetPods(ctx)
 				if pods == nil {
 					return false
 				}
@@ -333,12 +334,16 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// It should block the restart of the processes until the rest of the cluster is upgraded.
 			Eventually(func() bool {
-				return primary.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine, true)
+				return primary.AllProcessGroupsHaveCondition(
+					ctx,
+					fdbv1beta2.IncorrectCommandLine,
+					true,
+				)
 			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -346,29 +351,30 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	DescribeTable(
 		"with a temporary partition",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, false /* = enableOperatorPodChaos */)
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			clusterSetup(ctx, beforeVersion, false /* = enableOperatorPodChaos */)
 
 			// Find the remote satellite operator pods.
-			operatorPods := factory.GetOperatorPods(
+			operatorPods := factory.GetOperatorPods(ctx,
 				fdbCluster.GetRemoteSatellite().Namespace(),
 			)
 
 			// Disable the auto replacement to prevent the operator te replace the partitioned processes, the default
 			// replace time in the operator is 2h and in our test suite 5 minutes.
 			Expect(
-				fdbCluster.GetRemoteSatellite().SetAutoReplacements(false, 20*time.Minute),
+				fdbCluster.GetRemoteSatellite().SetAutoReplacements(ctx, false, 20*time.Minute),
 			).NotTo(HaveOccurred())
 
 			// Partition them from the rest of the database.
 			log.Println("Partitioning the remote satellite operator pods")
 			partitionExperiment := factory.InjectPartitionBetween(
+				ctx,
 				fdbCluster.GetNamespaceSelector(),
 				fixtures.PodsSelector(operatorPods.Items),
 			)
 
 			// Start the upgrade, but do not wait for reconciliation to complete.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				// Verify that bouncing is blocked because the Pods in the remote satellite
@@ -376,16 +382,16 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				// process groups in all other data centers are at "IncorrectCommandLine"
 				// state.
 				log.Println("Ensure bouncing is blocked")
-				verifyBouncingIsBlocked()
+				verifyBouncingIsBlocked(ctx)
 				log.Println("Ensure cluster(s) are not upgraded")
-				fdbCluster.VerifyVersion(beforeVersion)
+				fdbCluster.VerifyVersion(ctx, beforeVersion)
 			} else {
 				// If we do a version compatible upgrade, ensure the partition is present for 30 seconds.
 				time.Sleep(30 * time.Second)
 			}
 
 			log.Println("Restoring connectivity")
-			factory.DeleteChaosMeshExperiment(partitionExperiment)
+			factory.DeleteChaosMeshExperiment(ctx, partitionExperiment)
 
 			// When using protocol compatible versions, the other operator instances are able to move forward. In some
 			// cases it can happen that new coordinators are selected and all the old coordinators are deleted. In this
@@ -394,25 +400,25 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Eventually(func(g Gomega) {
 					currentConnectionString := fdbCluster.GetPrimary().
-						GetStatus().
+						GetStatus(ctx).
 						Cluster.ConnectionString
 					remoteSat := fdbCluster.GetRemoteSatellite()
-					remoteConnectionString := remoteSat.GetCluster().Status.ConnectionString
+					remoteConnectionString := remoteSat.GetCluster(ctx).Status.ConnectionString
 
 					// If the connection string is different we have to update it on the remote satellite side
 					// as the operator instances were partitioned.
 					if currentConnectionString != remoteConnectionString {
-						if !remoteSat.GetCluster().Spec.Skip {
-							remoteSat.SetSkipReconciliation(true)
+						if !remoteSat.GetCluster(ctx).Spec.Skip {
+							remoteSat.SetSkipReconciliation(ctx, true)
 							// Wait one minute, that should be enough time for the operator to end the reconciliation loop
 							// if started.
 							time.Sleep(1 * time.Minute)
 						}
 
-						remoteSatStatus := remoteSat.GetCluster().Status.DeepCopy()
+						remoteSatStatus := remoteSat.GetCluster(ctx).Status.DeepCopy()
 						remoteSatStatus.ConnectionString = currentConnectionString
 						fdbCluster.GetRemoteSatellite().
-							UpdateClusterStatusWithStatus(remoteSatStatus)
+							UpdateClusterStatusWithStatus(ctx, remoteSatStatus)
 					}
 
 					g.Expect(remoteConnectionString).To(Equal(currentConnectionString))
@@ -424,15 +430,15 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// cluster it will be put into a queue again, at some time the queue will delay the next reconcile attempt
 			// for a long time and since the network partition is not emitting any events for the operator this won't trigger
 			// a reconciliation either. So this step is only to speed up the reconcile process.
-			factory.RecreateOperatorPods(fdbCluster.GetRemoteSatellite().Namespace())
+			factory.RecreateOperatorPods(ctx, fdbCluster.GetRemoteSatellite().Namespace())
 
 			// Ensure that the remote satellite is not set to skip.
-			fdbCluster.GetRemoteSatellite().SetSkipReconciliation(false)
+			fdbCluster.GetRemoteSatellite().SetSkipReconciliation(ctx, false)
 
 			// Upgrade should make progress now - wait until all processes have upgraded
 			// to "targetVersion".
-			fdbCluster.VerifyVersion(targetVersion)
-			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.VerifyVersion(ctx, targetVersion)
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 		},
 		EntryDescription("Upgrade from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -440,11 +446,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	DescribeTable(
 		"with a random pod deleted during the staging phase",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, false /* = enableOperatorPodChaos */)
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			clusterSetup(ctx, beforeVersion, false /* = enableOperatorPodChaos */)
 
 			// Start the upgrade, but do not wait for reconciliation to complete.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 
 			// Keep deleting pods until all clusters are running with the new version.
 			clusters := fdbCluster.GetAllClusters()
@@ -454,7 +460,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				// Are all clusters running at "targetVersion"?
 				clustersAtTargetVersion := true
 				for _, cluster := range clusters {
-					coordinators := cluster.GetCoordinators()
+					coordinators := cluster.GetCoordinators(ctx)
 					for _, pod := range coordinators {
 						coordinatorMap[pod.UID] = pod
 					}
@@ -463,11 +469,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 						"Cluster",
 						cluster.Name(),
 						"is running at version",
-						cluster.GetCluster().GetRunningVersion(),
+						cluster.GetCluster(ctx).GetRunningVersion(),
 						"target version is",
 						targetVersion,
 					)
-					if cluster.GetCluster().GetRunningVersion() == targetVersion {
+					if cluster.GetCluster(ctx).GetRunningVersion() == targetVersion {
 						continue
 					}
 
@@ -483,7 +489,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				var randomPod *corev1.Pod
 				g.Eventually(func() bool {
 					randomPod = factory.ChooseRandomPod(
-						factory.RandomPickOneCluster(clusters).GetPods(),
+						factory.RandomPickOneCluster(clusters).GetPods(ctx),
 					)
 					_, ok := coordinatorMap[randomPod.UID]
 					if ok {
@@ -494,12 +500,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeFalse())
 
 				log.Println("Deleting pod:", randomPod.Name)
-				factory.DeletePod(randomPod)
+				factory.DeletePod(ctx, randomPod)
 				return false
 			}).WithTimeout(30 * time.Minute).WithPolling(2 * time.Minute).Should(BeTrue())
 
 			// Make sure the cluster has no data loss
-			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 		},
 		EntryDescription(
 			"Upgrade from %s to %s",
@@ -510,12 +516,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	// TODO(johscheuer): Enable tests again, once they are stable.
 	PDescribeTable(
 		"with network link that drops some packets",
-		func(beforeVersion string, targetVersion string) {
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			if !factory.ChaosTestsEnabled() {
 				Skip("chaos mesh is disabled")
 			}
 
-			clusterSetupWithTestConfig(testConfig{
+			clusterSetupWithTestConfig(ctx, testConfig{
 				beforeVersion:          beforeVersion,
 				enableOperatorPodChaos: false,
 				enableHealthCheck:      false,
@@ -524,17 +530,17 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// 1. Introduce packet loss b/w pods.
 			log.Println("Injecting packet loss b/w pod")
-			primaryPods := fdbCluster.GetPrimary().GetAllPods()
-			primarySatellitePods := fdbCluster.GetPrimarySatellite().GetAllPods()
-			remoteSatellitePods := fdbCluster.GetRemoteSatellite().GetAllPods()
-			remotePods := fdbCluster.GetRemote().GetAllPods()
-			operatorPrimaryPods := factory.GetOperatorPods(fdbCluster.GetPrimary().Namespace())
-			operatorRemotePods := factory.GetOperatorPods(fdbCluster.GetRemote().Namespace())
-			operatorPrimarySatellitePods := factory.GetOperatorPods(
+			primaryPods := fdbCluster.GetPrimary().GetAllPods(ctx)
+			primarySatellitePods := fdbCluster.GetPrimarySatellite().GetAllPods(ctx)
+			remoteSatellitePods := fdbCluster.GetRemoteSatellite().GetAllPods(ctx)
+			remotePods := fdbCluster.GetRemote().GetAllPods(ctx)
+			operatorPrimaryPods := factory.GetOperatorPods(ctx, fdbCluster.GetPrimary().Namespace())
+			operatorRemotePods := factory.GetOperatorPods(ctx, fdbCluster.GetRemote().Namespace())
+			operatorPrimarySatellitePods := factory.GetOperatorPods(ctx,
 				fdbCluster.GetPrimarySatellite().Namespace(),
 			)
 
-			factory.InjectNetworkLossBetweenPods([]chaosmesh.PodSelectorSpec{
+			factory.InjectNetworkLossBetweenPods(ctx, []chaosmesh.PodSelectorSpec{
 				fixtures.PodsSelector(primaryPods.Items),
 				fixtures.PodsSelector(primarySatellitePods.Items),
 				fixtures.PodsSelector(remoteSatellitePods.Items),
@@ -544,10 +550,10 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				fixtures.PodsSelector(operatorPrimarySatellitePods.Items),
 			}, "20")
 
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			fdbCluster.VerifyVersion(targetVersion)
-			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.VerifyVersion(ctx, targetVersion)
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -558,10 +564,10 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2196
 	PDescribeTable(
 		"when no remote storage processes are restarted",
-		func(beforeVersion string, targetVersion string) {
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			// We disable the health check here, as the remote storage processes are not restarted and this can be
 			// disruptive to the cluster.
-			clusterSetupWithTestConfig(testConfig{
+			clusterSetupWithTestConfig(ctx, testConfig{
 				beforeVersion:          beforeVersion,
 				enableOperatorPodChaos: false,
 				enableHealthCheck:      false,
@@ -570,7 +576,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// Select remote storage processes and use the buggify option to skip those
 			// processes during the restart command.
-			remoteProcessGroups := fdbCluster.GetRemote().GetCluster().Status.ProcessGroups
+			remoteProcessGroups := fdbCluster.GetRemote().GetCluster(ctx).Status.ProcessGroups
 
 			ignoreDuringRestart := make(
 				[]fdbv1beta2.ProcessGroupID,
@@ -594,12 +600,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				ignoreDuringRestart,
 				"to be skipped during the restart",
 			)
-			fdbCluster.GetRemote().SetIgnoreDuringRestart(ignoreDuringRestart)
+			fdbCluster.GetRemote().SetIgnoreDuringRestart(ctx, ignoreDuringRestart)
 
 			// The cluster should still be able to upgrade.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -607,7 +613,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	DescribeTable(
 		"when locality based exclusions are used and the resources are limited in a satellite namespace",
-		func(beforeVersion string, targetVersion string) {
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			fdbVersion, err := fdbv1beta2.ParseFdbVersion(beforeVersion)
 			Expect(err).NotTo(HaveOccurred())
 			if !fdbVersion.SupportsLocalityBasedExclusions() {
@@ -630,6 +636,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			clusterConfig.UseLocalityBasedExclusions = ptr.To(true)
 
 			clusterSetupWithTestConfig(
+				ctx,
 				testConfig{
 					beforeVersion:          beforeVersion,
 					enableOperatorPodChaos: false,
@@ -640,20 +647,20 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			)
 
 			Expect(
-				fdbCluster.GetPrimarySatellite().GetCluster().UseLocalitiesForExclusion(),
+				fdbCluster.GetPrimarySatellite().GetCluster(ctx).UseLocalitiesForExclusion(),
 			).To(BeTrue())
 			processCounts, err := fdbCluster.GetPrimarySatellite().
-				GetCluster().
+				GetCluster(ctx).
 				GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 
-			currentPods := fdbCluster.GetPrimarySatellite().GetPods()
+			currentPods := fdbCluster.GetPrimarySatellite().GetPods(ctx)
 			podLimit := processCounts.Total() + 3
 			Expect(currentPods.Items).To(HaveLen(podLimit - 3))
 
 			// Create Quota to limit the additional Pods that can be created to 1, the actual value here is 3, because we run
 			// 2 Operator Pods.
-			Expect(factory.CreateIfAbsent(&corev1.ResourceQuota{
+			Expect(factory.CreateIfAbsent(ctx, &corev1.ResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "testing-quota",
 					Namespace: fdbCluster.GetPrimarySatellite().Namespace(),
@@ -666,24 +673,24 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			})).NotTo(HaveOccurred())
 
 			// The cluster should still be able to upgrade.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Wait for clusters to be updated.
 			time.Sleep(15 * time.Second)
 			// Wait here for the clusters to reconcile.
-			Expect(fdbCluster.WaitForReconciliation(
+			Expect(fdbCluster.WaitForReconciliation(ctx,
 				fixtures.SoftReconcileOption(true),
 			)).NotTo(HaveOccurred())
 			// Verify that the upgrade took place.
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 			// Make sure the cluster has no data loss
-			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable("when maintenance feature is enabled",
-		func(beforeVersion string, targetVersion string) {
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(
 				fixtures.HaFourZoneSingleSat,
 				false,
@@ -691,6 +698,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			clusterConfig.UseMaintenanceMode = true
 
 			clusterSetupWithTestConfig(
+				ctx,
 				testConfig{
 					beforeVersion:          beforeVersion,
 					enableOperatorPodChaos: false,
@@ -700,27 +708,30 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				},
 			)
 
-			Expect(fdbCluster.GetPrimary().GetCluster().UseMaintenaceMode()).To(BeTrue())
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.GetPrimary().GetCluster(ctx).UseMaintenaceMode()).To(BeTrue())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 			// Wait here for the primary satellite to reconcile, this means all Pods have been replaced
-			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.GetPrimarySatellite().WaitForReconciliation(ctx),
+			).NotTo(HaveOccurred())
 			// Make sure the cluster has no data loss
-			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable("when tester processes are running in the primary and remote dc",
-		func(beforeVersion string, targetVersion string) {
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(
 				fixtures.HaFourZoneSingleSat,
 				false,
 			)
 
 			clusterSetupWithTestConfig(
+				ctx,
 				testConfig{
 					beforeVersion:          beforeVersion,
 					enableOperatorPodChaos: false,
@@ -731,21 +742,23 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			)
 
 			// Start tester processes in the primary side
-			primaryTester := fdbCluster.GetPrimary().CreateTesterDeployment(4)
+			primaryTester := fdbCluster.GetPrimary().CreateTesterDeployment(ctx, 4)
 			// Start tester processes in the remote side
-			remoteTester := fdbCluster.GetRemote().CreateTesterDeployment(4)
+			remoteTester := fdbCluster.GetRemote().CreateTesterDeployment(ctx, 4)
 
 			// Start the upgrade with the tester processes present.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 			// Wait here for the primary satellite to reconcile, this means all Pods have been replaced
-			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.GetPrimarySatellite().WaitForReconciliation(ctx),
+			).NotTo(HaveOccurred())
 			// Make sure the cluster has no data loss
-			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 
-			factory.Delete(primaryTester)
-			factory.Delete(remoteTester)
+			factory.Delete(ctx, primaryTester)
+			factory.Delete(ctx, remoteTester)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),

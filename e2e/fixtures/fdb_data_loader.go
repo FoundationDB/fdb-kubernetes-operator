@@ -365,13 +365,14 @@ func getDefaultDataLoaderOptions() *DataLoaderOptions {
 }
 
 // CreateDataLoaderIfAbsent will create the data loader for the provided cluster and load some random data into the cluster.
-func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
-	factory.CreateDataLoaderIfAbsentWithOptions(cluster, getDefaultDataLoaderOptions())
+func (factory *Factory) CreateDataLoaderIfAbsent(ctx context.Context, cluster *FdbCluster) {
+	factory.CreateDataLoaderIfAbsentWithOptions(ctx, cluster, getDefaultDataLoaderOptions())
 }
 
 // CreateDataLoaderIfAbsentWithOptions will create the data loader for the provided cluster and load some random data into the cluster.
 // If wait is true, the method will wait until the data loader has finished.
 func (factory *Factory) CreateDataLoaderIfAbsentWithOptions(
+	ctx context.Context,
 	cluster *FdbCluster,
 	options *DataLoaderOptions,
 ) {
@@ -413,7 +414,7 @@ func (factory *Factory) CreateDataLoaderIfAbsentWithOptions(
 		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
 
 		gomega.Expect(
-			factory.CreateIfAbsent(unstructuredObj),
+			factory.CreateIfAbsent(ctx, unstructuredObj),
 		).NotTo(gomega.HaveOccurred())
 	}
 
@@ -421,14 +422,14 @@ func (factory *Factory) CreateDataLoaderIfAbsentWithOptions(
 		return
 	}
 
-	factory.WaitUntilDataLoaderIsDone(cluster)
-	factory.DeleteDataLoader(cluster)
+	factory.WaitUntilDataLoaderIsDone(ctx, cluster)
+	factory.DeleteDataLoader(ctx, cluster)
 }
 
 // DeleteDataLoader will delete the data loader job
-func (factory *Factory) DeleteDataLoader(cluster *FdbCluster) {
+func (factory *Factory) DeleteDataLoader(ctx context.Context, cluster *FdbCluster) {
 	// Remove data loader Pods again, as the loading was done.
-	err := factory.controllerRuntimeClient.Delete(context.Background(), &batchv1.Job{
+	err := factory.controllerRuntimeClient.Delete(ctx, &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dataLoaderName,
 			Namespace: cluster.Namespace(),
@@ -439,20 +440,20 @@ func (factory *Factory) DeleteDataLoader(cluster *FdbCluster) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}
 
-	gomega.Expect(factory.controllerRuntimeClient.DeleteAllOf(context.Background(), &corev1.Pod{},
+	gomega.Expect(factory.controllerRuntimeClient.DeleteAllOf(ctx, &corev1.Pod{},
 		client.InNamespace(cluster.Namespace()),
 		client.MatchingLabels(map[string]string{"job-name": dataLoaderName}),
 	)).NotTo(gomega.HaveOccurred())
 }
 
 // WaitUntilDataLoaderIsDone will wait until the data loader Job has finished.
-func (factory *Factory) WaitUntilDataLoaderIsDone(cluster *FdbCluster) {
+func (factory *Factory) WaitUntilDataLoaderIsDone(ctx context.Context, cluster *FdbCluster) {
 	printTime := time.Now()
 	gomega.Eventually(func(g gomega.Gomega) int {
 		pods := &corev1.PodList{}
 		g.Expect(
 			factory.controllerRuntimeClient.List(
-				context.Background(),
+				ctx,
 				pods,
 				client.InNamespace(cluster.Namespace()),
 				client.MatchingLabels(map[string]string{"job-name": dataLoaderName}),
@@ -466,7 +467,7 @@ func (factory *Factory) WaitUntilDataLoaderIsDone(cluster *FdbCluster) {
 			job := &batchv1.Job{}
 			g.Expect(
 				factory.controllerRuntimeClient.Get(
-					context.Background(),
+					ctx,
 					client.ObjectKey{
 						Namespace: cluster.Namespace(),
 						Name:      dataLoaderName,
@@ -515,7 +516,7 @@ func (factory *Factory) WaitUntilDataLoaderIsDone(cluster *FdbCluster) {
 		job := &batchv1.Job{}
 		g.Expect(
 			factory.controllerRuntimeClient.Get(
-				context.Background(),
+				ctx,
 				client.ObjectKey{
 					Namespace: cluster.Namespace(),
 					Name:      dataLoaderName,

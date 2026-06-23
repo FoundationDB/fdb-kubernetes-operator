@@ -21,6 +21,8 @@
 package fixtures
 
 import (
+	"context"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,8 +30,12 @@ import (
 )
 
 // InjectDiskFailure injects a disk failure for all Pods selected by the selector.
-func (factory *Factory) InjectDiskFailure(selector chaosmesh.PodSelectorSpec) *ChaosMeshExperiment {
+func (factory *Factory) InjectDiskFailure(
+	ctx context.Context,
+	selector chaosmesh.PodSelectorSpec,
+) *ChaosMeshExperiment {
 	return factory.InjectDiskFailureWithPath(
+		ctx,
 		selector,
 		"/var/fdb/data",
 		"/var/fdb/data/**/*",
@@ -46,10 +52,12 @@ func (factory *Factory) InjectDiskFailure(selector chaosmesh.PodSelectorSpec) *C
 
 // InjectDiskFailureWithDuration injects a disk failure for all Pods selected by the selector for the specified duration.
 func (factory *Factory) InjectDiskFailureWithDuration(
+	ctx context.Context,
 	selector chaosmesh.PodSelectorSpec,
 	duration string,
 ) *ChaosMeshExperiment {
 	return factory.InjectDiskFailureWithPathAndDuration(
+		ctx,
 		selector,
 		"/var/fdb/data",
 		"/var/fdb/data/**/*",
@@ -68,6 +76,7 @@ func (factory *Factory) InjectDiskFailureWithDuration(
 // InjectDiskFailureWithPath injects a disk failure for all Pods selected by the selector. volumePath and path can be used to specify the affected files and methods
 // allow to specify the affected methods.
 func (factory *Factory) InjectDiskFailureWithPath(
+	ctx context.Context,
 	selector chaosmesh.PodSelectorSpec,
 	volumePath string,
 	path string,
@@ -75,6 +84,7 @@ func (factory *Factory) InjectDiskFailureWithPath(
 	containers []string,
 ) *ChaosMeshExperiment {
 	return factory.InjectDiskFailureWithPathAndDuration(
+		ctx,
 		selector,
 		volumePath,
 		path,
@@ -87,6 +97,7 @@ func (factory *Factory) InjectDiskFailureWithPath(
 // InjectDiskFailureWithPathAndDuration injects a disk failure for all Pods selected by the selector. volumePath and path can be used to specify the affected files and methods
 // allow to specify the affected methods. duration will define how long the chaos is injected.
 func (factory *Factory) InjectDiskFailureWithPathAndDuration(
+	ctx context.Context,
 	selector chaosmesh.PodSelectorSpec,
 	volumePath string,
 	path string,
@@ -94,62 +105,65 @@ func (factory *Factory) InjectDiskFailureWithPathAndDuration(
 	containers []string,
 	duration string,
 ) *ChaosMeshExperiment {
-	return factory.CreateExperiment(&chaosmesh.IOChaos{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      factory.RandStringRunes(32),
-			Namespace: factory.GetChaosNamespace(),
-			Labels:    factory.GetDefaultLabels(),
-		},
-		Spec: chaosmesh.IOChaosSpec{
-			Action:   chaosmesh.IoFaults,
-			Duration: ptr.To(duration),
-			ContainerSelector: chaosmesh.ContainerSelector{
-				ContainerNames: containers,
-				PodSelector: chaosmesh.PodSelector{
-					Selector: selector,
-					Mode:     chaosmesh.AllMode,
-				},
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.IOChaos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      factory.RandStringRunes(32),
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
 			},
-			VolumePath: volumePath,
-			Path:       path,
-			Errno:      5,
-			Percent:    100,
-			Methods:    methods,
-		},
-	})
+			Spec: chaosmesh.IOChaosSpec{
+				Action:   chaosmesh.IoFaults,
+				Duration: ptr.To(duration),
+				ContainerSelector: chaosmesh.ContainerSelector{
+					ContainerNames: containers,
+					PodSelector: chaosmesh.PodSelector{
+						Selector: selector,
+						Mode:     chaosmesh.AllMode,
+					},
+				},
+				VolumePath: volumePath,
+				Path:       path,
+				Errno:      5,
+				Percent:    100,
+				Methods:    methods,
+			},
+		})
 }
 
 // InjectIOLatency injects IOLatency for single pod.
 func (factory *Factory) InjectIOLatency(
+	ctx context.Context,
 	selector chaosmesh.PodSelectorSpec,
 	delay string,
 ) *ChaosMeshExperiment {
-	return factory.CreateExperiment(&chaosmesh.IOChaos{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      factory.RandStringRunes(32),
-			Namespace: factory.GetChaosNamespace(),
-			Labels:    factory.GetDefaultLabels(),
-		},
-		Spec: chaosmesh.IOChaosSpec{
-			Action:   chaosmesh.IoLatency,
-			Duration: ptr.To(ChaosDurationForever),
-			ContainerSelector: chaosmesh.ContainerSelector{
-				PodSelector: chaosmesh.PodSelector{
-					Selector: selector,
-					Mode:     chaosmesh.AllMode,
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.IOChaos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      factory.RandStringRunes(32),
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
+			},
+			Spec: chaosmesh.IOChaosSpec{
+				Action:   chaosmesh.IoLatency,
+				Duration: ptr.To(ChaosDurationForever),
+				ContainerSelector: chaosmesh.ContainerSelector{
+					PodSelector: chaosmesh.PodSelector{
+						Selector: selector,
+						Mode:     chaosmesh.AllMode,
+					},
+				},
+				VolumePath: "/var/fdb/data",
+				Path:       "/var/fdb/data/**/*",
+				Percent:    100,
+				Delay:      delay,
+				Methods: []chaosmesh.IoMethod{
+					chaosmesh.Write,
+					chaosmesh.Read,
+					chaosmesh.Open,
+					chaosmesh.Flush,
+					chaosmesh.Fsync,
 				},
 			},
-			VolumePath: "/var/fdb/data",
-			Path:       "/var/fdb/data/**/*",
-			Percent:    100,
-			Delay:      delay,
-			Methods: []chaosmesh.IoMethod{
-				chaosmesh.Write,
-				chaosmesh.Read,
-				chaosmesh.Open,
-				chaosmesh.Flush,
-				chaosmesh.Fsync,
-			},
-		},
-	})
+		})
 }

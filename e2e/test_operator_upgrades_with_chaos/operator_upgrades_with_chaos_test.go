@@ -28,6 +28,7 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 */
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -58,8 +59,8 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetup(beforeVersion string) {
-	fdbCluster = factory.CreateFdbCluster(
+func clusterSetup(ctx context.Context, beforeVersion string) {
+	fdbCluster = factory.CreateFdbCluster(ctx,
 		&fixtures.ClusterConfig{
 			DebugSymbols: false,
 			Version:      ptr.To(beforeVersion),
@@ -67,23 +68,23 @@ func clusterSetup(beforeVersion string) {
 	)
 
 	Expect(
-		fdbCluster.InvariantClusterStatusAvailable(),
+		fdbCluster.InvariantClusterStatusAvailable(ctx),
 	).ShouldNot(HaveOccurred())
 }
 
 var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func() {
-	BeforeEach(func() {
+	BeforeEach(func(_ SpecContext) {
 		factory = fixtures.CreateFactory(testOptions)
 		if !factory.ChaosTestsEnabled() {
 			Skip("chaos mesh is disabled")
 		}
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() {
-			factory.DumpState(fdbCluster)
+			factory.DumpState(ctx, fdbCluster)
 		}
-		factory.Shutdown()
+		factory.Shutdown(ctx)
 	})
 
 	// Ginkgo lacks the support for AfterEach and BeforeEach in tables, so we have to put everything inside the testing function
@@ -91,19 +92,20 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 	// for different versions without hard coding or having multiple flags.
 	DescribeTable(
 		"upgrading a cluster with a partitioned pod",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion)
-			Expect(fdbCluster.SetAutoReplacements(false, 20*time.Minute)).ToNot(HaveOccurred())
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			clusterSetup(ctx, beforeVersion)
+			Expect(fdbCluster.SetAutoReplacements(ctx, false, 20*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for to long
-			fdbCluster.SetIgnoreMissingProcessesSeconds(5 * time.Minute)
+			fdbCluster.SetIgnoreMissingProcessesSeconds(ctx, 5*time.Minute)
 
 			// 1. Introduce network partition b/w Pod and cluster.
 			// Inject chaos only to storage Pods to reduce the risk of a long recovery because a transaction
 			// system Pod was partitioned. The test still has the same checks that will be performed.
 			// Once we have a better availability check for upgrades we can target all pods again.
-			partitionedPod := factory.ChooseRandomPod(fdbCluster.GetStoragePods())
+			partitionedPod := factory.ChooseRandomPod(fdbCluster.GetStoragePods(ctx))
 			log.Println("Injecting network partition to pod: ", partitionedPod.Name)
 			exp := factory.InjectPartitionBetween(
+				ctx,
 				fixtures.PodSelector(partitionedPod),
 				chaosmesh.PodSelectorSpec{
 					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
@@ -113,7 +115,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				},
 			)
 
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				// 2. Until we remove the partition, cluster should not have
@@ -121,14 +123,14 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				//
 				// This is only true for version incompatible upgrades.
 				Consistently(func() bool {
-					return fdbCluster.GetCluster().Status.RunningVersion == beforeVersion
+					return fdbCluster.GetCluster(ctx).Status.RunningVersion == beforeVersion
 				}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 			}
 
 			// 3. Delete the partition, and the upgrade should proceed.
 			log.Println("deleting chaos experiment and cluster should upgrade")
-			factory.DeleteChaosMeshExperiment(exp)
-			fdbCluster.VerifyVersion(targetVersion)
+			factory.DeleteChaosMeshExperiment(ctx, exp)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 		},
 
 		EntryDescription("Upgrade from %[1]s to %[2]s with partitioned Pod"),
@@ -137,16 +139,17 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 	DescribeTable(
 		"with a partitioned pod which eventually gets replaced",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion)
-			Expect(fdbCluster.SetAutoReplacements(false, 5*time.Minute)).ToNot(HaveOccurred())
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			clusterSetup(ctx, beforeVersion)
+			Expect(fdbCluster.SetAutoReplacements(ctx, false, 5*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for too long
-			fdbCluster.SetIgnoreMissingProcessesSeconds(30 * time.Minute)
+			fdbCluster.SetIgnoreMissingProcessesSeconds(ctx, 30*time.Minute)
 
 			// 1. Introduce network partition b/w Pod and cluster.
-			partitionedPod := factory.ChooseRandomPod(fdbCluster.GetStoragePods())
+			partitionedPod := factory.ChooseRandomPod(fdbCluster.GetStoragePods(ctx))
 			log.Println("Injecting network partition to pod: ", partitionedPod.Name)
 			_ = factory.InjectPartitionBetween(
+				ctx,
 				fixtures.PodSelector(partitionedPod),
 				chaosmesh.PodSelectorSpec{
 					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
@@ -156,25 +159,25 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				},
 			)
 
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				// 2. Until we remove the partition, cluster should not have upgraded. Keep checking for 2m.
 				//
 				// This is only true for version incompatible upgrades.
 				Consistently(func() bool {
-					return fdbCluster.GetCluster().Status.RunningVersion == beforeVersion
+					return fdbCluster.GetCluster(ctx).Status.RunningVersion == beforeVersion
 				}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 			}
 
 			// Enable the auto replacement feature again, but don't wait for reconciliation, otherwise we wait
 			// until the whole cluster is upgraded.
 			Expect(
-				fdbCluster.SetAutoReplacementsWithWait(true, 3*time.Minute, false),
+				fdbCluster.SetAutoReplacementsWithWait(ctx, true, 3*time.Minute, false),
 			).ToNot(HaveOccurred())
 
 			// Make sure to allow missing processes again to be ignored.
-			fdbCluster.SetIgnoreMissingProcessesSeconds(10 * time.Second)
+			fdbCluster.SetIgnoreMissingProcessesSeconds(ctx, 10*time.Second)
 
 			// In the case of a version compatible upgrade the operator will proceed with recreating the storage Pods
 			// to make sure they use the new version. At the same time all transaction processes are marked for removal
@@ -183,12 +186,12 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// the injected partition from chaos-mesh is lost and therefore the process is reporting to the cluster again.
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				log.Println("waiting for pod removal:", partitionedPod.Name)
-				fdbCluster.WaitForPodRemoval(partitionedPod)
+				fdbCluster.WaitForPodRemoval(ctx, partitionedPod)
 				log.Println("pod removed:", partitionedPod.Name)
 			}
 
 			// 3. Upgrade should proceed without removing the partition, as Pod will be replaced.
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 		},
 
 		EntryDescription(
@@ -199,12 +202,12 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 	DescribeTable(
 		"upgrading a cluster with link that drops some packets",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion)
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			clusterSetup(ctx, beforeVersion)
 
 			// 1. Introduce packet loss b/w pods.
 			log.Println("Injecting packet loss b/w pod")
-			allPods := fdbCluster.GetAllPods()
+			allPods := fdbCluster.GetAllPods(ctx)
 
 			pickedPods := factory.RandomPickPod(allPods.Items, len(allPods.Items)/5)
 			Expect(pickedPods).ToNot(BeEmpty())
@@ -212,7 +215,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				log.Println("Picked Pod", pod.Name)
 			}
 
-			factory.InjectNetworkLoss("20", fixtures.PodsSelector(pickedPods),
+			factory.InjectNetworkLoss(ctx, "20", fixtures.PodsSelector(pickedPods),
 				chaosmesh.PodSelectorSpec{
 					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
 						Namespaces:     []string{fdbCluster.Namespace()},
@@ -221,8 +224,9 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				}, chaosmesh.Both)
 
 			// Also inject network loss b/w operator pods and cluster pods.
-			operatorPods := factory.GetOperatorPods(fdbCluster.Namespace())
+			operatorPods := factory.GetOperatorPods(ctx, fdbCluster.Namespace())
 			factory.InjectNetworkLoss(
+				ctx,
 				"20",
 				fixtures.PodsSelector(allPods.Items),
 				fixtures.PodsSelector(operatorPods.Items),
@@ -230,10 +234,10 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// 2. Start cluster upgrade.
 			log.Println("Starting cluster upgrade.")
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 
 			// 3. Upgrade should finish.
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with network link that drops some packets"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -241,7 +245,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 	DescribeTable(
 		"upgrading a cluster and one process has the fdbmonitor.conf file not ready",
-		func(beforeVersion string, targetVersion string) {
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Skip("this test only affects version incompatible upgrades")
 			}
@@ -252,29 +256,29 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				Skip("this test only affects the split image setup")
 			}
 
-			clusterSetup(beforeVersion)
+			clusterSetup(ctx, beforeVersion)
 
 			// Update the cluster version.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Skip the reconciliation here to have time to stage everything.
-			fdbCluster.SetSkipReconciliation(true)
+			fdbCluster.SetSkipReconciliation(ctx, true)
 
 			// Select one Pod, this Pod will mount the fdbmonitor config file as read-only.
 			// This should block the upgrade.
-			faultyPod := factory.RandomPickOnePod(fdbCluster.GetPods().Items)
+			faultyPod := factory.RandomPickOnePod(fdbCluster.GetPods(ctx).Items)
 
 			// We have to update the sidecar before the operator is doing it. If we don't do this here the operator
 			// will update the sidecar and then the I/O chaos will be gone. So we prepare the faulty Pod to already
 			// be using the new sidecar image and then we inject IO chaos.
-			sidecarImage := fdbCluster.GetSidecarImageForVersion(targetVersion)
-			fdbCluster.UpdateContainerImage(
+			sidecarImage := fdbCluster.GetSidecarImageForVersion(ctx, targetVersion)
+			fdbCluster.UpdateContainerImage(ctx,
 				&faultyPod,
 				fdbv1beta2.SidecarContainerName,
 				sidecarImage,
 			)
 
 			Eventually(func() bool {
-				pod := fdbCluster.GetPod(faultyPod.Name)
+				pod := fdbCluster.GetPod(ctx, faultyPod.Name)
 
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.Name != fdbv1beta2.SidecarContainerName {
@@ -290,7 +294,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			log.Println("Inject IO chaos to", faultyPod.Name)
 			// Ensure that the fdbmonitor config file is not writeable for the sidecar.
-			exp := factory.InjectDiskFailureWithPath(
+			exp := factory.InjectDiskFailureWithPath(ctx,
 				fixtures.PodSelector(&faultyPod),
 				"/var/output-files",
 				"/var/output-files/fdbmonitor.conf",
@@ -308,6 +312,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// Make sure the sidecar is not able to write the fdbmonitor config.
 			Eventually(func() error {
 				stdout, stderr, err := fdbCluster.ExecuteCmdOnPod(
+					ctx,
 					faultyPod,
 					fdbv1beta2.SidecarContainerName,
 					"cat /var/output-files/fdbmonitor.conf && echo '\n' >> /var/output-files/fdbmonitor.conf",
@@ -320,7 +325,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(HaveOccurred())
 
 			// Now we have the faulty Pod prepared with I/O chaos injected, so we can continue with the upgrade.
-			fdbCluster.SetSkipReconciliation(false)
+			fdbCluster.SetSkipReconciliation(ctx, false)
 
 			// The cluster will be stuck in this state until the I/O chaos is resolved.
 			expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
@@ -332,7 +337,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// The upgrade will be stuck until the I/O chaos is removed and the sidecar is able to provide the latest
 			// fdbmonitor conf file.
 			Eventually(func() bool {
-				cluster := fdbCluster.GetCluster()
+				cluster := fdbCluster.GetCluster(ctx)
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID != faultyProcessGroupID {
 						continue
@@ -354,14 +359,14 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 
 			// Make sure the cluster was not upgraded yet.
-			cluster := fdbCluster.GetCluster()
+			cluster := fdbCluster.GetCluster(ctx)
 			Expect(cluster.Spec.Version).NotTo(Equal(cluster.Status.RunningVersion))
 
 			// Remove the IO chaos, the cluster should proceed.
-			factory.DeleteChaosMeshExperiment(exp)
+			factory.DeleteChaosMeshExperiment(ctx, exp)
 
 			// Ensure the upgrade proceeds and is able to finish.
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 		},
 		EntryDescription(
 			"Upgrade from %[1]s to %[2]s and one process has the fdbmonitor.conf file not ready",
@@ -371,7 +376,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 	DescribeTable(
 		"upgrading a cluster and one process is missing the new binary",
-		func(beforeVersion string, targetVersion string) {
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Skip("this test only affects version incompatible upgrades")
 			}
@@ -384,29 +389,29 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				Skip("in the unified image setup the operator doesn't validate the binary")
 			}
 
-			clusterSetup(beforeVersion)
+			clusterSetup(ctx, beforeVersion)
 
 			// Update the cluster version.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(ctx, targetVersion, false)).NotTo(HaveOccurred())
 			// Skip the reconciliation here to have time to stage everything.
-			fdbCluster.SetSkipReconciliation(true)
+			fdbCluster.SetSkipReconciliation(ctx, true)
 
 			// Select one Pod, this Pod will miss the new fdbserver binary.
 			// This should block the upgrade.
-			faultyPod := factory.RandomPickOnePod(fdbCluster.GetPods().Items)
+			faultyPod := factory.RandomPickOnePod(fdbCluster.GetPods(ctx).Items)
 
 			// We have to update the sidecar before the operator is doing it. If we don't do this here the operator
 			// will update the sidecar and then the sidecar will copy the binaries at start-up. So we prepare the faulty Pod to already
 			// be using the new sidecar image and then we delete the new fdbserver binary.
-			sidecarImage := fdbCluster.GetSidecarImageForVersion(targetVersion)
-			fdbCluster.UpdateContainerImage(
+			sidecarImage := fdbCluster.GetSidecarImageForVersion(ctx, targetVersion)
+			fdbCluster.UpdateContainerImage(ctx,
 				&faultyPod,
 				fdbv1beta2.SidecarContainerName,
 				sidecarImage,
 			)
 
 			Eventually(func() bool {
-				pod := fdbCluster.GetPod(faultyPod.Name)
+				pod := fdbCluster.GetPod(ctx, faultyPod.Name)
 
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.Name != fdbv1beta2.SidecarContainerName {
@@ -437,7 +442,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// Make sure the sidecar is missing the fdbserver binary.
 			Eventually(func() error {
-				_, _, err := fdbCluster.ExecuteCmdOnPod(
+				_, _, err := fdbCluster.ExecuteCmdOnPod(ctx,
 					faultyPod,
 					fdbv1beta2.SidecarContainerName,
 					fmt.Sprintf("rm -f %s", fdbserverBinary),
@@ -447,7 +452,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).ShouldNot(HaveOccurred())
 
 			// Now we have the faulty Pod prepared, so we can continue with the upgrade.
-			fdbCluster.SetSkipReconciliation(false)
+			fdbCluster.SetSkipReconciliation(ctx, false)
 
 			// The cluster will be stuck in this state until the Pod is restarted and the new binary is present.
 			expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
@@ -459,12 +464,12 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			creationTimestamp := faultyPod.CreationTimestamp
 			// The upgrade will be stuck until the new fdbserver binary is copied to the shared directory again.
 			Eventually(func() bool {
-				currentPod := fdbCluster.GetPod(faultyPod.Name)
+				currentPod := fdbCluster.GetPod(ctx, faultyPod.Name)
 				if creationTimestamp.Compare(currentPod.CreationTimestamp.Time) != 0 {
 					Skip("Faulty Pod was deleted, skipping test as the test setup failed.")
 				}
 
-				cluster := fdbCluster.GetCluster()
+				cluster := fdbCluster.GetCluster(ctx)
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID != faultyProcessGroupID {
 						continue
@@ -486,12 +491,12 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 
 			// Make sure the cluster was not upgraded yet.
-			cluster := fdbCluster.GetCluster()
+			cluster := fdbCluster.GetCluster(ctx)
 			Expect(cluster.Spec.Version).NotTo(Equal(cluster.Status.RunningVersion))
 
 			// Ensure the binary is present in the shared folder.
 			Eventually(func() error {
-				_, _, err := fdbCluster.ExecuteCmdOnPod(
+				_, _, err := fdbCluster.ExecuteCmdOnPod(ctx,
 					faultyPod,
 					fdbv1beta2.SidecarContainerName,
 					fmt.Sprintf("cp -f /usr/bin/fdbserver %s", fdbserverBinary),
@@ -501,7 +506,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).ShouldNot(HaveOccurred())
 
 			// Ensure the upgrade proceeds and is able to finish.
-			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.VerifyVersion(ctx, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s and one process is missing the new binary"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),

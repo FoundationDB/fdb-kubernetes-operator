@@ -21,6 +21,8 @@
 package fixtures
 
 import (
+	"context"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,17 +32,20 @@ import (
 
 // GenerateFDBClusterSpec will generate a *fdbv1beta2.FoundationDBCluster based on the input ClusterConfig.
 func (factory *Factory) GenerateFDBClusterSpec(
+	ctx context.Context,
 	config *ClusterConfig,
 ) *fdbv1beta2.FoundationDBCluster {
-	config.SetDefaults(factory)
+	config.SetDefaults(ctx, factory)
 
 	return factory.createFDBClusterSpec(
+		ctx,
 		config,
 		config.CreateDatabaseConfiguration())
 }
 
 // High Level Cluster Spec Supplied by Operator.
 func (factory *Factory) createFDBClusterSpec(
+	ctx context.Context,
 	config *ClusterConfig,
 	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
 ) *fdbv1beta2.FoundationDBCluster {
@@ -76,7 +81,7 @@ func (factory *Factory) createFDBClusterSpec(
 		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			MinimumUptimeSecondsForBounce: 30,
 			Version:                       config.GetVersion(),
-			Processes:                     factory.createProcesses(config),
+			Processes:                     factory.createProcesses(ctx, config),
 			DatabaseConfiguration:         databaseConfiguration,
 			StorageServersPerPod:          config.StorageServerPerPod,
 			LogServersPerPod:              config.LogServersPerPod,
@@ -321,9 +326,10 @@ func (factory *Factory) createPodTemplate(
 
 // createProcesses will generate the ProcessSettings for the cluster configuration.
 func (factory *Factory) createProcesses(
+	ctx context.Context,
 	config *ClusterConfig,
 ) map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings {
-	claimTemplate := config.generateVolumeClaimTemplate(factory.GetDefaultStorageClass())
+	claimTemplate := config.generateVolumeClaimTemplate(factory.GetDefaultStorageClass(ctx))
 	return map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
 		fdbv1beta2.ProcessClassGeneral: {
 			PodTemplate: factory.createPodTemplate(

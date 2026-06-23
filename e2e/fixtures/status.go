@@ -38,7 +38,9 @@ import (
 )
 
 // getStatusFromOperatorPod returns fdb status queried through the operator Pod.
-func (fdbCluster *FdbCluster) getStatusFromOperatorPod() *fdbv1beta2.FoundationDBStatus {
+func (fdbCluster *FdbCluster) getStatusFromOperatorPod(
+	ctx context.Context,
+) *fdbv1beta2.FoundationDBStatus {
 	status := &fdbv1beta2.FoundationDBStatus{}
 
 	if fdbCluster.factory.shutdownInProgress {
@@ -46,7 +48,12 @@ func (fdbCluster *FdbCluster) getStatusFromOperatorPod() *fdbv1beta2.FoundationD
 	}
 
 	gomega.Eventually(func() error {
-		out, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry("status json", false, 30)
+		out, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+			ctx,
+			"status json",
+			false,
+			30,
+		)
 		if err != nil {
 			return err
 		}
@@ -60,6 +67,7 @@ func (fdbCluster *FdbCluster) getStatusFromOperatorPod() *fdbv1beta2.FoundationD
 
 // RunFdbCliCommandInOperator allows to run a command with fdbcli in the operator Pod.
 func (fdbCluster *FdbCluster) RunFdbCliCommandInOperator(
+	ctx context.Context,
 	command string,
 	printOutput bool,
 	timeout int,
@@ -71,6 +79,7 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperator(
 		// Ensure we fetch everything if we have to retry it e.g. because the connection string has changed or
 		// because the operator Pod was killed.
 		stdout, stderr, err = fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+			ctx,
 			command,
 			printOutput,
 			timeout,
@@ -93,11 +102,13 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperator(
 
 // RunFdbCliCommandInOperatorWithoutRetry allows to run a command with fdbcli in the operator Pod without doing any retries.
 func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
+	ctx context.Context,
 	command string,
 	printOutput bool,
 	timeout int,
 ) (string, string, error) {
 	return fdbCluster.runCommandInOperatorWithoutRetry(
+		ctx,
 		fmt.Sprintf("--exec '%s'", command),
 		printOutput,
 		timeout,
@@ -107,20 +118,22 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 
 // RunFdbBackupCommandInOperatorWithoutRetry allows to run a command with fdbbackup in the operator Pod without doing any retries.
 func (fdbCluster *FdbCluster) RunFdbBackupCommandInOperatorWithoutRetry(
+	ctx context.Context,
 	command string,
 	printOutput bool,
 ) (string, string, error) {
-	return fdbCluster.runCommandInOperatorWithoutRetry(command, printOutput, 0, "fdbbackup")
+	return fdbCluster.runCommandInOperatorWithoutRetry(ctx, command, printOutput, 0, "fdbbackup")
 }
 
 // runCommandInOperatorWithoutRetry can be used to run commands with a FDB binary like fdbcli or fdbbackup.
 func (fdbCluster *FdbCluster) runCommandInOperatorWithoutRetry(
+	ctx context.Context,
 	command string,
 	printOutput bool,
 	timeout int,
 	binary string,
 ) (string, string, error) {
-	operatorPods := fdbCluster.factory.GetOperatorPods(fdbCluster.Namespace())
+	operatorPods := fdbCluster.factory.GetOperatorPods(ctx, fdbCluster.Namespace())
 	pod := fdbCluster.factory.ChooseRandomPod(operatorPods)
 	if pod == nil {
 		log.Println("current operator pods:", operatorPods.Items)
@@ -128,6 +141,7 @@ func (fdbCluster *FdbCluster) runCommandInOperatorWithoutRetry(
 	}
 
 	cluster, err := fdbCluster.factory.getClusterStatus(
+		ctx,
 		fdbCluster.Name(),
 		fdbCluster.Namespace(),
 	)
@@ -192,7 +206,7 @@ func (fdbCluster *FdbCluster) runCommandInOperatorWithoutRetry(
 			log.Println(cmd)
 		}
 		stdout, stderr, err = fdbCluster.factory.ExecuteCmd(
-			context.Background(),
+			ctx,
 			pod.Namespace,
 			pod.Name,
 			"manager",
@@ -252,20 +266,21 @@ func parseStatusOutput(rawStatus string) (*fdbv1beta2.FoundationDBStatus, error)
 }
 
 // IsAvailable returns true if the database is available.
-func (fdbCluster *FdbCluster) IsAvailable() bool {
-	return fdbCluster.GetStatus().Client.DatabaseStatus.Available
+func (fdbCluster *FdbCluster) IsAvailable(ctx context.Context) bool {
+	return fdbCluster.GetStatus(ctx).Client.DatabaseStatus.Available
 }
 
 // WaitUntilAvailable waits until the cluster is available.
-func (fdbCluster *FdbCluster) WaitUntilAvailable() {
+func (fdbCluster *FdbCluster) WaitUntilAvailable(ctx context.Context) {
 	gomega.Eventually(func() bool {
-		return fdbCluster.IsAvailable()
+		return fdbCluster.IsAvailable(ctx)
 	}).To(gomega.BeTrue())
 }
 
 // StatusInvariantChecker provides a way to check an invariant for the cluster status.
 // nolint:nilerr
 func (fdbCluster *FdbCluster) StatusInvariantChecker(
+	ctx context.Context,
 	name string,
 	threshold time.Duration,
 	f func(status *fdbv1beta2.FoundationDBStatus) error,
@@ -282,6 +297,7 @@ func (fdbCluster *FdbCluster) StatusInvariantChecker(
 			}
 
 			cluster, err := fdbCluster.factory.getClusterStatus(
+				ctx,
 				fdbCluster.Name(),
 				fdbCluster.Namespace(),
 			)
@@ -295,6 +311,7 @@ func (fdbCluster *FdbCluster) StatusInvariantChecker(
 			}
 
 			out, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+				ctx,
 				"status json",
 				false,
 				30,
@@ -337,9 +354,11 @@ func checkAvailability(status *fdbv1beta2.FoundationDBStatus) error {
 
 // InvariantClusterStatusAvailableWithThreshold checks if the database is at a maximum unavailable for the provided threshold.
 func (fdbCluster *FdbCluster) InvariantClusterStatusAvailableWithThreshold(
+	ctx context.Context,
 	availabilityThreshold time.Duration,
 ) error {
 	return fdbCluster.StatusInvariantChecker(
+		ctx,
 		"InvariantClusterStatusAvailable",
 		availabilityThreshold,
 		checkAvailability,
@@ -347,16 +366,20 @@ func (fdbCluster *FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 }
 
 // InvariantClusterStatusAvailable checks if the cluster is available the whole test with the default unavailable threshold.
-func (fdbCluster *FdbCluster) InvariantClusterStatusAvailable() error {
+func (fdbCluster *FdbCluster) InvariantClusterStatusAvailable(ctx context.Context) error {
 	return fdbCluster.InvariantClusterStatusAvailableWithThreshold(
+		ctx,
 		fdbCluster.factory.GetDefaultUnavailableThreshold(),
 	)
 }
 
 // GetProcessCount returns the number of processes having the specified role
-func (fdbCluster *FdbCluster) GetProcessCount(targetRole fdbv1beta2.ProcessRole) int {
+func (fdbCluster *FdbCluster) GetProcessCount(
+	ctx context.Context,
+	targetRole fdbv1beta2.ProcessRole,
+) int {
 	pCounter := 0
-	status := fdbCluster.GetStatus()
+	status := fdbCluster.GetStatus(ctx)
 
 	for _, process := range status.Cluster.Processes {
 		for _, role := range process.Roles {
@@ -370,9 +393,12 @@ func (fdbCluster *FdbCluster) GetProcessCount(targetRole fdbv1beta2.ProcessRole)
 }
 
 // GetProcessCountByProcessClass returns the number of processes based on process class
-func (fdbCluster *FdbCluster) GetProcessCountByProcessClass(pClass fdbv1beta2.ProcessClass) int {
+func (fdbCluster *FdbCluster) GetProcessCountByProcessClass(
+	ctx context.Context,
+	pClass fdbv1beta2.ProcessClass,
+) int {
 	pCounter := 0
-	status := fdbCluster.GetStatus()
+	status := fdbCluster.GetStatus(ctx)
 
 	for _, process := range status.Cluster.Processes {
 		if process.ProcessClass == pClass {
@@ -384,8 +410,8 @@ func (fdbCluster *FdbCluster) GetProcessCountByProcessClass(pClass fdbv1beta2.Pr
 }
 
 // HasTLSEnabled returns true if the cluster is running with TLS enabled.
-func (fdbCluster *FdbCluster) HasTLSEnabled() bool {
-	status := fdbCluster.GetStatus()
+func (fdbCluster *FdbCluster) HasTLSEnabled(ctx context.Context) bool {
+	status := fdbCluster.GetStatus(ctx)
 
 	if len(status.Cluster.Processes) == 0 {
 		return false
@@ -421,14 +447,14 @@ func (fdbCluster *FdbCluster) HasTLSEnabled() bool {
 }
 
 // GetCoordinators returns the Pods of the FoundationDBCluster that are having the coordinator role.
-func (fdbCluster *FdbCluster) GetCoordinators() []corev1.Pod {
-	return fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
+func (fdbCluster *FdbCluster) GetCoordinators(ctx context.Context) []corev1.Pod {
+	return fdbCluster.GetPodsWithRole(ctx, fdbv1beta2.ProcessRoleCoordinator)
 }
 
 // GetCoordinatorsOnLogProcesses returns the Pods of the FoundationDBCluster that have the coordinator role and have the
 // process class log.
-func (fdbCluster *FdbCluster) GetCoordinatorsOnLogProcesses() []corev1.Pod {
-	coordinators := fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
+func (fdbCluster *FdbCluster) GetCoordinatorsOnLogProcesses(ctx context.Context) []corev1.Pod {
+	coordinators := fdbCluster.GetPodsWithRole(ctx, fdbv1beta2.ProcessRoleCoordinator)
 	gomega.Expect(coordinators).NotTo(gomega.BeEmpty())
 
 	coordinatorsOnLogProcesses := make([]corev1.Pod, 0, len(coordinators))
@@ -442,12 +468,12 @@ func (fdbCluster *FdbCluster) GetCoordinatorsOnLogProcesses() []corev1.Pod {
 
 	if len(coordinatorsOnLogProcesses) == 0 {
 		pickedPod := fdbCluster.factory.RandomPickOnePod(coordinators)
-		fdbCluster.factory.DeletePod(&pickedPod)
+		fdbCluster.factory.DeletePod(ctx, &pickedPod)
 		// Wait for new coordinators
 		time.Sleep(1 * time.Minute)
 		// Fetch all coordinators again
 
-		coordinators = fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
+		coordinators = fdbCluster.GetPodsWithRole(ctx, fdbv1beta2.ProcessRoleCoordinator)
 		gomega.Expect(coordinators).NotTo(gomega.BeEmpty())
 		for _, coordinator := range coordinators {
 			if !GetProcessClass(coordinator).IsTransaction() {
@@ -462,8 +488,8 @@ func (fdbCluster *FdbCluster) GetCoordinatorsOnLogProcesses() []corev1.Pod {
 }
 
 // GetStatus returns fdb status queried from a random operator Pod in this clusters namespace.
-func (fdbCluster *FdbCluster) GetStatus() *fdbv1beta2.FoundationDBStatus {
-	return fdbCluster.getStatusFromOperatorPod()
+func (fdbCluster *FdbCluster) GetStatus(ctx context.Context) *fdbv1beta2.FoundationDBStatus {
+	return fdbCluster.getStatusFromOperatorPod(ctx)
 }
 
 // RoleInfo stores information for one particular worker role.
@@ -473,9 +499,11 @@ type RoleInfo struct {
 }
 
 // GetPodRoleMap returns a map with the process group ID as key and all associated roles.
-func (fdbCluster *FdbCluster) GetPodRoleMap() map[fdbv1beta2.ProcessGroupID][]RoleInfo {
+func (fdbCluster *FdbCluster) GetPodRoleMap(
+	ctx context.Context,
+) map[fdbv1beta2.ProcessGroupID][]RoleInfo {
 	ret := make(map[fdbv1beta2.ProcessGroupID][]RoleInfo)
-	status := fdbCluster.GetStatus()
+	status := fdbCluster.GetStatus(ctx)
 
 	for _, process := range status.Cluster.Processes {
 		podName := fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
@@ -489,9 +517,12 @@ func (fdbCluster *FdbCluster) GetPodRoleMap() map[fdbv1beta2.ProcessGroupID][]Ro
 }
 
 // GetPodsWithRole returns all Pods that have the provided role.
-func (fdbCluster *FdbCluster) GetPodsWithRole(role fdbv1beta2.ProcessRole) []corev1.Pod {
-	roleMap := fdbCluster.GetPodRoleMap()
-	pods := fdbCluster.GetPods()
+func (fdbCluster *FdbCluster) GetPodsWithRole(
+	ctx context.Context,
+	role fdbv1beta2.ProcessRole,
+) []corev1.Pod {
+	roleMap := fdbCluster.GetPodRoleMap(ctx)
+	pods := fdbCluster.GetPods(ctx)
 
 	var matches []corev1.Pod
 	for _, p := range pods.Items {
@@ -511,8 +542,10 @@ func (fdbCluster *FdbCluster) GetPodsWithRole(role fdbv1beta2.ProcessRole) []cor
 }
 
 // GetCommandlineForProcessesPerClass fetches the commandline args for all processes except of the specified class.
-func (fdbCluster *FdbCluster) GetCommandlineForProcessesPerClass() map[fdbv1beta2.ProcessClass][]string {
-	return fdbCluster.GetCommandlineForProcessesPerClassWithStatus(fdbCluster.GetStatus())
+func (fdbCluster *FdbCluster) GetCommandlineForProcessesPerClass(
+	ctx context.Context,
+) map[fdbv1beta2.ProcessClass][]string {
+	return fdbCluster.GetCommandlineForProcessesPerClassWithStatus(fdbCluster.GetStatus(ctx))
 }
 
 // GetCommandlineForProcessesPerClassWithStatus fetches the commandline args for all processes except of the specified class.

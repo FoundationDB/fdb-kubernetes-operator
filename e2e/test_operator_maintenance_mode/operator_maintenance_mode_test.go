@@ -47,46 +47,46 @@ func init() {
 	testOptions = fixtures.InitFlags()
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbCluster(fixtures.DefaultClusterConfig(false))
+	fdbCluster = factory.CreateFdbCluster(ctx, fixtures.DefaultClusterConfig(false))
 
 	// Make sure the unschedulable Pod is not removed
-	Expect(fdbCluster.SetAutoReplacements(false, 12*time.Hour)).NotTo(HaveOccurred())
+	Expect(fdbCluster.SetAutoReplacements(ctx, false, 12*time.Hour)).NotTo(HaveOccurred())
 
 	// Load some data into the cluster.
-	factory.CreateDataLoaderIfAbsent(fdbCluster)
+	factory.CreateDataLoaderIfAbsent(ctx, fdbCluster)
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	if CurrentSpecReport().Failed() {
 		log.Printf("failed due to %s", CurrentSpecReport().FailureMessage())
 	}
-	factory.Shutdown()
+	factory.Shutdown(ctx)
 })
 
 var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
-	AfterEach(func() {
-		Expect(fdbCluster.ClearBuggifyNoSchedule(false)).NotTo(HaveOccurred())
+	AfterEach(func(ctx SpecContext) {
+		Expect(fdbCluster.ClearBuggifyNoSchedule(ctx, false)).NotTo(HaveOccurred())
 		if CurrentSpecReport().Failed() {
-			factory.DumpState(fdbCluster)
+			factory.DumpState(ctx, fdbCluster)
 		}
-		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
+		Expect(fdbCluster.WaitForReconciliation(ctx)).ToNot(HaveOccurred())
 		factory.StopInvariantCheck()
 		// Make sure all data is present in the cluster
-		fdbCluster.EnsureTeamTrackersAreHealthy()
-		fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+		fdbCluster.EnsureTeamTrackersAreHealthy(ctx)
+		fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 	})
 
 	When("the maintenance mode is set", func() {
 		var failingStoragePod corev1.Pod
 		var faultDomain fdbv1beta2.FaultDomain
 
-		BeforeEach(func() {
-			failingStoragePod = factory.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
+		BeforeEach(func(ctx SpecContext) {
+			failingStoragePod = factory.RandomPickOnePod(fdbCluster.GetStoragePods(ctx).Items)
 
 			// Set maintenance mode for this Pod
-			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+			for _, processGroup := range fdbCluster.GetCluster(ctx).Status.ProcessGroups {
 				if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
 					continue
 				}
@@ -97,28 +97,28 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 			}
 
 			// Set the maintenance mode for 4 minutes.
-			fdbCluster.RunFdbCliCommandInOperator(
+			fdbCluster.RunFdbCliCommandInOperator(ctx,
 				fmt.Sprintf("maintenance on %s 240", faultDomain),
 				false,
 				60,
 			)
 
 			// Set this Pod as unschedulable to keep it pending.
-			fdbCluster.SetPodAsUnschedulable(failingStoragePod)
+			fdbCluster.SetPodAsUnschedulable(ctx, failingStoragePod)
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			// Make sure that the quota is deleted and new PVCs can be created.
-			Expect(fdbCluster.ClearBuggifyNoSchedule(true)).NotTo(HaveOccurred())
+			Expect(fdbCluster.ClearBuggifyNoSchedule(ctx, true)).NotTo(HaveOccurred())
 			// Reset the maintenance mode
-			fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 60)
+			fdbCluster.RunFdbCliCommandInOperator(ctx, "maintenance off", false, 60)
 		})
 
 		When("the Pod comes back before the maintenance mode times out", func() {
-			It("should not set the team tracker status to unhealthy", func() {
+			It("should not set the team tracker status to unhealthy", func(ctx SpecContext) {
 				// Make sure the team tracker status shows healthy for the failed Pod and the maintenance zone is set.
 				Consistently(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						log.Println(tracker.State.Name, ":", tracker.State.Healthy)
@@ -132,10 +132,10 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 		})
 
 		When("the maintenance mode times out", func() {
-			It("should update the team tracker status to unhealthy", func() {
+			It("should update the team tracker status to unhealthy", func(ctx SpecContext) {
 				// Make sure the team tracker status shows healthy for the failed Pod and the maintenance zone is set.
 				Consistently(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						g.Expect(tracker.State.Healthy).To(BeTrue())
@@ -147,14 +147,14 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 				log.Println("Wait until maintenance mode times out")
 				// Wait until the maintenance zone is reset
 				Eventually(func() fdbv1beta2.FaultDomain {
-					return fdbCluster.GetStatus().Cluster.MaintenanceZone
+					return fdbCluster.GetStatus(ctx).Cluster.MaintenanceZone
 				}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(Equal(fdbv1beta2.FaultDomain("")))
 
 				startTime := time.Now()
 				log.Println("Wait until failure is detected")
 				// We would expect that the team tracker gets unhealthy once the maintenance mode is timed out.
 				Eventually(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						g.Expect(tracker.State.Healthy).To(BeFalse())
 					}
@@ -167,24 +167,24 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 		})
 
 		When("there is a failure during maintenance mode", func() {
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				// Set the maintenance mode for a long duration, e.g. 2h hours to make sure the mode is not timing out
 				// but actually is being reset.
-				fdbCluster.RunFdbCliCommandInOperator(
+				fdbCluster.RunFdbCliCommandInOperator(ctx,
 					fmt.Sprintf("maintenance on %s 7200", faultDomain),
 					false,
 					60,
 				)
 			})
 
-			AfterEach(func() {
-				fdbCluster.SetCrashLoopContainers(nil, false)
+			AfterEach(func(ctx SpecContext) {
+				fdbCluster.SetCrashLoopContainers(ctx, nil, false)
 			})
 
-			It("should remove the maintenance mode", func() {
+			It("should remove the maintenance mode", func(ctx SpecContext) {
 				// Make sure the team tracker status shows healthy for the failed Pod and the maintenance zone is set.
 				Consistently(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						g.Expect(tracker.State.Healthy).To(BeTrue())
@@ -196,7 +196,7 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 				log.Println("When another storage Pod is failing")
 				var podToRecreate corev1.Pod
 
-				for _, pod := range fdbCluster.GetStoragePods().Items {
+				for _, pod := range fdbCluster.GetStoragePods(ctx).Items {
 					if pod.Name == failingStoragePod.Name {
 						continue
 					}
@@ -207,7 +207,7 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 
 				// We delete a Pod and make it crash-looping, to make sure the process is failed for more than 60 seconds.
 				log.Println("Delete Pod", podToRecreate.Name)
-				fdbCluster.SetCrashLoopContainers([]fdbv1beta2.CrashLoopContainerObject{
+				fdbCluster.SetCrashLoopContainers(ctx, []fdbv1beta2.CrashLoopContainerObject{
 					{
 						ContainerName: fdbv1beta2.MainContainerName,
 						Targets: []fdbv1beta2.ProcessGroupID{
@@ -215,13 +215,13 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 						},
 					},
 				}, false)
-				factory.DeletePod(&podToRecreate)
+				factory.DeletePod(ctx, &podToRecreate)
 
 				log.Println("Wait until maintenance mode is reset")
 				startTime := time.Now()
 				// We would expect that the team tracker gets unhealthy once the maintenance mode is timed out.
 				Eventually(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						g.Expect(tracker.State.Healthy).To(BeFalse())
 					}
@@ -234,19 +234,19 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 		})
 
 		When("there is additional load on the cluster", func() {
-			BeforeEach(func() {
+			BeforeEach(func(ctx SpecContext) {
 				// Set the maintenance mode for a long duration, e.g. 2h hours to make sure the mode is not timing out
 				// but actually is being reset.
-				fdbCluster.RunFdbCliCommandInOperator(
+				fdbCluster.RunFdbCliCommandInOperator(ctx,
 					fmt.Sprintf("maintenance on %s 7200", faultDomain),
 					false,
 					60,
 				)
 			})
 
-			AfterEach(func() {
+			AfterEach(func(ctx SpecContext) {
 				Consistently(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						g.Expect(tracker.State.Healthy).To(BeTrue())
@@ -256,10 +256,10 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 				}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(faultDomain))
 			})
 
-			It("should not remove the maintenance mode", func() {
+			It("should not remove the maintenance mode", func(ctx SpecContext) {
 				// Make sure the team tracker status shows healthy for the failed Pod and the maintenance zone is set.
 				Consistently(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						g.Expect(tracker.State.Healthy).To(BeTrue())
@@ -269,40 +269,40 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 				}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(faultDomain))
 
 				log.Println("When loading additional data into the cluster")
-				factory.CreateDataLoaderIfAbsent(fdbCluster)
-				factory.CreateDataLoaderIfAbsent(fdbCluster)
+				factory.CreateDataLoaderIfAbsent(ctx, fdbCluster)
+				factory.CreateDataLoaderIfAbsent(ctx, fdbCluster)
 			})
 		})
 
 		When("the number of storage Pods is changed", func() {
 			var initialStoragePods int
 
-			BeforeEach(func() {
-				counts, err := fdbCluster.GetCluster().GetProcessCountsWithDefaults()
+			BeforeEach(func(ctx SpecContext) {
+				counts, err := fdbCluster.GetCluster(ctx).GetProcessCountsWithDefaults()
 				Expect(err).NotTo(HaveOccurred())
 
 				initialStoragePods = counts.Storage
 				// Set the maintenance mode for a long duration, e.g. 2h hours to make sure the mode is not timing out
 				// but actually is being reset.
-				fdbCluster.RunFdbCliCommandInOperator(
+				fdbCluster.RunFdbCliCommandInOperator(ctx,
 					fmt.Sprintf("maintenance on %s 7200", faultDomain),
 					false,
 					60,
 				)
 			})
 
-			AfterEach(func() {
-				Expect(fdbCluster.ClearBuggifyNoSchedule(false)).NotTo(HaveOccurred())
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			AfterEach(func(ctx SpecContext) {
+				Expect(fdbCluster.ClearBuggifyNoSchedule(ctx, false)).NotTo(HaveOccurred())
+				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 				// Add 3 additional storage Pods.
 				spec.ProcessCounts.Storage = initialStoragePods
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 			})
 
-			It("should not remove the maintenance mode", func() {
+			It("should not remove the maintenance mode", func(ctx SpecContext) {
 				// Make sure the team tracker status shows healthy for the failed Pod and the maintenance zone is set.
 				Consistently(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						g.Expect(tracker.State.Healthy).To(BeTrue())
@@ -312,14 +312,14 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 				}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(faultDomain))
 
 				log.Println("When adding additional storage processes to the cluster")
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 				// Add 3 additional storage Pods.
 				spec.ProcessCounts.Storage = initialStoragePods + 3
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 
 				// Make sure the maintenance mode is kept and the team tracker shows healthy.
 				Consistently(func(g Gomega) fdbv1beta2.FaultDomain {
-					status := fdbCluster.GetStatus()
+					status := fdbCluster.GetStatus(ctx)
 
 					for _, tracker := range status.Cluster.Data.TeamTrackers {
 						g.Expect(tracker.State.Healthy).To(BeTrue())

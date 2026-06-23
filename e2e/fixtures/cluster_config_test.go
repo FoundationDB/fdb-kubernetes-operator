@@ -31,8 +31,8 @@ import (
 var _ = Describe("Cluster configuration", func() {
 	DescribeTable(
 		"when generating the Pod resources",
-		func(config *ClusterConfig, processClass fdbv1beta2.ProcessClass, expected corev1.ResourceList) {
-			config.SetDefaults(&Factory{options: &FactoryOptions{}})
+		func(ctx SpecContext, config *ClusterConfig, processClass fdbv1beta2.ProcessClass, expected corev1.ResourceList) {
+			config.SetDefaults(ctx, &Factory{options: &FactoryOptions{}})
 			generated := config.generatePodResources(processClass)
 			Expect(generated.Cpu().String()).To(Equal(expected.Cpu().String()))
 			Expect(generated.Memory().String()).To(Equal(expected.Memory().String()))

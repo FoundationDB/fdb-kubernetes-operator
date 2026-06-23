@@ -120,6 +120,9 @@ func (factory *Factory) StopInvariantCheck() {
 }
 
 // AddShutdownHook will add the provided shut down hook.
+// Methods that are called by AddShutdownHook should not use the provided SpecContext as the context will be canceled
+// after the Ginkgo node was executed. In another PR, we could pass a ctx to the invocation of the shutdown handlers.
+// Right now a generic context.Background() is used to ensure that the cleanup methods will always be executed.
 func (factory *Factory) AddShutdownHook(f func() error) {
 	factory.shutdownHooks.Defer(f)
 }
@@ -161,7 +164,7 @@ func (factory *Factory) GetEncryptionKeySecretName() string {
 }
 
 // CreateEncryptionKeySecret creates a 32-byte encryption key secret.
-func (factory *Factory) CreateEncryptionKeySecret(namespace string) {
+func (factory *Factory) CreateEncryptionKeySecret(ctx context.Context, namespace string) {
 	secretName := factory.GetEncryptionKeySecretName()
 
 	// Create 32-byte encryption key.
@@ -179,7 +182,7 @@ func (factory *Factory) CreateEncryptionKeySecret(namespace string) {
 		},
 	}
 
-	gomega.Expect(factory.CreateIfAbsent(secret)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(factory.CreateIfAbsent(ctx, secret)).NotTo(gomega.HaveOccurred())
 }
 
 func (factory *Factory) getConfig() *rest.Config {
@@ -187,15 +190,19 @@ func (factory *Factory) getConfig() *rest.Config {
 }
 
 // DeletePod deletes the provided Pod
-func (factory *Factory) DeletePod(pod *corev1.Pod) {
-	factory.Delete(pod)
+func (factory *Factory) DeletePod(ctx context.Context, pod *corev1.Pod) {
+	factory.Delete(ctx, pod)
 }
 
 // GetPod returns the Pod matching the namespace and name
-func (factory *Factory) GetPod(namespace string, name string) (*corev1.Pod, error) {
+func (factory *Factory) GetPod(
+	ctx context.Context,
+	namespace string,
+	name string,
+) (*corev1.Pod, error) {
 	pod := &corev1.Pod{}
 	err := factory.GetControllerRuntimeClient().
-		Get(context.Background(), client.ObjectKey{Name: name, Namespace: namespace}, pod)
+		Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, pod)
 
 	return pod, err
 }
@@ -212,24 +219,27 @@ func (factory *Factory) ChaosTestsEnabled() bool {
 
 // CreateFdbCluster creates a FDB cluster.
 func (factory *Factory) CreateFdbCluster(
+	ctx context.Context,
 	config *ClusterConfig,
 ) *FdbCluster {
 	return factory.CreateFdbClusterFromSpec(
-		factory.GenerateFDBClusterSpec(config),
+		ctx,
+		factory.GenerateFDBClusterSpec(ctx, config),
 		config)
 }
 
 // CreateFdbClusterFromSpec creates a FDB cluster. This method can be used in combination with the GenerateFDBClusterSpec method.
 // In general this should only be used for special cases that are not covered by changing the ClusterOptions or the ClusterConfig.
 func (factory *Factory) CreateFdbClusterFromSpec(
+	ctx context.Context,
 	spec *fdbv1beta2.FoundationDBCluster,
 	config *ClusterConfig,
 ) *FdbCluster {
 	startTime := time.Now()
-	config.SetDefaults(factory)
+	config.SetDefaults(ctx, factory)
 	log.Printf("create cluster: %s", ToJSON(spec))
 
-	cluster := factory.startFDBFromClusterSpec(spec, config)
+	cluster := factory.startFDBFromClusterSpec(ctx, spec, config)
 	log.Println(
 		"FoundationDB cluster created (at version",
 		cluster.cluster.Spec.Version,
@@ -242,12 +252,13 @@ func (factory *Factory) CreateFdbClusterFromSpec(
 
 // CreateFdbHaCluster creates a HA FDB Cluster based on the cluster config and cluster options
 func (factory *Factory) CreateFdbHaCluster(
+	ctx context.Context,
 	config *ClusterConfig,
 ) *HaFdbCluster {
 	startTime := time.Now()
-	config.SetDefaults(factory)
+	config.SetDefaults(ctx, factory)
 
-	cluster := factory.ensureHAFdbClusterExists(config)
+	cluster := factory.ensureHAFdbClusterExists(ctx, config)
 
 	log.Println(
 		"FoundationDB HA cluster created (at version",
@@ -304,7 +315,7 @@ func (factory *Factory) getClusterName() string {
 
 // GetDefaultStorageClass returns either the StorageClass provided by the command line or fetches the StorageClass passed on
 // the default Annotation.
-func (factory *Factory) GetDefaultStorageClass() string {
+func (factory *Factory) GetDefaultStorageClass(ctx context.Context) string {
 	flagStorageClass := factory.options.storageClass
 	// If a storage class is provided as parameter use that storage class.
 	if flagStorageClass != "" {
@@ -312,7 +323,7 @@ func (factory *Factory) GetDefaultStorageClass() string {
 	}
 
 	// If no storage class is provided use the default one in the cluster
-	storageClasses := factory.GetStorageClasses(nil)
+	storageClasses := factory.GetStorageClasses(ctx, nil)
 
 	for _, storageClass := range storageClasses.Items {
 		if _, ok := storageClass.Annotations["storageclass.kubernetes.io/is-default-class"]; ok {
@@ -335,18 +346,21 @@ func (factory *Factory) GetContext() string {
 }
 
 // GetStorageClasses returns all StorageClasses present in this Kubernetes cluster that have the label foundationdb.org/operator-testing=true.
-func (factory *Factory) GetStorageClasses(labels map[string]string) *storagev1.StorageClassList {
+func (factory *Factory) GetStorageClasses(
+	ctx context.Context,
+	labels map[string]string,
+) *storagev1.StorageClassList {
 	storageClasses := &storagev1.StorageClassList{}
 	gomega.Expect(
 		factory.GetControllerRuntimeClient().
-			List(context.Background(), storageClasses, client.MatchingLabels(labels)),
+			List(ctx, storageClasses, client.MatchingLabels(labels)),
 	).NotTo(gomega.HaveOccurred())
 
 	return storageClasses
 }
 
 // Shutdown executes all the shutdown handlers, usually called in afterSuite or afterTest depending on your scoping of the factory.
-func (factory *Factory) Shutdown() {
+func (factory *Factory) Shutdown(ctx context.Context) {
 	factory.shutdownInProgress = true
 	// If the cleanup flag is present don't do any cleanup
 	if !factory.options.cleanup {
@@ -355,7 +369,7 @@ func (factory *Factory) Shutdown() {
 
 	// Wait 15 seconds before running all shutdown handlers to ensure everything can catch up.
 	time.Sleep(15 * time.Second)
-	err := factory.CleanupChaosMeshExperiments()
+	err := factory.CleanupChaosMeshExperiments(ctx)
 	if err != nil {
 		log.Println("Could not delete chaos mesh experiments", err.Error())
 	}
@@ -371,12 +385,13 @@ func (factory *Factory) Shutdown() {
 // Get returns the (eventually consistent) status of this cluster.  This is used when bootstrapping an
 // FdbCluster object, so it's a member of FdbOperatorClient.
 func (factory *Factory) getClusterStatus(
+	ctx context.Context,
 	name string,
 	namespace string,
 ) (*fdbv1beta2.FoundationDBCluster, error) {
 	clusterRequest := &fdbv1beta2.FoundationDBCluster{}
 	err := factory.GetControllerRuntimeClient().
-		Get(context.Background(), client.ObjectKey{
+		Get(ctx, client.ObjectKey{
 			Name:      name,
 			Namespace: namespace}, clusterRequest)
 	if err != nil {
@@ -387,8 +402,8 @@ func (factory *Factory) getClusterStatus(
 }
 
 // DoesPodExist checks to see if Kubernetes still knows about this pod.
-func (factory *Factory) DoesPodExist(pod corev1.Pod) (bool, error) {
-	_, err := factory.GetPod(pod.Namespace, pod.Name)
+func (factory *Factory) DoesPodExist(ctx context.Context, pod corev1.Pod) (bool, error) {
+	_, err := factory.GetPod(ctx, pod.Namespace, pod.Name)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return false, nil
@@ -419,19 +434,20 @@ func (factory *Factory) logClusterInfo(spec *fdbv1beta2.FoundationDBCluster) {
 }
 
 func (factory *Factory) startFDBFromClusterSpec(
+	ctx context.Context,
 	spec *fdbv1beta2.FoundationDBCluster,
 	config *ClusterConfig,
 ) *FdbCluster {
 	factory.logClusterInfo(spec)
 
-	fdbCluster, err := factory.ensureFdbClusterExists(spec, config)
+	fdbCluster, err := factory.ensureFdbClusterExists(ctx, spec, config)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "cluster was not created in the expected time")
 	factory.namespaces = append(
 		factory.namespaces,
 		fdbCluster.cluster.Namespace,
 	)
 
-	fdbCluster.WaitUntilAvailable()
+	fdbCluster.WaitUntilAvailable(ctx)
 	return fdbCluster
 }
 
@@ -534,9 +550,14 @@ func (factory *Factory) UploadFile(
 }
 
 // GetLogsForPod will fetch the logs for the specified Pod and container since the provided seconds.
-func (factory *Factory) GetLogsForPod(pod *corev1.Pod, container string, since *int64) string {
+func (factory *Factory) GetLogsForPod(
+	ctx context.Context,
+	pod *corev1.Pod,
+	container string,
+	since *int64,
+) string {
 	logs, err := kubeHelper.GetLogsFromPod(
-		context.Background(),
+		ctx,
 		factory.GetControllerRuntimeClient(),
 		factory.getConfig(),
 		pod,
@@ -701,12 +722,16 @@ func writePodInformation(pod corev1.Pod) string {
 
 // DumpStateWithLogsSince writes the state of the cluster to the log output. Useful for debugging test failures.
 // The logsSinceSeconds is used for the manager logs from the operator.
-func (factory *Factory) DumpStateWithLogsSince(fdbCluster *FdbCluster, logsSinceSeconds *int64) {
+func (factory *Factory) DumpStateWithLogsSince(
+	ctx context.Context,
+	fdbCluster *FdbCluster,
+	logsSinceSeconds *int64,
+) {
 	if fdbCluster == nil || !factory.options.dumpOperatorState {
 		return
 	}
 
-	cluster := fdbCluster.GetCluster()
+	cluster := fdbCluster.GetCluster(ctx)
 
 	// We write the whole information into a buffer to prevent having multiple log line prefixes.
 	var buffer strings.Builder
@@ -732,7 +757,7 @@ func (factory *Factory) DumpStateWithLogsSince(fdbCluster *FdbCluster, logsSince
 	// Printout all Pods for this namespace
 	pods := &corev1.PodList{}
 	err := factory.controllerRuntimeClient.List(
-		context.Background(),
+		ctx,
 		pods,
 		client.InNamespace(cluster.Namespace),
 	)
@@ -766,30 +791,31 @@ func (factory *Factory) DumpStateWithLogsSince(fdbCluster *FdbCluster, logsSince
 	// Printout the logs of the operator Pods for the last 300 seconds.
 	for _, pod := range operatorPods {
 		targetPod := pod
-		log.Println(factory.GetLogsForPod(&targetPod, "manager", logsSinceSeconds))
+		log.Println(factory.GetLogsForPod(ctx, &targetPod, "manager", logsSinceSeconds))
 	}
 }
 
 // DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
-func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
-	factory.DumpStateWithLogsSince(fdbCluster, ptr.To[int64](300))
+func (factory *Factory) DumpState(ctx context.Context, fdbCluster *FdbCluster) {
+	factory.DumpStateWithLogsSince(ctx, fdbCluster, ptr.To[int64](300))
 }
 
 // DumpStateHaCluster can be used to dump the state of the HA cluster. This includes the Kubernetes custom resource
 // information as well as the operator logs and the Pod state.
-func (factory *Factory) DumpStateHaCluster(fdbCluster *HaFdbCluster) {
-	factory.DumpStateHaClusterWithLogsSince(fdbCluster, ptr.To[int64](300))
+func (factory *Factory) DumpStateHaCluster(ctx context.Context, fdbCluster *HaFdbCluster) {
+	factory.DumpStateHaClusterWithLogsSince(ctx, fdbCluster, ptr.To[int64](300))
 }
 
 // DumpStateHaClusterWithLogsSince can be used to dump the state of the HA cluster. This includes the Kubernetes custom resource
 // information as well as the operator logs and the Pod state.
 // The logsSinceSeconds is used for the manager logs from the operator.
 func (factory *Factory) DumpStateHaClusterWithLogsSince(
+	ctx context.Context,
 	fdbCluster *HaFdbCluster,
 	logsSinceSeconds *int64,
 ) {
 	for _, cluster := range fdbCluster.clusters {
-		factory.DumpStateWithLogsSince(cluster, logsSinceSeconds)
+		factory.DumpStateWithLogsSince(ctx, cluster, logsSinceSeconds)
 	}
 }
 
@@ -820,7 +846,7 @@ func (factory *Factory) PrependRegistry(container string) string {
 }
 
 // CreateIfAbsent will create the provided resource if absent.
-func (factory *Factory) CreateIfAbsent(object client.Object) error {
+func (factory *Factory) CreateIfAbsent(ctx context.Context, object client.Object) error {
 	objectCopy, ok := object.DeepCopyObject().(client.Object)
 	if !ok {
 		return fmt.Errorf("cannot copy object")
@@ -829,7 +855,7 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 	ctrlClient := factory.GetControllerRuntimeClient()
 	err := ctrlClient.
 		Get(
-			context.Background(),
+			ctx,
 			client.ObjectKey{Namespace: object.GetNamespace(), Name: object.GetName()},
 			objectCopy,
 		)
@@ -843,7 +869,7 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return ctrlClient.Create(context.Background(), object)
+			return ctrlClient.Create(ctx, object)
 		}
 
 		return err
@@ -853,8 +879,8 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 }
 
 // Delete will delete the provided resource if it exists.
-func (factory *Factory) Delete(object client.Object) {
-	err := factory.GetControllerRuntimeClient().Delete(context.Background(), object)
+func (factory *Factory) Delete(ctx context.Context, object client.Object) {
+	err := factory.GetControllerRuntimeClient().Delete(ctx, object)
 	if err == nil || k8serrors.IsNotFound(err) {
 		return
 	}
@@ -908,19 +934,19 @@ func (factory *Factory) UseUnifiedImage() bool {
 }
 
 // UpdateNode update node definition
-func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) {
+func (fdbCluster *FdbCluster) UpdateNode(ctx context.Context, node *corev1.Node) {
 	gomega.Eventually(func() error {
-		return fdbCluster.getClient().Update(context.Background(), node)
+		return fdbCluster.getClient().Update(ctx, node)
 	}).WithTimeout(time.Duration(2) * time.Minute).WithPolling(2 * time.Second).Should(gomega.Succeed())
 }
 
 // GetNode return Node with the given name
-func (fdbCluster *FdbCluster) GetNode(name string) *corev1.Node {
+func (fdbCluster *FdbCluster) GetNode(ctx context.Context, name string) *corev1.Node {
 	// Retry if for some reason an error is returned
 	node := &corev1.Node{}
 	gomega.Eventually(func() error {
 		return fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKey{Name: name}, node)
+			Get(ctx, client.ObjectKey{Name: name}, node)
 	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return node

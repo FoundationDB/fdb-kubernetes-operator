@@ -21,17 +21,21 @@
 package fixtures
 
 import (
+	"context"
+
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ScheduleInjectPodKill schedules a Pod Kill action.
 func (factory *Factory) ScheduleInjectPodKill(
+	ctx context.Context,
 	target chaosmesh.PodSelectorSpec,
 	schedule string,
 	mode chaosmesh.SelectorMode,
 ) *ChaosMeshExperiment {
 	return factory.scheduleInjectPod(
+		ctx,
 		chaosmesh.PodSelector{
 			Selector: target,
 			Mode:     mode,
@@ -43,12 +47,14 @@ func (factory *Factory) ScheduleInjectPodKill(
 
 // ScheduleInjectPodKillWithName schedules a Pod Kill action with the specified name.
 func (factory *Factory) ScheduleInjectPodKillWithName(
+	ctx context.Context,
 	target chaosmesh.PodSelectorSpec,
 	schedule string,
 	mode chaosmesh.SelectorMode,
 	name string,
 ) *ChaosMeshExperiment {
 	return factory.scheduleInjectPod(
+		ctx,
 		chaosmesh.PodSelector{
 			Selector: target,
 			Mode:     mode,
@@ -59,32 +65,34 @@ func (factory *Factory) ScheduleInjectPodKillWithName(
 }
 
 func (factory *Factory) scheduleInjectPod(
+	ctx context.Context,
 	target chaosmesh.PodSelector,
 	schedule string,
 	action chaosmesh.PodChaosAction,
 	name string,
 ) *ChaosMeshExperiment {
-	return factory.CreateExperiment(&chaosmesh.Schedule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: factory.GetChaosNamespace(),
-			Labels:    factory.GetDefaultLabels(),
-		},
-		Spec: chaosmesh.ScheduleSpec{
-			Schedule:          schedule,
-			ConcurrencyPolicy: chaosmesh.AllowConcurrent,
-			Type:              chaosmesh.ScheduleTypePodChaos,
-			HistoryLimit:      1,
-			ScheduleItem: chaosmesh.ScheduleItem{
-				EmbedChaos: chaosmesh.EmbedChaos{
-					PodChaos: &chaosmesh.PodChaosSpec{
-						Action: action,
-						ContainerSelector: chaosmesh.ContainerSelector{
-							PodSelector: target,
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.Schedule{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
+			},
+			Spec: chaosmesh.ScheduleSpec{
+				Schedule:          schedule,
+				ConcurrencyPolicy: chaosmesh.AllowConcurrent,
+				Type:              chaosmesh.ScheduleTypePodChaos,
+				HistoryLimit:      1,
+				ScheduleItem: chaosmesh.ScheduleItem{
+					EmbedChaos: chaosmesh.EmbedChaos{
+						PodChaos: &chaosmesh.PodChaosSpec{
+							Action: action,
+							ContainerSelector: chaosmesh.ContainerSelector{
+								PodSelector: target,
+							},
 						},
 					},
 				},
 			},
-		},
-	})
+		})
 }
