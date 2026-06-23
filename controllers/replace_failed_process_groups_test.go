@@ -603,8 +603,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 									{
 										Primary: true,
 										State: fdbv1beta2.FoundationDBStatusDataState{
-											Healthy:              false,
-											MinReplicasRemaining: 2,
+											Healthy: false,
+											// The cluster uses double replication and one shard is down.
+											MinReplicasRemaining: 1,
 										},
 									},
 								}
@@ -1214,8 +1215,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 									{
 										Primary: true,
 										State: fdbv1beta2.FoundationDBStatusDataState{
-											Healthy:              false,
-											MinReplicasRemaining: 2,
+											Healthy: false,
+											// The cluster uses double replication and one shard is down.
+											MinReplicasRemaining: 1,
 										},
 									},
 								}
