@@ -180,6 +180,9 @@ func getAddressesToValidateBeforeRemoval(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
 ) (map[string]bool, []fdbv1beta2.ProcessAddress) {
+	// If status is nil, processGroupIDsInStatus returns nil and every marked-for-removal
+	// process group will fail the presence check below — meaning all entries get re-validated
+	// via the missingInStatus path in CanSafelyRemoveFromStatus.
 	processGroupsInStatus := processGroupIDsInStatus(cluster, status)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -187,7 +190,7 @@ func getAddressesToValidateBeforeRemoval(
 			continue
 		}
 
-		// Trust IsExcluded() only when the process is currently visible in the live status.
+		// Trust IsExcluded() only when at least one process of the process group is currently visible in the live status.
 		// Otherwise force re-validation via the missingInStatus path in CanSafelyRemoveFromStatus.
 		if processGroup.IsExcluded() {
 			if _, present := processGroupsInStatus[processGroup.ProcessGroupID]; present {
@@ -245,7 +248,10 @@ func getAddressesToValidateBeforeRemoval(
 
 // processGroupIDsInStatus returns the set of process group IDs that have at least one process
 // reporting in the machine-readable status for the cluster's DC. Multi-process pods share an
-// instance ID across all their processes, so a single locality lookup per process is enough.
+// instance ID across all their processes, so the loop will overwrite the entry for the same
+// instance ID multiple times — that is fine because we only care about presence. Note that
+// this means the set will NOT catch the case where a single process of a multi-process pod is
+// down or not reporting: as long as one process for the group reports, the entry is present.
 func processGroupIDsInStatus(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,

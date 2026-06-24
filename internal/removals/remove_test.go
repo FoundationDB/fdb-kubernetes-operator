@@ -700,6 +700,13 @@ var _ = Describe("remove", func() {
 							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
 							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
 						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
 					},
 				},
 			},
