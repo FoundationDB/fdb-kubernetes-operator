@@ -339,7 +339,10 @@ func (fdbBackup *FdbBackup) RunListCommand(ctx context.Context) []string {
 }
 
 // RunExpireCommand runs the expire command on a randomly chosen backup pod.
-func (fdbBackup *FdbBackup) RunExpireCommand(expireBeforeVersion uint64) string {
+func (fdbBackup *FdbBackup) RunExpireCommand(
+	ctx context.Context,
+	expireBeforeVersion uint64,
+) string {
 	backupURL, err := fdbBackup.backup.BackupURL()
 	gomega.Expect(err).To(gomega.Succeed())
 	command := fmt.Sprintf(
@@ -347,7 +350,7 @@ func (fdbBackup *FdbBackup) RunExpireCommand(expireBeforeVersion uint64) string 
 		backupURL,
 		expireBeforeVersion,
 	)
-	return fdbBackup.RunCommandOnBackupPod(command)
+	return fdbBackup.RunCommandOnBackupPod(ctx, command)
 }
 
 // WaitForReconciliation waits until the FdbBackup resource is fully reconciled.

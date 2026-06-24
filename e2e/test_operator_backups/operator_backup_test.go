@@ -328,7 +328,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 								0,
 							)
 
-							expireOutput := backup.RunExpireCommand(expireBeforeVersion)
+							expireOutput := backup.RunExpireCommand(ctx, expireBeforeVersion)
 							Expect(strings.TrimSpace(expireOutput)).To(Equal(fmt.Sprintf(
 								"Final metadata update...\nAll data before version %d has been deleted.",
 								expireBeforeVersion,
