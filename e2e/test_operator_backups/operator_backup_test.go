@@ -330,17 +330,17 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 				})
 
 				When("the replica count is changed", func() {
-					JustBeforeEach(func() {
-						currentBackup := backup.GetBackup()
+					JustBeforeEach(func(ctx SpecContext) {
+						currentBackup := backup.GetBackup(ctx)
 						backupSpec := currentBackup.Spec.DeepCopy()
 						backupSpec.AgentCount = ptr.To(currentBackup.GetDesiredAgentCount() * 2)
 						backup.UpdateBackupSpecWithSpec(backupSpec)
 					})
 
-					It("should update the running backup agent pods", func() {
-						desiredAgentCount := backup.GetBackup().GetDesiredAgentCount()
+					It("should update the running backup agent pods", func(ctx SpecContext) {
+						desiredAgentCount := backup.GetBackup(ctx).GetDesiredAgentCount()
 						Eventually(func() int {
-							return len(backup.GetBackupPods().Items)
+							return len(backup.GetBackupPods(ctx).Items)
 						}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeNumerically("==", desiredAgentCount))
 					})
 				})
@@ -349,7 +349,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					terminalPodName := "terminal-pod"
 
 					JustBeforeEach(func(ctx SpecContext) {
-						currentBackup := backup.GetBackup()
+						currentBackup := backup.GetBackup(ctx)
 
 						deployment := &appsv1.Deployment{}
 						Expect(factory.GetControllerRuntimeClient().Get(ctx, ctrlClient.ObjectKey{
@@ -379,7 +379,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							factory.GetControllerRuntimeClient().Create(ctx, terminalPod),
 						).To(Succeed())
 
-						for _, backupAgentPod := range backup.GetBackupPods().Items {
+						for _, backupAgentPod := range backup.GetBackupPods(ctx).Items {
 							if backupAgentPod.Name == terminalPodName {
 								continue
 							}
@@ -395,10 +395,10 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						}
 					})
 
-					It("should delete the pod in terminal state", func() {
-						backup.ForceReconcile()
+					It("should delete the pod in terminal state", func(ctx SpecContext) {
+						backup.ForceReconcile(ctx)
 						Eventually(func(g Gomega) {
-							for _, backupAgentPod := range backup.GetBackupPods().Items {
+							for _, backupAgentPod := range backup.GetBackupPods(ctx).Items {
 								log.Println(
 									backupAgentPod.Name,
 									"state:",
