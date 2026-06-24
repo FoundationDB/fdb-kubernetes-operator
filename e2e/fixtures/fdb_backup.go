@@ -474,7 +474,7 @@ func (fdbBackup *FdbBackup) UpdateBackupSpecWithSpec(
 	fetchedBackup := &fdbv1beta2.FoundationDBBackup{}
 
 	// This is flaky. It sometimes responds with an error saying that the object has been updated.
-	// Try a few times before giving up.
+	// Try every second for 10 minutes  before giving up.
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		err := fdbBackup.fdbCluster.getClient().
 			Get(context.Background(), client.ObjectKeyFromObject(fdbBackup.backup), fetchedBackup)
