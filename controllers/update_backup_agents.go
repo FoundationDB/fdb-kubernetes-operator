@@ -124,9 +124,9 @@ func (u updateBackupAgents) reconcile(
 				return &requeue{curError: err}
 			}
 
-			// minRemaining keeps track of the minimum time the operator has to wait before it can delete a new pod that
+			// minTimeTillNextDeletion keeps track of the minimum time the operator has to wait before it can delete a new pod that
 			// is stuck in a terminal state.
-			var minRemaining time.Duration
+			var minTimeTillNextDeletion time.Duration
 			for _, pod := range backupAgentPods.Items {
 				phase := pod.Status.Phase
 				reason := pod.Status.Reason
@@ -143,8 +143,8 @@ func (u updateBackupAgents) reconcile(
 						"phase", phase,
 						"reason", reason,
 						"minimumAge", r.MinimumAgeForTerminalPodDeletion)
-					if minRemaining == 0 || remaining < minRemaining {
-						minRemaining = remaining
+					if minTimeTillNextDeletion == 0 || remaining < minTimeTillNextDeletion {
+						minTimeTillNextDeletion = remaining
 					}
 					continue
 				}
@@ -159,10 +159,10 @@ func (u updateBackupAgents) reconcile(
 				}
 			}
 
-			if minRemaining > 0 {
+			if minTimeTillNextDeletion > 0 {
 				return &requeue{
 					message:        "pod in terminal state is too young to be deleted",
-					delay:          minRemaining,
+					delay:          minTimeTillNextDeletion,
 					delayedRequeue: true,
 				}
 			}
