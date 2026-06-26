@@ -239,7 +239,11 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				)
 				g.Expect(err).NotTo(HaveOccurred())
 				// Wait 2 seconds for the process to be restarted and report to the cluster.
-				time.Sleep(2 * time.Second)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(2 * time.Second):
+				}
 
 				// Make sure the process came up in the expected version.
 				stdout, _, err := fdbCluster.ExecuteCmdOnPod(
@@ -251,7 +255,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(stdout).To(ContainSubstring(expectedBinaryPath))
-			}).WithTimeout(300 * time.Second).WithPolling(4 * time.Second).Should(Succeed())
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
 			Eventually(func(g Gomega) map[string]fdbv1beta2.None {
@@ -269,8 +273,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					result[parsedAddr.MachineAddress()] = fdbv1beta2.None{}
 				}
 
+				for _, process := range status.Cluster.Processes {
+					if selectedCoordinator.Status.PodIP == process.Address.MachineAddress() {
+						log.Println("Process version:", process.Version)
+					}
+				}
+
 				return result
-			}).WithTimeout(300 * time.Second).WithPolling(4 * time.Second).Should(And(HaveLen(1), HaveKey(selectedCoordinator.Status.PodIP)))
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(And(HaveLen(1), HaveKey(selectedCoordinator.Status.PodIP)))
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
 			fdbCluster.SetKillProcesses(ctx, true, false)
