@@ -372,6 +372,11 @@ type FDBBackupDescribe struct {
 	// FileLevelEncryption indicates whether file-level encryption
 	// is enabled for the backup data.
 	FileLevelEncryption *bool `json:"FileLevelEncryption,omitempty"`
+
+	// TotalSnapshotBytes is the total size in bytes of all snapshot files in
+	// the backup destination. Drops to zero once every snapshot covering the
+	// live restorable range has been expired.
+	TotalSnapshotBytes *int64 `json:"TotalSnapshotBytes,omitempty"`
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a

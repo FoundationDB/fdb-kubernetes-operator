@@ -25,7 +25,9 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -306,6 +308,42 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 								).Should(Equal(keyValues))
 							},
 						)
+					})
+
+					When("running the expire command", func() {
+						BeforeEach(func(_ SpecContext) {
+							skipRestore = true
+						})
+
+						JustBeforeEach(func(ctx SpecContext) {
+							describeBeforeExpire := backup.RunDescribeCommand(ctx)
+							Expect(ptr.Deref(describeBeforeExpire.Restorable, false)).To(BeTrue())
+							Expect(ptr.Deref(describeBeforeExpire.TotalSnapshotBytes, -1)).
+								To(BeNumerically(">", int64(0)))
+
+							statusBeforeExpire := backup.RunStatusCommand(ctx)
+							Expect(statusBeforeExpire.LatestRestorablePoint).NotTo(BeNil())
+							expireBeforeVersion := ptr.Deref(
+								statusBeforeExpire.LatestRestorablePoint.Version,
+								0,
+							)
+
+							expireOutput := backup.RunExpireCommand(ctx, expireBeforeVersion)
+							Expect(strings.TrimSpace(expireOutput)).To(Equal(fmt.Sprintf(
+								"Final metadata update...\nAll data before version %d has been deleted.",
+								expireBeforeVersion,
+							)))
+						})
+
+						It("should have deleted the backup snapshot data", func(ctx SpecContext) {
+							Eventually(func(g Gomega) {
+								describeAfterExpire := backup.RunDescribeCommand(ctx)
+								g.Expect(ptr.Deref(describeAfterExpire.TotalSnapshotBytes, -1)).
+									To(Equal(int64(0)))
+								g.Expect(ptr.Deref(describeAfterExpire.Restorable, true)).
+									To(BeFalse())
+							}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
+						})
 					})
 				})
 
