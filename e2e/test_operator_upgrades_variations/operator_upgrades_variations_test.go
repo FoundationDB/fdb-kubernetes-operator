@@ -75,7 +75,7 @@ func clusterSetupWithConfig(ctx context.Context, config testConfig) *fixtures.Fd
 	}
 
 	Expect(
-		cluster.InvariantClusterStatusAvailable(ctx),
+		cluster.InvariantClusterStatusAvailable(),
 	).ShouldNot(HaveOccurred())
 
 	return cluster
@@ -220,7 +220,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	// Ginkgo lacks the support for AfterEach and BeforeEach in tables, so we have to put everything inside the testing function
 	// this setup allows to dynamically generate the table entries that will be executed e.g. to test different upgrades
 	// for different versions without hard coding or having multiple flags.
-	DescribeTable(
+	FDescribeTable(
 		"upgrading a cluster without chaos", Label("foundationdb-pr"),
 		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			performUpgrade(ctx,

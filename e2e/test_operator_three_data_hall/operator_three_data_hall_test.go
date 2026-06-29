@@ -106,9 +106,9 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 		fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 	})
 
-	JustBeforeEach(func(ctx SpecContext) {
+	JustBeforeEach(func() {
 		if availabilityCheck {
-			err := fdbCluster.InvariantClusterStatusAvailable(ctx)
+			err := fdbCluster.InvariantClusterStatusAvailable()
 			Expect(err).NotTo(HaveOccurred())
 		}
 	})

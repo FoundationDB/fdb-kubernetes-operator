@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 )
 
@@ -79,6 +80,8 @@ func CheckInvariant(
 	var failureStartTime time.Time
 	var currentFailureDuration time.Duration
 	var longestFailureDuration time.Duration
+	// Handle failures in this call since we are calling a go routine. https://onsi.github.io/ginkgo/#mental-model-how-ginkgo-handles-failure
+	defer ginkgo.GinkgoRecover()
 
 	go func() {
 		defer waitGroup.Done()

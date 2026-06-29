@@ -68,7 +68,7 @@ func clusterSetup(ctx context.Context, beforeVersion string) {
 	)
 
 	Expect(
-		fdbCluster.InvariantClusterStatusAvailable(ctx),
+		fdbCluster.InvariantClusterStatusAvailable(),
 	).ShouldNot(HaveOccurred())
 }
 

@@ -280,12 +280,14 @@ func (fdbCluster *FdbCluster) WaitUntilAvailable(ctx context.Context) {
 // StatusInvariantChecker provides a way to check an invariant for the cluster status.
 // nolint:nilerr
 func (fdbCluster *FdbCluster) StatusInvariantChecker(
-	ctx context.Context,
 	name string,
 	threshold time.Duration,
 	f func(status *fdbv1beta2.FoundationDBStatus) error,
 ) error {
 	first := true
+	// We use a dedicated context here to prevent using a canceled context if the test case completed.
+	ctx := context.Background()
+
 	return CheckInvariant(
 		name,
 		&fdbCluster.factory.invariantShutdownHooks,
@@ -354,11 +356,9 @@ func checkAvailability(status *fdbv1beta2.FoundationDBStatus) error {
 
 // InvariantClusterStatusAvailableWithThreshold checks if the database is at a maximum unavailable for the provided threshold.
 func (fdbCluster *FdbCluster) InvariantClusterStatusAvailableWithThreshold(
-	ctx context.Context,
 	availabilityThreshold time.Duration,
 ) error {
 	return fdbCluster.StatusInvariantChecker(
-		ctx,
 		"InvariantClusterStatusAvailable",
 		availabilityThreshold,
 		checkAvailability,
@@ -366,9 +366,8 @@ func (fdbCluster *FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 }
 
 // InvariantClusterStatusAvailable checks if the cluster is available the whole test with the default unavailable threshold.
-func (fdbCluster *FdbCluster) InvariantClusterStatusAvailable(ctx context.Context) error {
+func (fdbCluster *FdbCluster) InvariantClusterStatusAvailable() error {
 	return fdbCluster.InvariantClusterStatusAvailableWithThreshold(
-		ctx,
 		fdbCluster.factory.GetDefaultUnavailableThreshold(),
 	)
 }
