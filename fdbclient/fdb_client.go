@@ -367,47 +367,41 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 			return nil, err
 		}
 
-		return nil, operation(tr)
-	})
+		// The error message in \xff\xff/error_message is only kept in-memory and must be read in the same transaction, otherwise
+		// the result will be empty.
+		err = operation(tr)
+		// In case that the retuned error is SpecialKeysAPIFailureError we have to make another transaction to get the actual
+		// error message from FDB.
+		var specialKeysErr fdbv1beta2.SpecialKeysAPIFailureError
+		if errors.As(err, &specialKeysErr) {
+			// To get more information on why the Api call through special keys failed we need to read the 0xff0xff/error_message key.
+			errMessage, trErr := tr.Get(fdb.Key("\xff\xff/error_message")).Get()
 
-	// In case that the retuned error is SpecialKeysAPIFailureError we have to make another transaction to get the actual
-	// error message from FDB.
-	var specialKeysErr fdbv1beta2.SpecialKeysAPIFailureError
-	if errors.As(err, &specialKeysErr) {
-		message, trErr := fdbClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
-			// Allow the operator to read and write from/to a locked database e.g. in cases where a restore is ongoing.
-			// This allows the operator to read and write from/to the FDB cluster.
-			optErr := tr.Options().SetLockAware()
-			if optErr != nil {
-				return nil, optErr
+			// If this transaction fails too, print out the additional information that 0xff0xff/error_message could not
+			// be read.
+			if trErr != nil {
+				err = fdbv1beta2.SpecialKeysAPIFailureError{
+					Err: fmt.Errorf(
+						"could not read error from special key 0xff0xff/error_message got: %w, original error: %w",
+						trErr,
+						err,
+					),
+				}
 			}
 
-			// To get more information on why the Api call through special keys failed we need to read the 0xff0xff/error_message key.
-			return tr.Get(fdb.Key("\xff\xff/error_message")).Get()
-		})
-
-		// If this transaction fails too, print out the additional information that 0xff0xff/error_message could not
-		// be read.
-		if trErr != nil {
-			return fdbv1beta2.SpecialKeysAPIFailureError{
+			fdbClient.logger.V(1).
+				Info("error message from special key 0xff0xff/error_message", "message", errMessage, "err", err)
+			err = fdbv1beta2.SpecialKeysAPIFailureError{
 				Err: fmt.Errorf(
-					"could not read error from special key 0xff0xff/error_message got: %w, original error: %w",
-					trErr,
+					"error from special key 0xff0xff/error_message is: %s, original error: %w",
+					errMessage,
 					err,
 				),
 			}
 		}
 
-		fdbClient.logger.V(1).
-			Info("error message from special key 0xff0xff/error_message", "message", message, "err", err)
-		return fdbv1beta2.SpecialKeysAPIFailureError{
-			Err: fmt.Errorf(
-				"error from special key 0xff0xff/error_message is: %s, original error: %w",
-				message,
-				err,
-			),
-		}
-	}
+		return nil, err
+	})
 
 	return err
 }
