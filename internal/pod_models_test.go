@@ -3714,6 +3714,7 @@ var _ = Describe("pod_models", func() {
 				).To(Equal(cluster.ObjectMeta.UID))
 				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
 					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
+					fdbv1beta2.FDBClusterLabel:       cluster.Name,
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
 					"foundationdb.org/last-applied-spec": "5250c19ca170acf598f0e1437383ac279876e5d08db4d9dfd2b8121dac05e419",
@@ -3733,6 +3734,7 @@ var _ = Describe("pod_models", func() {
 				}}))
 				Expect(deployment.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
 					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
+					fdbv1beta2.FDBClusterLabel:          cluster.Name,
 				}))
 			})
 
@@ -3993,8 +3995,9 @@ var _ = Describe("pod_models", func() {
 
 			It("should add the labels", func() {
 				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
-					"foundationdb.org/backup-for": "",
-					"fdb-test":                    "test-value",
+					"foundationdb.org/backup-for":       "",
+					"foundationdb.org/fdb-cluster-name": cluster.Name,
+					"fdb-test":                          "test-value",
 				}))
 			})
 		})
