@@ -79,3 +79,14 @@ func (err SpecialKeysAPIFailureError) Error() string {
 func (err RestoreDoesNotExist) Error() string {
 	return fmt.Sprintf("fdb restore does not exist: %s", err.Err.Error())
 }
+
+// ManagementAPIError represents the ManagementAPIError from the FDB management API.
+// +k8s:deepcopy-gen=false
+type ManagementAPIError struct {
+	// Retriable true if the error can be retried.
+	Retriable *bool `json:"retriable,omitempty"`
+	// Command the command that was tried to be executed.
+	Command *string `json:"command,omitempty"`
+	// Message the error message.
+	Message *string `json:"message,omitempty"`
+}

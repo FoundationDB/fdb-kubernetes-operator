@@ -29,9 +29,11 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"github.com/go-logr/logr"
+	"k8s.io/utils/ptr"
 )
 
 // fdbLibClient is an interface to interact with FDB over the client libraries
@@ -370,28 +372,52 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 		// The error message in \xff\xff/error_message is only kept in-memory and must be read in the same transaction, otherwise
 		// the result will be empty.
 		err = operation(tr)
-		// In case that the retuned error is SpecialKeysAPIFailureError we have to make another transaction to get the actual
+		if err != nil {
+			return nil, fetchSpecialKeyErrorMessage(fdbClient.logger, tr, err)
+		}
+
+		// Commit manually to perform the management operation. Without this, the special key for the error message
+		// will always be empty.
+		err = tr.Commit().Get()
+		// In case that the retuned error is SpecialKeysAPIFailureError we have to make Get request in the same transaction to get the actual
 		// error message from FDB.
-		var specialKeysErr fdbv1beta2.SpecialKeysAPIFailureError
-		if errors.As(err, &specialKeysErr) {
-			// To get more information on why the Api call through special keys failed we need to read the 0xff0xff/error_message key.
-			errMessage, trErr := tr.Get(fdb.Key("\xff\xff/error_message")).Get()
+		if err != nil {
+			err = fetchSpecialKeyErrorMessage(fdbClient.logger, tr, err)
+		}
 
-			// If this transaction fails too, print out the additional information that 0xff0xff/error_message could not
-			// be read.
-			if trErr != nil {
-				err = fdbv1beta2.SpecialKeysAPIFailureError{
-					Err: fmt.Errorf(
-						"could not read error from special key 0xff0xff/error_message got: %w, original error: %w",
-						trErr,
-						err,
-					),
-				}
+		return nil, err
+	})
+
+	return err
+}
+
+// fetchSpecialKeyErrorMessage will attempt to fetch additional information from \xff\xff/error_message if an error was
+// provided. If the error is nil it will return nil and if the Get request for \xff\xff/error_message doesn't return any
+// additional information it returns the same error.
+func fetchSpecialKeyErrorMessage(logger logr.Logger, tr fdb.Transaction, err error) error {
+	if internal.IsSpecialKeysAPIFailureError(err) {
+		// To get more information on why the Api call through special keys failed we need to read the 0xff0xff/error_message key.
+		errMessage, trErr := tr.Get(fdb.Key("\xff\xff/error_message")).Get()
+
+		// If this transaction fails too, print out the additional information that 0xff0xff/error_message could not
+		// be read.
+		if trErr != nil {
+			return fdbv1beta2.SpecialKeysAPIFailureError{
+				Err: fmt.Errorf(
+					"could not read error from special key 0xff0xff/error_message got: %w, original error: %w",
+					trErr,
+					err,
+				),
 			}
+		}
 
-			fdbClient.logger.V(1).
-				Info("error message from special key 0xff0xff/error_message", "message", errMessage, "err", err)
-			err = fdbv1beta2.SpecialKeysAPIFailureError{
+		logger.V(1).
+			Info("error message from special key 0xff0xff/error_message", "message", errMessage, "err", err)
+
+		mgmtAPIError := &fdbv1beta2.ManagementAPIError{}
+		jsonErr := json.Unmarshal(errMessage, mgmtAPIError)
+		if jsonErr != nil {
+			return fdbv1beta2.SpecialKeysAPIFailureError{
 				Err: fmt.Errorf(
 					"error from special key 0xff0xff/error_message is: %s, original error: %w",
 					errMessage,
@@ -400,8 +426,14 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 			}
 		}
 
-		return nil, err
-	})
+		return fdbv1beta2.SpecialKeysAPIFailureError{
+			Err: fmt.Errorf(
+				"error from special key 0xff0xff/error_message is: %s, original error: %w",
+				ptr.Deref(mgmtAPIError.Message, ""),
+				err,
+			),
+		}
+	}
 
 	return err
 }
