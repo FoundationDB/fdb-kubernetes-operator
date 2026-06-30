@@ -142,7 +142,7 @@ func GetRemainingMap(
 	status *fdbv1beta2.FoundationDBStatus,
 	minRecoverySeconds float64,
 ) (map[string]bool, error) {
-	remainingMap, addresses := getAddressesToValidateBeforeRemoval(logger, cluster)
+	remainingMap, addresses := getAddressesToValidateBeforeRemoval(logger, cluster, status)
 	if len(addresses) == 0 {
 		return nil, nil
 	}
@@ -178,11 +178,29 @@ func GetRemainingMap(
 func getAddressesToValidateBeforeRemoval(
 	logger logr.Logger,
 	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
 ) (map[string]bool, []fdbv1beta2.ProcessAddress) {
+	// If status is nil, processGroupIDsInStatus returns nil and every marked-for-removal
+	// process group will fail the presence check below — meaning all entries get re-validated
+	// via the missingInStatus path in CanSafelyRemoveFromStatus.
+	processGroupsInStatus := processGroupIDsInStatus(cluster, status)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.IsMarkedForRemoval() || processGroup.IsExcluded() {
+		if !processGroup.IsMarkedForRemoval() {
 			continue
+		}
+
+		// Trust IsExcluded() only when at least one process of the process group is currently visible in the live status.
+		// Otherwise force re-validation via the missingInStatus path in CanSafelyRemoveFromStatus.
+		if processGroup.IsExcluded() {
+			if _, present := processGroupsInStatus[processGroup.ProcessGroupID]; present {
+				continue
+			}
+			logger.Info(
+				"Re-validating exclusion: process group is flagged excluded but missing from machine-readable status",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
 		}
 
 		// If we use localities for exclusions we don't have to care about the addresses.
@@ -226,6 +244,33 @@ func getAddressesToValidateBeforeRemoval(
 	}
 
 	return remainingMap, addresses
+}
+
+// processGroupIDsInStatus returns the set of process group IDs that have at least one process
+// reporting in the machine-readable status for the cluster's DC. Multi-process pods share an
+// instance ID across all their processes, so the loop will overwrite the entry for the same
+// instance ID multiple times — that is fine because we only care about presence. Note that
+// this means the set will NOT catch the case where a single process of a multi-process pod is
+// down or not reporting: as long as one process for the group reports, the entry is present.
+func processGroupIDsInStatus(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None {
+	if status == nil {
+		return nil
+	}
+	present := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
+	for _, process := range status.Cluster.Processes {
+		if !cluster.ProcessSharesDC(process) {
+			continue
+		}
+		id, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if !ok {
+			continue
+		}
+		present[fdbv1beta2.ProcessGroupID(id)] = fdbv1beta2.None{}
+	}
+	return present
 }
 
 // RemovalAllowed returns if we are allowed to remove the process group or if we have to wait to ensure a safe deletion.

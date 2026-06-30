@@ -588,6 +588,26 @@ func getProcessesToInclude(
 	return fdbProcessesToInclude, processGroups[:idx]
 }
 
+// processGroupAddressesRemaining returns true if any of the process group's addresses
+// (IP-based or locality-based) appear in remainingMap with a value of true, meaning the
+// live exclude check could not confirm them fully excluded. Returns false when none
+// of the addresses appear in the map, which is the normal case for groups that
+// getAddressesToValidateBeforeRemoval already trusts as excluded.
+func processGroupAddressesRemaining(
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+	remainingMap map[string]bool,
+) bool {
+	if remaining, ok := remainingMap[processGroup.GetExclusionString()]; ok && remaining {
+		return true
+	}
+	for _, addr := range processGroup.Addresses {
+		if remaining, ok := remainingMap[addr]; ok && remaining {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(
 	logger logr.Logger,
 	cluster *fdbv1beta2.FoundationDBCluster,
@@ -619,7 +639,20 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(
 		}
 
 		// ProcessGroup is already marked as excluded we can add it to the processGroupsToRemove and skip further checks.
+		// Exception: when getAddressesToValidateBeforeRemoval forced re-validation (because the process is missing
+		// from the machine-readable status), any of its addresses with remainingMap[addr] == true means the live
+		// exclude check could not confirm the process is fully excluded — so trust the live signal over the
+		// possibly-stale ExclusionTimestamp. See https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1912.
 		if processGroup.IsExcluded() {
+			if processGroupAddressesRemaining(processGroup, remainingMap) {
+				logger.Info(
+					"ExclusionTimestamp set but live exclude reports addresses still remaining; not removing",
+					"processGroupID",
+					processGroup.ProcessGroupID,
+				)
+				allExcluded = false
+				continue
+			}
 			processGroupsToRemove = append(processGroupsToRemove, processGroup)
 			continue
 		}
