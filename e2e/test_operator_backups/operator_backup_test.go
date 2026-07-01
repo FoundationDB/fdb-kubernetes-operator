@@ -32,10 +32,14 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -383,6 +387,87 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							).Should(Equal(keyValues))
 						},
 					)
+				})
+
+				When("the replica count is changed", func() {
+					JustBeforeEach(func(ctx SpecContext) {
+						currentBackup := backup.GetBackup(ctx)
+						backupSpec := currentBackup.Spec.DeepCopy()
+						backupSpec.AgentCount = ptr.To(currentBackup.GetDesiredAgentCount() * 2)
+						backup.UpdateBackupSpecWithSpec(backupSpec)
+					})
+
+					It("should update the running backup agent pods", func(ctx SpecContext) {
+						desiredAgentCount := backup.GetBackup(ctx).GetDesiredAgentCount()
+						Eventually(func() int {
+							return len(backup.GetBackupPods(ctx).Items)
+						}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeNumerically("==", desiredAgentCount))
+					})
+				})
+
+				When("a pod is stuck in a terminal state", func() {
+					terminalPodName := "terminal-pod"
+
+					JustBeforeEach(func(ctx SpecContext) {
+						currentBackup := backup.GetBackup(ctx)
+
+						deployment := &appsv1.Deployment{}
+						Expect(factory.GetControllerRuntimeClient().Get(ctx, ctrlClient.ObjectKey{
+							Name:      internal.GetBackupDeploymentName(currentBackup),
+							Namespace: currentBackup.Namespace,
+						}, deployment)).To(Succeed())
+
+						// Create a pod that is assigned to a node that doesn't exist.
+						spec := deployment.Spec.Template.Spec
+						spec.NodeName = "doesnotexist"
+						terminalPod := &corev1.Pod{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      terminalPodName,
+								Namespace: currentBackup.Namespace,
+								Labels:    deployment.Spec.Template.Labels,
+							},
+							Spec: spec,
+						}
+
+						Expect(factory.GetControllerRuntimeClient().DeleteAllOf(ctx, &corev1.Pod{},
+							ctrlClient.InNamespace(currentBackup.Namespace),
+							ctrlClient.MatchingLabels(map[string]string{fdbv1beta2.BackupDeploymentPodLabel: currentBackup.Name + "-backup-agents"}),
+						),
+						).To(Succeed())
+
+						Expect(
+							factory.GetControllerRuntimeClient().Create(ctx, terminalPod),
+						).To(Succeed())
+
+						for _, backupAgentPod := range backup.GetBackupPods(ctx).Items {
+							if backupAgentPod.Name == terminalPodName {
+								continue
+							}
+
+							if !backupAgentPod.DeletionTimestamp.IsZero() {
+								continue
+							}
+
+							Expect(
+								factory.GetControllerRuntimeClient().
+									Delete(ctx, ptr.To(backupAgentPod)),
+							).To(Succeed())
+						}
+					})
+
+					It("should delete the pod in terminal state", func(ctx SpecContext) {
+						backup.ForceReconcile(ctx)
+						Eventually(func(g Gomega) {
+							for _, backupAgentPod := range backup.GetBackupPods(ctx).Items {
+								log.Println(
+									backupAgentPod.Name,
+									"state:",
+									backupAgentPod.Status.Phase,
+								)
+								g.Expect(backupAgentPod.Name).NotTo(Equal(terminalPodName))
+							}
+						}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+					})
 				})
 			})
 

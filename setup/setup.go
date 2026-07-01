@@ -603,6 +603,7 @@ func StartManager(
 		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
 		backupReconciler.ServerSideApply = operatorOpts.ServerSideApply
 		backupReconciler.AllowedPodModifications = allowedPodModifications
+		backupReconciler.MinimumAgeForTerminalPodDeletion = operatorOpts.MinimumAgeForTerminalPodDeletion
 
 		if err := backupReconciler.SetupWithManager(
 			mgr,

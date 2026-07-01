@@ -21,6 +21,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
@@ -31,12 +32,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"context"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func reloadBackup(backup *fdbv1beta2.FoundationDBBackup) (int64, error) {
@@ -338,6 +339,36 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
+		When("a backup agent pod is stuck in a Failed state", func() {
+			BeforeEach(func(ctx SpecContext) {
+				generationGap = 0
+				setupUnreadyDeploymentWithTerminalPod(
+					ctx,
+					backup,
+					corev1.PodFailed,
+				)
+			})
+
+			It("should delete the terminal pod", func() {
+				expectNoTerminalBackupAgentPods(backup)
+			})
+		})
+
+		When("a backup agent pod completed but was not cleaned up", func() {
+			BeforeEach(func(ctx SpecContext) {
+				generationGap = 0
+				setupUnreadyDeploymentWithTerminalPod(
+					ctx,
+					backup,
+					corev1.PodSucceeded,
+				)
+			})
+
+			It("should delete the terminal pod", func() {
+				expectNoTerminalBackupAgentPods(backup)
+			})
+		})
+
 		When("providing custom parameters", func() {
 			BeforeEach(func() {
 				backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
@@ -594,3 +625,18 @@ var _ = Describe("backup_controller", func() {
 		})
 	})
 })
+
+// expectNoTerminalBackupAgentPods asserts that no Pod with the backup's deployment selector labels
+// remains in the namespace after reconciliation.
+func expectNoTerminalBackupAgentPods(backup *fdbv1beta2.FoundationDBBackup) {
+	podList := &corev1.PodList{}
+	Expect(k8sClient.List(
+		context.TODO(),
+		podList,
+		client.InNamespace(backup.Namespace),
+		client.MatchingLabels(map[string]string{
+			fdbv1beta2.BackupDeploymentPodLabel: internal.GetBackupDeploymentName(backup),
+		}),
+	)).To(Succeed())
+	Expect(podList.Items).To(BeEmpty())
+}

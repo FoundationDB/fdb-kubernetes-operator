@@ -54,6 +54,8 @@ type FoundationDBBackupReconciler struct {
 	// is unset in AllowedPodModifications, we allow everything to not break the current setups. In a new major release we could
 	// change this and enforce that fields are only allowed to change if the according AllowedPodModifications is set.
 	AllowedPodModifications *fdbv1beta2.AllowedPodModifications
+	// MinimumAgeForTerminalPodDeletion defines the minimum age of a terminal pod before it will be deleted.
+	MinimumAgeForTerminalPodDeletion time.Duration
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -123,18 +125,48 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		return ctrl.Result{}, fmt.Errorf("FoundationDBBackup is not valid: %w", err)
 	}
 
+	var delayedRequeueDuration time.Duration
+	var delayedRequeue bool
+
 	for _, subReconciler := range backupSubReconcilers {
 		req := subReconciler.reconcile(ctx, r, backup)
 		if req == nil {
 			continue
 		}
 
+		if req.delayedRequeue {
+			backupLog.Info("Delaying requeue for sub-reconciler",
+				"reconciler", fmt.Sprintf("%T", subReconciler),
+				"message", req.message,
+				"delayedRequeueDuration", delayedRequeueDuration.String(),
+				"error", req.curError)
+			if delayedRequeueDuration < req.delay {
+				delayedRequeueDuration = req.delay
+			}
+
+			delayedRequeue = true
+			continue
+		}
+
 		return processRequeue(req, subReconciler, backup, r.Recorder, backupLog)
 	}
 
-	if backup.Status.Generations.Reconciled < originalGeneration {
-		backupLog.Info("Backup was not fully reconciled by reconciliation process")
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	if backup.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
+		backupLog.Info("Backup was not fully reconciled by reconciliation process",
+			"status",
+			backup.Status.Generations,
+			"CurrentGeneration",
+			backup.Status.Generations.Reconciled,
+			"OriginalGeneration",
+			originalGeneration,
+			"DelayedRequeue",
+			delayedRequeueDuration.String())
+
+		if delayedRequeueDuration == time.Duration(0) {
+			delayedRequeueDuration = 5 * time.Second
+		}
+
+		return ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
 	}
 
 	backupLog.Info("Reconciliation complete")
