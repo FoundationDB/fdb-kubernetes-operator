@@ -51,6 +51,12 @@ BackupState defines the desired state of a backup
 
 [Back to TOC](#table-of-contents)
 
+## BackupTag
+
+BackupTag defines the backup tag that should be used for the backup.
+
+[Back to TOC](#table-of-contents)
+
 ## BackupType
 
 BackupType defines the backup type that should be used for the backup.
@@ -132,6 +138,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
 | deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
 | backupMode | BackupMode defines the backup mode that should be used for the backup. When the BackupMode is set to BackupModeOneTime, the backup will create a single snapshot and then stop. When set to BackupModeContinuous, the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds. Default: \"Continuous\". | *[BackupMode](#backupmode) | false |
+| tag | Tag defines the backup tag that should be used. Using different tags allows to have multiple backups for the same cluster. Default: \"default\". | *[BackupTag](#backuptag) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -159,6 +166,7 @@ FoundationDBBackupStatusBackupDetails provides information about the state of th
 | paused |  | bool | false |
 | snapshotTime |  | int | false |
 | restorable |  | bool | false |
+| tag |  | string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -175,6 +183,7 @@ FoundationDBLiveBackupStatus describes the live status of the backup for a clust
 | Restorable | Restorable if true, the backup can be restored | *bool | false |
 | LatestRestorablePoint | LatestRestorablePoint contains information about the latest restorable point if any exists. | *[LatestRestorablePoint](#latestrestorablepoint) | false |
 | UID | UID is the unique identifier of the backup. | *string | false |
+| Tag | Tag is the tag of the backup. | *string | false |
 
 [Back to TOC](#table-of-contents)
 

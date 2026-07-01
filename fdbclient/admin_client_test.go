@@ -999,7 +999,6 @@ protocol fdb00b071010000`,
 			args := mockRunner.receivedArgs[0]
 			// The last 2 args are always the cluster file.
 			Expect(args[:len(args)-2]).To(HaveExactElements(expectedArgs))
-
 		},
 		Entry(
 			"version that doesn't support backup encryption without key",
@@ -1015,6 +1014,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			},
@@ -1034,6 +1034,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			},
@@ -1051,6 +1052,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			}),
@@ -1068,6 +1070,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 				"--encryption-key-file",
@@ -1087,6 +1090,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 				"--partitioned-log-experimental",
@@ -1105,6 +1109,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			}),
@@ -1122,6 +1127,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			}),
@@ -1138,6 +1144,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 			}),
 	)
 

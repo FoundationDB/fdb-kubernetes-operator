@@ -30,6 +30,10 @@ spec:
       jsonPath: .status.backupDetails.restorable
       name: Restorable
       type: boolean
+    - description: The current backup tag
+      jsonPath: .status.backupDetails.tag
+      name: Tag
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -4026,6 +4030,12 @@ spec:
                 type: object
               snapshotPeriodSeconds:
                 type: integer
+              tag:
+                maxLength: 64
+                type: string
+                x-kubernetes-validations:
+                - message: BackupTag is immutable
+                  rule: self == oldSelf
               version:
                 type: string
             required:
@@ -4046,6 +4056,8 @@ spec:
                     type: boolean
                   snapshotTime:
                     type: integer
+                  tag:
+                    type: string
                   url:
                     type: string
                 type: object

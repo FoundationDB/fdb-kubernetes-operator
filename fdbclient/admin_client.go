@@ -849,6 +849,8 @@ func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup)
 		"start",
 		"-d",
 		backupURL,
+		"-t",
+		string(backup.GetBackupTag()),
 	}
 
 	// Add continuous backup flags only if backup mode is continuous.
@@ -878,11 +880,13 @@ func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup)
 }
 
 // StopBackup stops a backup.
-func (client *cliAdminClient) StopBackup(_ *fdbv1beta2.FoundationDBBackup) error {
+func (client *cliAdminClient) StopBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"discontinue",
+			"-t",
+			string(backup.GetBackupTag()),
 		},
 	})
 
@@ -890,11 +894,13 @@ func (client *cliAdminClient) StopBackup(_ *fdbv1beta2.FoundationDBBackup) error
 }
 
 // AbortBackup will abort a running backup.
-func (client *cliAdminClient) AbortBackup(_ *fdbv1beta2.FoundationDBBackup) error {
+func (client *cliAdminClient) AbortBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"abort",
+			"-t",
+			string(backup.GetBackupTag()),
 		},
 	})
 
@@ -959,6 +965,8 @@ func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup
 		strconv.Itoa(backup.SnapshotPeriodSeconds()),
 		"-d",
 		backupURL,
+		"-t",
+		string(backup.GetBackupTag()),
 	}
 
 	encryptionKeyPath, err := backup.GetEncryptionKey()
@@ -979,12 +987,16 @@ func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup
 }
 
 // GetBackupStatus gets the status of the current backup.
-func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
+func (client *cliAdminClient) GetBackupStatus(
+	backup *fdbv1beta2.FoundationDBBackup,
+) (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	statusString, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"status",
 			"--json",
+			"-t",
+			string(backup.GetBackupTag()),
 		},
 	})
 

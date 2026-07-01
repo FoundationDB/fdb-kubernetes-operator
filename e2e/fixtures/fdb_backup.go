@@ -56,6 +56,11 @@ type FdbBackupConfiguration struct {
 	BackupMode *fdbv1beta2.BackupMode
 	// CustomParameters defines the custom parameters to add to the backup deployment.
 	CustomParameters fdbv1beta2.FoundationDBCustomParameters
+	// Tag for the created backup.
+	Tag *fdbv1beta2.BackupTag
+	// BackupName is the name for the backup that should be created. If not set the default will be
+	// the cluster name.
+	BackupName *string
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
@@ -88,7 +93,7 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 
 	backup := &fdbv1beta2.FoundationDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fdbCluster.Name(),
+			Name:      ptr.Deref(config.BackupName, fdbCluster.Name()),
 			Namespace: fdbCluster.Namespace(),
 		},
 		Spec: fdbv1beta2.FoundationDBBackupSpec{
@@ -103,6 +108,7 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 					"region=us-east-1",
 				},
 			},
+			Tag:              config.Tag,
 			DeletionPolicy:   ptr.To(fdbv1beta2.BackupDeletionPolicyCleanup),
 			BackupType:       config.BackupType,
 			BackupState:      ptr.Deref(config.BackupState, fdbv1beta2.BackupStateRunning),
@@ -294,13 +300,14 @@ func (fdbBackup *FdbBackup) SetSnapshotInterval(ctx context.Context, snapshotPer
 func (fdbBackup *FdbBackup) RunCommandOnBackupPod(ctx context.Context, command string) string {
 	backupPod := fdbBackup.GetBackupPod(ctx)
 	gomega.Expect(backupPod).NotTo(gomega.BeNil())
-	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
+	out, stderr, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
 		ctx,
 		*backupPod,
 		fdbv1beta2.MainContainerName,
 		command,
 		false)
-	gomega.Expect(err).To(gomega.Succeed())
+	gomega.Expect(err).
+		To(gomega.Succeed(), fmt.Sprintf("could not execute command: %s, got error; %s", command, stderr))
 	return out
 }
 
@@ -319,7 +326,9 @@ func (fdbBackup *FdbBackup) RunDescribeCommand(ctx context.Context) *fdbv1beta2.
 func (fdbBackup *FdbBackup) RunStatusCommand(
 	ctx context.Context,
 ) *fdbv1beta2.FoundationDBLiveBackupStatus {
-	out := fdbBackup.RunCommandOnBackupPod(ctx, "fdbbackup status --json")
+	out := fdbBackup.RunCommandOnBackupPod(ctx,
+		fmt.Sprintf("fdbbackup status --json -t %s", fdbBackup.backup.GetBackupTag()),
+	)
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 	gomega.Expect(json.Unmarshal([]byte(out), status)).To(gomega.Succeed())
 	return status
@@ -327,7 +336,9 @@ func (fdbBackup *FdbBackup) RunStatusCommand(
 
 // RunAbortCommand runs the abort command on a randomly chosen backup pod.
 func (fdbBackup *FdbBackup) RunAbortCommand(ctx context.Context) {
-	fdbBackup.RunCommandOnBackupPod(ctx, "fdbbackup abort")
+	fdbBackup.RunCommandOnBackupPod(ctx,
+		fmt.Sprintf("fdbbackup abort -t %s", fdbBackup.backup.GetBackupTag()),
+	)
 }
 
 // RunListCommand runs the list command on a randomly chosen backup pod.

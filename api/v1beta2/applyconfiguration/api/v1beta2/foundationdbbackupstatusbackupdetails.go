@@ -13,6 +13,7 @@ type FoundationDBBackupStatusBackupDetailsApplyConfiguration struct {
 	Paused                *bool   `json:"paused,omitempty"`
 	SnapshotPeriodSeconds *int    `json:"snapshotTime,omitempty"`
 	Restorable            *bool   `json:"restorable,omitempty"`
+	Tag                   *string `json:"tag,omitempty"`
 }
 
 // FoundationDBBackupStatusBackupDetailsApplyConfiguration constructs a declarative configuration of the FoundationDBBackupStatusBackupDetails type for use with
@@ -58,5 +59,13 @@ func (b *FoundationDBBackupStatusBackupDetailsApplyConfiguration) WithSnapshotPe
 // If called multiple times, the Restorable field is set to the value of the last call.
 func (b *FoundationDBBackupStatusBackupDetailsApplyConfiguration) WithRestorable(value bool) *FoundationDBBackupStatusBackupDetailsApplyConfiguration {
 	b.Restorable = &value
+	return b
+}
+
+// WithTag sets the Tag field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Tag field is set to the value of the last call.
+func (b *FoundationDBBackupStatusBackupDetailsApplyConfiguration) WithTag(value string) *FoundationDBBackupStatusBackupDetailsApplyConfiguration {
+	b.Tag = &value
 	return b
 }

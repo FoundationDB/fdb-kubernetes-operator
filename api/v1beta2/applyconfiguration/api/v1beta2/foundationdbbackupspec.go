@@ -72,6 +72,10 @@ type FoundationDBBackupSpecApplyConfiguration struct {
 	// the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds.
 	// Default: "Continuous".
 	BackupMode *apiv1beta2.BackupMode `json:"backupMode,omitempty"`
+	// Tag defines the backup tag that should be used. Using different tags allows to have multiple backups
+	// for the same cluster.
+	// Default: "default".
+	Tag *apiv1beta2.BackupTag `json:"tag,omitempty"`
 }
 
 // FoundationDBBackupSpecApplyConfiguration constructs a declarative configuration of the FoundationDBBackupSpec type for use with
@@ -221,5 +225,13 @@ func (b *FoundationDBBackupSpecApplyConfiguration) WithDeletionPolicy(value apiv
 // If called multiple times, the BackupMode field is set to the value of the last call.
 func (b *FoundationDBBackupSpecApplyConfiguration) WithBackupMode(value apiv1beta2.BackupMode) *FoundationDBBackupSpecApplyConfiguration {
 	b.BackupMode = &value
+	return b
+}
+
+// WithTag sets the Tag field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Tag field is set to the value of the last call.
+func (b *FoundationDBBackupSpecApplyConfiguration) WithTag(value apiv1beta2.BackupTag) *FoundationDBBackupSpecApplyConfiguration {
+	b.Tag = &value
 	return b
 }

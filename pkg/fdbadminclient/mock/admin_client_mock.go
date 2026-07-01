@@ -892,6 +892,7 @@ func (client *AdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) er
 	backupDetails := fdbv1beta2.FoundationDBBackupStatusBackupDetails{
 		URL:     backupURL,
 		Running: true,
+		Tag:     string(backup.GetBackupTag()),
 	}
 
 	// Only set snapshot period for continuous backups
@@ -899,7 +900,7 @@ func (client *AdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) er
 		backupDetails.SnapshotPeriodSeconds = backup.SnapshotPeriodSeconds()
 	}
 
-	client.Backups["default"] = backupDetails
+	client.Backups[string(backup.GetBackupTag())] = backupDetails
 	return nil
 }
 
@@ -916,6 +917,7 @@ func (client *AdminClient) PauseBackups() error {
 		backup.Paused = true
 		client.Backups[tag] = backup
 	}
+
 	return nil
 }
 
@@ -932,6 +934,7 @@ func (client *AdminClient) ResumeBackups() error {
 		backup.Paused = false
 		client.Backups[tag] = backup
 	}
+
 	return nil
 }
 
@@ -944,14 +947,18 @@ func (client *AdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) e
 		return client.mockError
 	}
 
-	currentBackup := client.Backups["default"]
+	currentBackup, ok := client.Backups[string(backup.GetBackupTag())]
+	if !ok {
+		return fmt.Errorf("backup: %s with tag: %s not found", backup.Name, backup.GetBackupTag())
+	}
+
 	currentBackup.SnapshotPeriodSeconds = backup.SnapshotPeriodSeconds()
 	backupURL, err := backup.BackupURL()
 	if err != nil {
 		return err
 	}
 	currentBackup.URL = backupURL
-	client.Backups["default"] = currentBackup
+	client.Backups[string(backup.GetBackupTag())] = currentBackup
 	return nil
 }
 
@@ -964,27 +971,29 @@ func (client *AdminClient) StopBackup(backup *fdbv1beta2.FoundationDBBackup) err
 		return client.mockError
 	}
 
-	for tag, currentBackup := range client.Backups {
-		backupURL, err := backup.BackupURL()
-		if err != nil {
-			return err
-		}
-		if currentBackup.URL == backupURL {
-			currentBackup.Running = false
-			client.Backups[tag] = currentBackup
-			return nil
-		}
+	currentState, ok := client.Backups[string(backup.GetBackupTag())]
+	if !ok {
+		return fmt.Errorf("backup: %s with tag: %s not found", backup.Name, backup.GetBackupTag())
 	}
 
 	backupURL, err := backup.BackupURL()
 	if err != nil {
 		return err
 	}
+
+	if currentState.URL == backupURL {
+		currentState.Running = false
+		client.Backups[string(backup.GetBackupTag())] = currentState
+		return nil
+	}
+
 	return fmt.Errorf("no backup found for URL %s", backupURL)
 }
 
 // GetBackupStatus gets the status of the current backup.
-func (client *AdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
+func (client *AdminClient) GetBackupStatus(
+	backup *fdbv1beta2.FoundationDBBackup,
+) (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -994,13 +1003,13 @@ func (client *AdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackup
 
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 
-	tag := "default"
-	backup, present := client.Backups[tag]
+	currentBackupState, present := client.Backups[string(backup.GetBackupTag())]
 	if present {
-		status.DestinationURL = backup.URL
-		status.Status.Running = backup.Running
-		status.BackupAgentsPaused = backup.Paused
-		status.SnapshotIntervalSeconds = backup.SnapshotPeriodSeconds
+		status.DestinationURL = currentBackupState.URL
+		status.Status.Running = currentBackupState.Running
+		status.BackupAgentsPaused = currentBackupState.Paused
+		status.SnapshotIntervalSeconds = currentBackupState.SnapshotPeriodSeconds
+		status.Tag = ptr.To(currentBackupState.Tag)
 	}
 
 	return status, nil

@@ -311,7 +311,7 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 			return err
 		}
 
-		backupStatus, err := adminClient.GetBackupStatus()
+		backupStatus, err := adminClient.GetBackupStatus(backup)
 		if err != nil {
 			return err
 		}
