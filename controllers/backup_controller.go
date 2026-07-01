@@ -26,7 +26,7 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -342,7 +342,7 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 		// complicated unless we get a good signal from the fdbbackup command if the data is deleted.
 		err = adminClient.DeleteBackup(backup)
 		if err != nil {
-			if internal.IsBackupNotfound(err) {
+			if errors.IsBackupNotfound(err) {
 				if controllerutil.RemoveFinalizer(
 					backup,
 					fdbv1beta2.FoundationDBBackupFinalizerName,

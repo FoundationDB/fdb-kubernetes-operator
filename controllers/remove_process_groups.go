@@ -32,6 +32,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/buggify"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordination"
+	fdberrors "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/removals"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
@@ -295,7 +296,7 @@ func confirmRemoval(
 				"pod",
 				podName,
 			)
-			return false, internal.ResourceNotDeleted{Resource: pod}
+			return false, fdberrors.ResourceNotDeleted{Resource: pod}
 		}
 
 		// Pod is in terminating state so we don't want to block, but we also don't want to include it
@@ -321,7 +322,7 @@ func confirmRemoval(
 				"pod",
 				podName,
 			)
-			return false, internal.ResourceNotDeleted{Resource: pod}
+			return false, fdberrors.ResourceNotDeleted{Resource: pod}
 		}
 
 		// PVC is in terminating state so we don't want to block, but we also don't want to include it
@@ -345,7 +346,7 @@ func confirmRemoval(
 				"service",
 				podName,
 			)
-			return false, internal.ResourceNotDeleted{Resource: service}
+			return false, fdberrors.ResourceNotDeleted{Resource: service}
 		}
 
 		// Service is in terminating state so we don't want to block, but we also don't want to include it
@@ -690,7 +691,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(
 	// In addition, we have to check if one of the terminating process groups has been cleaned up.
 	for _, processGroup := range processGroups {
 		include, err := confirmRemoval(ctx, logger, r, cluster, processGroup)
-		if err != nil && !internal.IsResourceNotDeleted(err) {
+		if err != nil && !fdberrors.IsResourceNotDeleted(err) {
 			logger.Error(
 				err,
 				"Error during confirm process group removal",

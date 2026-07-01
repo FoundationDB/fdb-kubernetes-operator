@@ -26,6 +26,7 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -144,7 +145,7 @@ func (a addPods) reconcile(
 
 		err = r.PodLifecycleManager.CreatePod(logr.NewContext(ctx, logger), r, pod)
 		if err != nil {
-			if internal.IsQuotaExceeded(err) {
+			if errors.IsQuotaExceeded(err) {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 
