@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package internal
+package errors
 
 import (
 	"errors"

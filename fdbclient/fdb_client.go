@@ -29,7 +29,7 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	fdberrors "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"github.com/go-logr/logr"
@@ -395,7 +395,7 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 // provided. If the error is nil it will return nil and if the Get request for \xff\xff/error_message doesn't return any
 // additional information it returns the same error.
 func fetchSpecialKeyErrorMessage(logger logr.Logger, tr fdb.Transaction, err error) error {
-	if internal.IsSpecialKeysAPIFailureError(err) {
+	if fdberrors.IsSpecialKeysAPIFailureError(err) {
 		// To get more information on why the Api call through special keys failed we need to read the 0xff0xff/error_message key.
 		errMessage, trErr := tr.Get(fdb.Key("\xff\xff/error_message")).Get()
 
