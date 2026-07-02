@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-// todo only runif requested.
 package fdbclient
 
 import (
@@ -37,7 +36,7 @@ import (
 // This test suite expects that a running fdb cluster exists. The cluster file can be provided by setting the environment
 // variable "FDB_CLUSTER_FILE", if not set it will default to /usr/local/etc/foundationdb/fdb.cluster.
 // Those tests can be executed with:
-// go test ${go_test_flags} ./... -ginkgo.label-filter="manual"
+// go test ./... -ginkgo.label-filter="manual"
 //
 // In the future those tests will be added to our CI setup to ensure we have a reproducible way to test the admin client.
 var _ = Describe("fdb_client_test", Label("manual"), func() {
@@ -85,5 +84,10 @@ var _ = Describe("fdb_client_test", Label("manual"), func() {
 			})
 		})
 
+		When("setting the maintenance mode", func() {
+			It("should return an error message that the address is invalid", func() {
+				Expect(adminClient.SetMaintenanceZone("test", 100)).To(Succeed())
+			})
+		})
 	})
 })
