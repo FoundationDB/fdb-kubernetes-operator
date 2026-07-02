@@ -29,9 +29,11 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	fdberrors "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"github.com/go-logr/logr"
+	"k8s.io/utils/ptr"
 )
 
 // fdbLibClient is an interface to interact with FDB over the client libraries
@@ -350,41 +352,91 @@ func (fdbClient *realFdbLibClient) executeTransaction(
 }
 
 // executeTransactionForManagementAPI will run an operation for the management API. This method handles all the common
-// options.
+// options. In case that an error is reported during commit time the \xff\xff/error_message key is read and the additional
+// information is reported.
+//
+// We are not able to use db.Transact here because this would cause a double commit which is not supported and would
+// result in a "FoundationDB error code 2017 (Operation issued while a commit was outstanding)" error. The commit inside
+// the transaction is required because at this time the special key error in \xff\xff/error_message will be propagated
+// if an error occurred.
 func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 	operation func(tr fdb.Transaction) error,
 ) error {
-	_, err := fdbClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
-		err := tr.Options().SetSpecialKeySpaceEnableWrites()
-		if err != nil {
-			return nil, err
+	db, err := getFDBDatabase(fdbClient.cluster)
+	if err != nil {
+		return err
+	}
+
+	tr, err := db.CreateTransaction()
+	if err != nil {
+		return err
+	}
+
+	for {
+		if err = setCommonOptions(&tr); err != nil {
+			return err
+		}
+		if err = tr.Options().SetSpecialKeySpaceEnableWrites(); err != nil {
+			return err
+		}
+		if err = tr.Options().SetLockAware(); err != nil {
+			return err
 		}
 
-		// Allow the operator to read and write from/to a locked database e.g. in cases where a restore is ongoing.
-		// This allows the operator to read and write from/to the FDB cluster.
-		err = tr.Options().SetLockAware()
-		if err != nil {
-			return nil, err
+		opErr := operation(tr)
+		if opErr == nil {
+			opErr = tr.Commit().Get()
 		}
 
-		return nil, operation(tr)
-	})
+		if opErr == nil {
+			// Committed successfully, done
+			return nil
+		}
 
-	// In case that the retuned error is SpecialKeysAPIFailureError we have to make another transaction to get the actual
-	// error message from FDB.
-	var specialKeysErr fdbv1beta2.SpecialKeysAPIFailureError
-	if errors.As(err, &specialKeysErr) {
-		message, trErr := fdbClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
-			// Allow the operator to read and write from/to a locked database e.g. in cases where a restore is ongoing.
-			// This allows the operator to read and write from/to the FDB cluster.
-			optErr := tr.Options().SetLockAware()
-			if optErr != nil {
-				return nil, optErr
+		// commit/operation failed — tr is still valid here, read the special key before reset.
+		opErr = fetchSpecialKeyErrorMessage(fdbClient.logger, tr, opErr)
+		if opErr == nil {
+			// fetchSpecialKeyErrorMessage determined this wasn't actually a failure (e.g. the coordinators
+			// no-op case), so the commit above already succeeded.
+			return nil
+		}
+
+		// A special_keys_api_failure reports its own retriable flag via the error_message special key. FDB's
+		// own onError() does not know about this — the underlying fdb.Error is always special_keys_api_failure,
+		// which is not one of the codes FDB's client considers automatically retryable — so we must honor the
+		// retriable flag ourselves and reset the transaction manually before trying again.
+		var specialKeysErr fdbv1beta2.SpecialKeysAPIFailureError
+		if errors.As(opErr, &specialKeysErr) {
+			if !specialKeysErr.Retriable {
+				return opErr
 			}
 
-			// To get more information on why the Api call through special keys failed we need to read the 0xff0xff/error_message key.
-			return tr.Get(fdb.Key("\xff\xff/error_message")).Get()
-		})
+			tr.Reset()
+			continue
+		}
+
+		// Otherwise fall back to letting FDB's client decide if the error is retryable (e.g. conflicts, timeouts).
+		var fdbErr fdb.Error
+		if errors.As(opErr, &fdbErr) {
+			if retryErr := tr.OnError(fdbErr).Get(); retryErr != nil {
+				return checkError(opErr) // not retryable, give up
+			}
+
+			// retryable: OnError already reset tr, loop and try again
+			continue
+		}
+
+		return opErr
+	}
+}
+
+// fetchSpecialKeyErrorMessage will attempt to fetch additional information from \xff\xff/error_message if an error was
+// provided. If the error is nil it will return nil and if the Get request for \xff\xff/error_message doesn't return any
+// additional information it returns the same error.
+func fetchSpecialKeyErrorMessage(logger logr.Logger, tr fdb.Transaction, err error) error {
+	if fdberrors.IsSpecialKeysAPIFailureError(err) {
+		// To get more information on why the Api call through special keys failed we need to read the 0xff0xff/error_message key.
+		errMessage, trErr := tr.Get(fdb.Key("\xff\xff/error_message")).Get()
 
 		// If this transaction fails too, print out the additional information that 0xff0xff/error_message could not
 		// be read.
@@ -398,14 +450,42 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 			}
 		}
 
-		fdbClient.logger.V(1).
-			Info("error message from special key 0xff0xff/error_message", "message", message, "err", err)
+		logger.V(1).
+			Info("error message from special key 0xff0xff/error_message", "message", errMessage, "err", err)
+
+		mgmtAPIError := &fdbv1beta2.ManagementAPIError{}
+		jsonErr := json.Unmarshal(errMessage, mgmtAPIError)
+		if jsonErr != nil {
+			logger.Info("could not parse special key error_message", "error", jsonErr.Error())
+			return fdbv1beta2.SpecialKeysAPIFailureError{
+				Err: fmt.Errorf(
+					"error from special key 0xff0xff/error_message is: %s, original error: %w",
+					errMessage,
+					err,
+				),
+			}
+		}
+
+		// fdbcli does the same, this error means the current coordinators where already the coordinators of the cluster
+		// https://github.com/apple/foundationdb/blob/main/fdbcli/CoordinatorsCommand.cpp#L163-L169
+		// NOTE(johscheuer): There might be more special cases and handling in fdbcli.
+		if ptr.Deref(mgmtAPIError.Command, "") == "coordinators" &&
+			ptr.Deref(
+				mgmtAPIError.Message,
+				"",
+			) == "No change (existing configuration satisfies request)" {
+			logger.V(1).
+				Info("coordinator command didn't change nay coordinators. The provided coordinators were already recruited.")
+			return nil
+		}
+
 		return fdbv1beta2.SpecialKeysAPIFailureError{
 			Err: fmt.Errorf(
 				"error from special key 0xff0xff/error_message is: %s, original error: %w",
-				message,
+				ptr.Deref(mgmtAPIError.Message, ""),
 				err,
 			),
+			Retriable: ptr.Deref(mgmtAPIError.Retriable, false),
 		}
 	}
 

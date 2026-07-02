@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -154,7 +155,7 @@ var _ = Describe("remove_process_groups", func() {
 						removedProcessGroup,
 					)
 					Expect(err).NotTo(BeNil())
-					Expect(internal.IsResourceNotDeleted(err)).To(BeTrue())
+					Expect(errors.IsResourceNotDeleted(err)).To(BeTrue())
 					Expect(include).To(BeFalse())
 				})
 			})
@@ -230,7 +231,7 @@ var _ = Describe("remove_process_groups", func() {
 							removedProcessGroup,
 						)
 						Expect(err).NotTo(BeNil())
-						Expect(internal.IsResourceNotDeleted(err)).To(BeTrue())
+						Expect(errors.IsResourceNotDeleted(err)).To(BeTrue())
 						Expect(include).To(BeFalse())
 					})
 				})
@@ -262,7 +263,7 @@ var _ = Describe("remove_process_groups", func() {
 							removedProcessGroup,
 						)
 						Expect(err).NotTo(BeNil())
-						Expect(internal.IsResourceNotDeleted(err)).To(BeTrue())
+						Expect(errors.IsResourceNotDeleted(err)).To(BeTrue())
 						Expect(include).To(BeFalse())
 					})
 				})
@@ -294,7 +295,7 @@ var _ = Describe("remove_process_groups", func() {
 								removedProcessGroup,
 							)
 							Expect(err).NotTo(BeNil())
-							Expect(internal.IsResourceNotDeleted(err)).To(BeTrue())
+							Expect(errors.IsResourceNotDeleted(err)).To(BeTrue())
 							Expect(include).To(BeFalse())
 						},
 					)
@@ -522,7 +523,7 @@ var _ = Describe("remove_process_groups", func() {
 								removedProcessGroup,
 							)
 							Expect(err).NotTo(BeNil())
-							Expect(internal.IsResourceNotDeleted(err)).To(BeTrue())
+							Expect(errors.IsResourceNotDeleted(err)).To(BeTrue())
 							Expect(include).To(BeFalse())
 							// Ensure resources are not deleted
 							include, err = confirmRemoval(
@@ -533,7 +534,7 @@ var _ = Describe("remove_process_groups", func() {
 								secondRemovedProcessGroup,
 							)
 							Expect(err).NotTo(BeNil())
-							Expect(internal.IsResourceNotDeleted(err)).To(BeTrue())
+							Expect(errors.IsResourceNotDeleted(err)).To(BeTrue())
 							Expect(include).To(BeFalse())
 						})
 					})

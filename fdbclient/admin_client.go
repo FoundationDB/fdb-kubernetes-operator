@@ -35,10 +35,10 @@ import (
 	"strings"
 	"time"
 
+	fdberrors "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -332,7 +332,7 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// If the cluster is under an upgrade and the getStatus call returns an error, we have to retry it with the new version,
 	// as it could be that the wrong version was selected.
 	if client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() &&
-		internal.IsTimeoutError(err) {
+		fdberrors.IsTimeoutError(err) {
 		client.log.V(1).
 			Info("retry fetching status with version specified in spec.Version", "error", err, "status", status)
 		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
@@ -358,7 +358,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// If we hit a timeout we will also use fdbcli to retry the get status command.
 	client.log.V(1).
 		Info("Result from multi version client (bindings)", "error", err, "status", status)
-	if client.Cluster.Status.Configured && internal.IsTimeoutError(err) &&
+	if client.Cluster.Status.Configured && fdberrors.IsTimeoutError(err) &&
 		client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		client.log.Info("retry fetching status with fdbcli instead of using the client library")
 		status, err = client.getStatus()
