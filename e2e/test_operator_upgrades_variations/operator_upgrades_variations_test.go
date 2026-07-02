@@ -75,7 +75,7 @@ func clusterSetupWithConfig(ctx context.Context, config testConfig) *fixtures.Fd
 	}
 
 	Expect(
-		cluster.InvariantClusterStatusAvailable(ctx),
+		cluster.InvariantClusterStatusAvailable(),
 	).ShouldNot(HaveOccurred())
 
 	return cluster
