@@ -47,6 +47,13 @@ type BackupNotRunning struct {
 // +k8s:deepcopy-gen=false
 type SpecialKeysAPIFailureError struct {
 	Err error
+	// Retriable is true if the special key error_message reported that this operation can be retried.
+	Retriable bool
+}
+
+// Unwrap returns the underlying error, allowing errors.As/errors.Is to see through to e.g. the raw fdb.Error.
+func (err SpecialKeysAPIFailureError) Unwrap() error {
+	return err.Err
 }
 
 // Error returns the error message of the internal timeout error.
