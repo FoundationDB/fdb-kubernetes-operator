@@ -70,7 +70,7 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 			fdbCluster = factory.CreateFdbCluster(ctx,
 				fixtures.DefaultClusterConfig(false),
 			)
-			Expect(fdbCluster.InvariantClusterStatusAvailable(ctx)).NotTo(HaveOccurred())
+			Expect(fdbCluster.InvariantClusterStatusAvailable()).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func(ctx SpecContext) {

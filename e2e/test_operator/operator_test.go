@@ -117,9 +117,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 	})
 
-	JustBeforeEach(func(ctx SpecContext) {
+	JustBeforeEach(func() {
 		if availabilityCheck {
-			Expect(fdbCluster.InvariantClusterStatusAvailable(ctx)).To(Succeed())
+			Expect(fdbCluster.InvariantClusterStatusAvailable()).To(Succeed())
 		}
 	})
 

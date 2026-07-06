@@ -106,10 +106,10 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas(ctx)
 	})
 
-	JustBeforeEach(func(ctx SpecContext) {
+	JustBeforeEach(func() {
 		if availabilityCheck {
 			Expect(
-				fdbCluster.GetPrimary().InvariantClusterStatusAvailable(ctx),
+				fdbCluster.GetPrimary().InvariantClusterStatusAvailable(),
 			).NotTo(HaveOccurred())
 		}
 	})

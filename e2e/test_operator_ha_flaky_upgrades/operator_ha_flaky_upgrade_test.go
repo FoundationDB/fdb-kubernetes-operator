@@ -67,7 +67,7 @@ func clusterSetupWithHealthCheckOption(
 	fdbCluster = factory.CreateFdbHaCluster(ctx, config)
 	if enableHealthCheck {
 		Expect(
-			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(ctx),
+			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(),
 		).ShouldNot(HaveOccurred())
 	}
 
