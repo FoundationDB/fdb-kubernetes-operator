@@ -78,13 +78,13 @@ func (r *FoundationDBRestoreReconciler) Reconcile(
 		uuid.NewUUID(),
 	)
 
-	subReconcilers := []restoreSubReconciler{
+	restoreSubReconcilers := []restoreSubReconciler{
 		updateRestoreStatus{},
 		startRestore{},
 		updateRestoreStatus{},
 	}
 
-	for _, subReconciler := range subReconcilers {
+	for _, subReconciler := range restoreSubReconcilers {
 		req := subReconciler.reconcile(ctx, r, restore)
 		if req == nil {
 			continue

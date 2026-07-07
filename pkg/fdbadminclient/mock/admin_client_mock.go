@@ -76,6 +76,7 @@ type AdminClient struct {
 	ActiveGenerations                        *int
 	MaintenanceZone                          fdbv1beta2.FaultDomain
 	restoreURL                               string
+	restoreDoesNotExist                      bool
 	maintenanceZoneStartTimestamp            time.Time
 	MockAdditionTimeForGlobalCoordination    time.Time
 	uptimeSecondsForMaintenanceZone          float64
@@ -1027,6 +1028,7 @@ func (client *AdminClient) StartRestore(
 		return client.mockError
 	}
 
+	client.restoreDoesNotExist = false
 	client.restoreURL = url
 	return nil
 }
@@ -1038,6 +1040,10 @@ func (client *AdminClient) GetRestoreStatus() (string, error) {
 
 	if client.mockError != nil {
 		return "", client.mockError
+	}
+
+	if client.restoreDoesNotExist {
+		return "", fdbv1beta2.RestoreDoesNotExist{Err: fmt.Errorf("no restores found")}
 	}
 
 	if client.restoreURL == "" {
@@ -1188,6 +1194,15 @@ func (client *AdminClient) MockUptimeSecondsForMaintenanceZone(seconds float64) 
 // a nil value to this method.
 func (client *AdminClient) MockError(err error) {
 	client.mockError = err
+}
+
+// MockRestoreDoesNotExist makes GetRestoreStatus return a RestoreDoesNotExist error, mimicking the fdbrestore CLI
+// when no restore has ever been started for the cluster.
+func (client *AdminClient) MockRestoreDoesNotExist(doesNotExist bool) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	client.restoreDoesNotExist = doesNotExist
 }
 
 // SetLimitingDurabilityLag sets/mocks the limiting durability lag of any storage server in the cluster.

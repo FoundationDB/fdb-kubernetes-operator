@@ -77,3 +77,9 @@ func IsBackupNotfound(err error) bool {
 	var backupError fdbv1beta2.BackupDoesNotExist
 	return errors.As(err, &backupError)
 }
+
+// IsRestoreDoesNotExist returns true if the provided error is a restore not found error from fdbrestore.
+func IsRestoreDoesNotExist(err error) bool {
+	var restoreErr fdbv1beta2.RestoreDoesNotExist
+	return errors.As(err, &restoreErr)
+}

@@ -23,12 +23,14 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -1431,6 +1433,64 @@ protocol fdb00b071010000`,
 			})
 		})
 
+	})
+
+	Describe("getting the restore status", func() {
+		var mockRunner *mockCommandRunner
+		var status string
+		var err error
+
+		JustBeforeEach(func() {
+			cliClient := &cliAdminClient{
+				Cluster:   &fdbv1beta2.FoundationDBCluster{},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+			}
+
+			status, err = cliClient.GetRestoreStatus()
+		})
+
+		When("no restore has ever been started", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedOutput: []string{"No restores found for tag `default'\n"},
+				}
+			})
+
+			It("should return a RestoreDoesNotExist error and an empty status", func() {
+				Expect(status).To(BeEmpty())
+				Expect(err).To(HaveOccurred())
+				Expect(internal.IsRestoreDoesNotExist(err)).To(BeTrue())
+			})
+		})
+
+		When("a restore is currently running", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedOutput: []string{"UID: ABCD, State: running\n"},
+				}
+			})
+
+			It("should return the raw status and no error", func() {
+				Expect(status).To(ContainSubstring("State: running"))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		When("the command fails for an unrelated reason", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedOutput: []string{""},
+					mockedError:  []error{fmt.Errorf("connection failed")},
+				}
+			})
+
+			It("should propagate the raw error and not report RestoreDoesNotExist", func() {
+				Expect(status).To(BeEmpty())
+				Expect(err).To(HaveOccurred())
+				Expect(internal.IsRestoreDoesNotExist(err)).To(BeFalse())
+			})
+		})
 	})
 })
 

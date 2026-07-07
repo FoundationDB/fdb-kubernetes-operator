@@ -41,6 +41,12 @@ type BackupNotRunning struct {
 	Err error
 }
 
+// RestoreDoesNotExist represents an error for the restore command when the targeted restore does not exist.
+// +k8s:deepcopy-gen=false
+type RestoreDoesNotExist struct {
+	Err error
+}
+
 // SpecialKeysAPIFailureError represents the error when an Api call through special keys failed.
 // For more information, call get on special key 0xff0xff/error_message to get a json string of the error message.
 // See: https://github.com/apple/foundationdb/blob/main/flow/include/flow/error_definitions.h
@@ -67,4 +73,9 @@ func (err BackupNotRunning) Error() string {
 // Error returns the error message from a failed Api call through special keys.
 func (err SpecialKeysAPIFailureError) Error() string {
 	return fmt.Sprintf("fdb special_keys_api_failure: %s", err.Err.Error())
+}
+
+// Error returns the error message of the fdbrestore command if no restore is present.
+func (err RestoreDoesNotExist) Error() string {
+	return fmt.Sprintf("fdb restore does not exist: %s", err.Err.Error())
 }

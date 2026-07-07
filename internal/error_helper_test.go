@@ -136,4 +136,40 @@ var _ = Describe("Internal error helper", func() {
 				}),
 		)
 	})
+
+	When("checking if an error is a restore does not exist error", func() {
+		type testCase struct {
+			err      error
+			expected bool
+		}
+
+		DescribeTable("it should detect the restore does not exist error",
+			func(tc testCase) {
+				Expect(IsRestoreDoesNotExist(tc.err)).To(Equal(tc.expected))
+			},
+			Entry("simple error",
+				testCase{
+					err:      fmt.Errorf("test"),
+					expected: false,
+				}),
+			Entry("nil error",
+				testCase{
+					err:      nil,
+					expected: false,
+				}),
+			Entry("simple restore does not exist error",
+				testCase{
+					err:      fdbv1beta2.RestoreDoesNotExist{Err: fmt.Errorf("no restores found")},
+					expected: true,
+				}),
+			Entry("wrapped restore does not exist error",
+				testCase{
+					err: fmt.Errorf(
+						"test : %w",
+						fdbv1beta2.RestoreDoesNotExist{Err: fmt.Errorf("no restores found")},
+					),
+					expected: true,
+				}),
+		)
+	})
 })
