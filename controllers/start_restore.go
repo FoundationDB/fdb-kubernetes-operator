@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 )
 
 // startRestore provides a reconciliation step for starting a new restore.
@@ -46,7 +47,7 @@ func (s startRestore) reconcile(
 	}()
 
 	status, err := adminClient.GetRestoreStatus()
-	if err != nil {
+	if err != nil && !internal.IsRestoreDoesNotExist(err) {
 		return &requeue{curError: err}
 	}
 

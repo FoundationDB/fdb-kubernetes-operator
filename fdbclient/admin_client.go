@@ -1062,12 +1062,22 @@ func (client *cliAdminClient) StartRestore(
 
 // GetRestoreStatus gets the status of the current restore.
 func (client *cliAdminClient) GetRestoreStatus() (string, error) {
-	return client.runCommand(cliCommand{
+	output, err := client.runCommand(cliCommand{
 		binary: fdbrestoreStr,
 		args: []string{
 			"status",
 		},
 	})
+
+	if strings.Contains(output, "No restores found") {
+		if err == nil {
+			err = fmt.Errorf("no restores found")
+		}
+
+		return "", fdbv1beta2.RestoreDoesNotExist{Err: err}
+	}
+
+	return output, err
 }
 
 // Close cleans up any pending resources.
