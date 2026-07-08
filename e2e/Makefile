@@ -1,7 +1,7 @@
 #!/usr/bin/make
 
 SUITES  = $(filter-out %.test, $(wildcard test_*))
-TARGETS = $(patsubst test_% ,test_%.run, ${SUITES})
+TARGETS = $(patsubst test_%, test_%.run, ${SUITES})
 
 # Default target. Want this to be first.
 compile: $(patsubst test_%, test_%.test, ${SUITES})
