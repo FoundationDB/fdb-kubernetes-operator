@@ -115,6 +115,11 @@ func (version Version) IsProtocolCompatible(other Version) bool {
 	return version.Version.IsProtocolCompatible(other.Version)
 }
 
+// UsesMutationLogType determines whether this FDB version uses the --mutation-log-type flag instead of --partitioned-log.
+func (version Version) UsesMutationLogType() bool {
+	return version.Version.IsAtLeast(Versions.UsesMutationLogType.Version)
+}
+
 // Equal checks if two Version are the same.
 func (version Version) Equal(other Version) bool {
 	return version.Version.Equal(other.Version)
@@ -156,6 +161,7 @@ var Versions = struct {
 	SupportsRecoveryState,
 	SupportsLocalityBasedExclusions71,
 	SupportsLocalityBasedExclusions,
+	UsesMutationLogType,
 	Default Version
 }{
 	Default:                           Version{api.Version{Major: 7, Minor: 1, Patch: 57}},
@@ -172,4 +178,5 @@ var Versions = struct {
 	SupportsLocalityBasedExclusions:   Version{api.Version{Major: 7, Minor: 3, Patch: 26}},
 	SupportsBackupEncryption:          Version{api.Version{Major: 7, Minor: 4, Patch: 6}},
 	SupportsBackupEncryption73:        Version{api.Version{Major: 7, Minor: 3, Patch: 73}},
+	UsesMutationLogType:               Version{api.Version{Major: 7, Minor: 4, Patch: 7}},
 }

@@ -432,6 +432,11 @@ func (in *FDBBackupDescribe) DeepCopyInto(out *FDBBackupDescribe) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.MutationLogType != nil {
+		in, out := &in.MutationLogType, &out.MutationLogType
+		*out = new(string)
+		**out = **in
+	}
 	if in.FileLevelEncryption != nil {
 		in, out := &in.FileLevelEncryption, &out.FileLevelEncryption
 		*out = new(bool)

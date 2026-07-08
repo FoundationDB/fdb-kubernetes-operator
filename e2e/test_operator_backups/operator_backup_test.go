@@ -120,11 +120,17 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 			var backupConfiguration *fixtures.FdbBackupConfiguration
 			var currentRestorableVersion *uint64
 
+			BeforeEach(func(_ SpecContext) {
+				skipRestore = false
+				shouldPauseBackup = false
+			})
+
 			JustBeforeEach(func(ctx SpecContext) {
 				log.Printf(
-					"creating backup for cluster, skipRestore: %t, useRestorableVersion: %t\n",
+					"creating backup for cluster, skipRestore: %t, useRestorableVersion: %t, shouldPauseBackup: %t\n",
 					skipRestore,
 					useRestorableVersion,
+					shouldPauseBackup,
 				)
 				var restorableVersion uint64
 				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
@@ -205,11 +211,24 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					JustBeforeEach(func(ctx SpecContext) {
 						// running describe command
 						describeCommandOutput := backup.RunDescribeCommand(ctx)
+						Expect(describeCommandOutput).NotTo(BeNil())
 						if factory.GetFDBVersion().SupportsBackupEncryption() {
+							Expect(describeCommandOutput.FileLevelEncryption).NotTo(BeNil())
 							Expect(*describeCommandOutput.FileLevelEncryption).To(BeFalse())
 						}
+
+						Expect(describeCommandOutput.Restorable).NotTo(BeNil())
 						Expect(*describeCommandOutput.Restorable).To(BeTrue())
-						Expect(*describeCommandOutput.Partitioned).To(BeFalse())
+
+						if factory.GetFDBVersion().UsesMutationLogType() {
+							Expect(describeCommandOutput.MutationLogType).NotTo(BeNil())
+							Expect(*describeCommandOutput.MutationLogType).To(Equal("default"))
+							Expect(describeCommandOutput.Partitioned).To(BeNil())
+						} else {
+							Expect(describeCommandOutput.Partitioned).NotTo(BeNil())
+							Expect(*describeCommandOutput.Partitioned).To(BeFalse())
+							Expect(describeCommandOutput.MutationLogType).To(BeNil())
+						}
 					})
 
 					It(
@@ -292,11 +311,12 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						JustBeforeEach(func(ctx SpecContext) {
 							// running status command
 							statusCommandOutput := backup.RunStatusCommand(ctx)
+							Expect(statusCommandOutput).NotTo(BeNil())
 							Expect(statusCommandOutput.SnapshotIntervalSeconds).To(Equal(864000))
 							Expect(statusCommandOutput.UID).NotTo(BeNil())
 							backupUID := *statusCommandOutput.UID
 
-							// running list command
+							// Running list command
 							listCommandOutput := backup.RunListCommand(ctx)
 							Expect(listCommandOutput).To(HaveLen(1))
 
@@ -307,6 +327,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							backup.SetSnapshotInterval(ctx, modifiedSnapshotPeriod)
 							// validating snapshot interval changed and the backup UID is same
 							statusCommandOutput = backup.RunStatusCommand(ctx)
+							Expect(statusCommandOutput).NotTo(BeNil())
 							Expect(
 								statusCommandOutput.SnapshotIntervalSeconds,
 							).To(Equal(modifiedSnapshotPeriod))
@@ -314,11 +335,23 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							Expect(*statusCommandOutput.UID).To(Equal(backupUID))
 							backup.Stop(ctx)
 
-							// running describe command
+							// Running describe command
 							describeCommandOutput := backup.RunDescribeCommand(ctx)
+							Expect(describeCommandOutput.FileLevelEncryption).NotTo(BeNil())
 							Expect(*describeCommandOutput.FileLevelEncryption).To(BeTrue())
+
+							Expect(describeCommandOutput.Restorable).NotTo(BeNil())
 							Expect(*describeCommandOutput.Restorable).To(BeTrue())
-							Expect(*describeCommandOutput.Partitioned).To(BeFalse())
+
+							if factory.GetFDBVersion().UsesMutationLogType() {
+								Expect(describeCommandOutput.MutationLogType).NotTo(BeNil())
+								Expect(*describeCommandOutput.MutationLogType).To(Equal("default"))
+								Expect(describeCommandOutput.Partitioned).To(BeNil())
+							} else {
+								Expect(describeCommandOutput.Partitioned).NotTo(BeNil())
+								Expect(*describeCommandOutput.Partitioned).To(BeFalse())
+								Expect(describeCommandOutput.MutationLogType).To(BeNil())
+							}
 						})
 
 						It(

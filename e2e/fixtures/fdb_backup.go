@@ -120,6 +120,8 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 			SidecarContainer: fdbCluster.cluster.Spec.SidecarContainer,
 			PodTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
+					// The backup_agent is directly started and doesn't listen to the SIGTERM signal.
+					TerminationGracePeriodSeconds: ptr.To[int64](2),
 					Containers: []corev1.Container{
 						{
 							Name: fdbv1beta2.MainContainerName,
@@ -307,6 +309,7 @@ func (fdbBackup *FdbBackup) RunCommandOnBackupPod(ctx context.Context, command s
 		fdbv1beta2.MainContainerName,
 		command,
 		false)
+	log.Println("command:", command, "output:", out, "stderr", stderr)
 	gomega.Expect(err).
 		To(gomega.Succeed(), fmt.Sprintf("could not execute command: %s, got error; %s", command, stderr))
 	return out
@@ -425,8 +428,7 @@ func (fdbBackup *FdbBackup) GetBackupPods(ctx context.Context) *corev1.PodList {
 		client.InNamespace(fdbBackup.fdbCluster.Namespace()),
 		client.MatchingLabels(map[string]string{fdbv1beta2.BackupDeploymentPodLabel: fdbBackup.fdbCluster.Name() + "-backup-agents"}),
 	),
-	).
-		NotTo(gomega.HaveOccurred())
+	).NotTo(gomega.HaveOccurred())
 
 	return podList
 }

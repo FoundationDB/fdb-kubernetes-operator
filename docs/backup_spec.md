@@ -85,7 +85,8 @@ FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command
 | SchemaVersion | SchemaVersion is the version of the backup metadata schema. | *string | false |
 | URL | URL is the backup destination being described. | *string | false |
 | Restorable | Restorable indicates whether the backup is in a valid state and can be used to restore a database. | *bool | false |
-| Partitioned | Partitioned indicates if the partitioned_log backup system is used. | *bool | false |
+| Partitioned | Partitioned indicates if the partitioned_log backup system is used. Removed in 7.4.7. **Deprecated: use MutationLogType instead.** | *bool | false |
+| MutationLogType | MutationLogType indicates the MutationLogType that was used for the backup. | *string | false |
 | FileLevelEncryption | FileLevelEncryption indicates whether file-level encryption is enabled for the backup data. | *bool | false |
 | TotalSnapshotBytes | TotalSnapshotBytes is the total size in bytes of all snapshot files in the backup destination. Drops to zero once every snapshot covering the live restorable range has been expired. | *int64 | false |
 
