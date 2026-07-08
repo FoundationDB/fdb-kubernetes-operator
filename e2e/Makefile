@@ -1,8 +1,16 @@
 #!/usr/bin/make
 
+SUITES  = $(filter-out %.test, $(wildcard test_*))
+TARGETS = $(patsubst test_% ,test_%.run, ${SUITES})
+
 # Default target. Want this to be first.
-compile:
-	go build ./...
+compile: $(patsubst test_%, test_%.test, ${SUITES})
+
+# Note: %.run uses "go test ./%", does not use %.test
+run: ${TARGETS}
+
+%.test: % ../go.mod
+	go test -c ./$< -o $@
 
 # INPUT ENVIRONMENT VARIABLES
 TIMEOUT?=168h
@@ -65,9 +73,6 @@ FEATURE_MANAGEMENT_API?=true
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
 
-# Defines a variable that has the directory of this Makefile as value.
-BASE_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-
 clean:
 	@rm -f TEST-ginkgo*.xml
 	@find . -name '*~' | xargs rm -f
@@ -108,11 +113,6 @@ ifdef MAKE_TERMOUT
 else
 	NO_COLOR=--ginkgo.no-color
 endif
-
-SUITES=$(wildcard test_*)
-TARGETS=$(patsubst test_%,test_%.run,${SUITES})
-
-run: ${TARGETS}
 
 # This variable can be used to define any label-filter for ginkgo to run a subset of tests.
 # For more information see the Ginkgo Spec labels documentation: https://onsi.github.io/ginkgo/#spec-labels.
@@ -180,4 +180,5 @@ foundationdb-nightly-tests: run
 	  --node-selector="$(NODE_SELECTOR)" \
 	  --default-unavailable-threshold=$(DEFAULT_UNAVAILABLE_THRESHOLD) \
 	  --seaweedfs-image=$(SEAWEEDFS_IMAGE)  \
-	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log
+	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' \
+	  &> ../logs/$<.log
