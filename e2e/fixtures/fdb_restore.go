@@ -50,6 +50,16 @@ func (factory *Factory) CreateRestoreForCluster(
 	backupVersion *uint64,
 ) *FdbRestore {
 	gomega.Expect(backup).NotTo(gomega.BeNil())
+	// If a backup is still running or paused on this cluster the restore will be stuck in queued. The stop will
+	// discontinue the backup, which allows the restore to get started.
+	if backup.backup.Spec.BackupState != fdbv1beta2.BackupStateStopped {
+		log.Println(
+			"backup was not stopped, will stop backup before restore. Current desired state:",
+			backup.backup.Spec.BackupState,
+		)
+		backup.Stop(ctx)
+	}
+
 	restore := &FdbRestore{
 		restore: &fdbv1beta2.FoundationDBRestore{
 			ObjectMeta: metav1.ObjectMeta{
@@ -121,7 +131,7 @@ func (restore *FdbRestore) waitForRestoreToComplete(ctx context.Context, backup 
 		}
 
 		return currentRestore.Status.State
-	}).WithTimeout(20 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Equal(fdbv1beta2.CompletedFoundationDBRestoreState))
+	}).WithTimeout(30 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Equal(fdbv1beta2.CompletedFoundationDBRestoreState))
 }
 
 // Destroy will delete the FoundationDBRestore for the associated FdbBackup if it exists.

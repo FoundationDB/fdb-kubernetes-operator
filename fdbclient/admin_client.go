@@ -868,7 +868,16 @@ func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup)
 	}
 
 	if backup.GetBackupType() == fdbv1beta2.BackupTypePartitionedLog {
-		args = append(args, "--partitioned-log-experimental")
+		fdbVersion, err := fdbv1beta2.ParseFdbVersion(backup.Spec.Version)
+		if err != nil {
+			return err
+		}
+
+		if fdbVersion.UsesMutationLogType() {
+			args = append(args, "--mutation-log-type", "partitioned-log-experimental")
+		} else {
+			args = append(args, "--partitioned-log-experimental")
+		}
 	}
 
 	_, err = client.runCommand(cliCommand{

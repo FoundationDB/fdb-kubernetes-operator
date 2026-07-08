@@ -381,8 +381,12 @@ type FDBBackupDescribe struct {
 	// and can be used to restore a database.
 	Restorable *bool `json:"Restorable,omitempty"`
 
-	// Partitioned indicates if the partitioned_log backup system is used.
+	// Partitioned indicates if the partitioned_log backup system is used. Removed in 7.4.7.
+	// Deprecated: use MutationLogType instead.
 	Partitioned *bool `json:"Partitioned,omitempty"`
+
+	// MutationLogType indicates the MutationLogType that was used for the backup.
+	MutationLogType *string `json:"MutationLogType,omitempty"`
 
 	// FileLevelEncryption indicates whether file-level encryption
 	// is enabled for the backup data.

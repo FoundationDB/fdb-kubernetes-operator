@@ -1097,6 +1097,26 @@ protocol fdb00b071010000`,
 				"-z",
 				"--partitioned-log-experimental",
 			}),
+		Entry("with partitioned log backup type with mutation log type argument",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.UsesMutationLogType.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "@test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+					BackupType:            ptr.To(fdbv1beta2.BackupTypePartitionedLog),
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
+				"-s", "60",
+				"-z",
+				"--mutation-log-type",
+				"partitioned-log-experimental",
+			}),
 		Entry("with backup agent (default) backup type",
 			&fdbv1beta2.FoundationDBBackup{
 				Spec: fdbv1beta2.FoundationDBBackupSpec{
