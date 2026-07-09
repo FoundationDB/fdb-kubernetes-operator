@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c #6.4.0
         with:
-          go-version: 1.26.4
+          go-version: 1.26.5
       - name: Get dependencies
         run: curl -L --fail "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
       - name: Install dependencies
