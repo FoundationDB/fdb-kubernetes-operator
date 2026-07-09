@@ -369,8 +369,8 @@ func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
 	return ptr.Deref(backup.Spec.SnapshotPeriodSeconds, 864000)
 }
 
-// FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
-type FDBBackupDescribe struct {
+// FoundationDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
+type FoundationDBBackupDescribe struct {
 	// SchemaVersion is the version of the backup metadata schema.
 	SchemaVersion *string `json:"SchemaVersion,omitempty"`
 
@@ -396,6 +396,17 @@ type FDBBackupDescribe struct {
 	// the backup destination. Drops to zero once every snapshot covering the
 	// live restorable range has been expired.
 	TotalSnapshotBytes *int64 `json:"TotalSnapshotBytes,omitempty"`
+
+	// MaxLogEnd represents the maximum log end that is present in this backup.
+	MaxLogEnd *FoundationDBBackupDescribeVersionInfo `json:"MaxLogEnd,omitempty"`
+}
+
+// FoundationDBBackupDescribeVersionInfo contains the version information for the various describe version information.
+type FoundationDBBackupDescribeVersionInfo struct {
+	// Version represents the internal FDB version (epoch).
+	Version *uint64 `json:"Version,omitempty"`
+	// RelativeDays represents the relative days as a floating number.
+	RelativeDays *float64 `json:"RelativeDays,omitempty"`
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a

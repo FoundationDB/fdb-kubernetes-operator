@@ -316,12 +316,14 @@ func (fdbBackup *FdbBackup) RunCommandOnBackupPod(ctx context.Context, command s
 }
 
 // RunDescribeCommand runs the describe command on a randomly chosen backup pod.
-func (fdbBackup *FdbBackup) RunDescribeCommand(ctx context.Context) *fdbv1beta2.FDBBackupDescribe {
+func (fdbBackup *FdbBackup) RunDescribeCommand(
+	ctx context.Context,
+) *fdbv1beta2.FoundationDBBackupDescribe {
 	backupURL, err := fdbBackup.backup.BackupURL()
 	gomega.Expect(err).To(gomega.Succeed())
 	command := fmt.Sprintf("fdbbackup describe -d \"%s\" --json", backupURL)
 	out := fdbBackup.RunCommandOnBackupPod(ctx, command)
-	desc := &fdbv1beta2.FDBBackupDescribe{}
+	desc := &fdbv1beta2.FoundationDBBackupDescribe{}
 	gomega.Expect(json.Unmarshal([]byte(out), desc)).To(gomega.Succeed())
 	return desc
 }

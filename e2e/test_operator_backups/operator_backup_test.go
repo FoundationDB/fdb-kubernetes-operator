@@ -25,7 +25,6 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -379,19 +378,20 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							Expect(ptr.Deref(describeBeforeExpire.Restorable, false)).To(BeTrue())
 							Expect(ptr.Deref(describeBeforeExpire.TotalSnapshotBytes, -1)).
 								To(BeNumerically(">", int64(0)))
-
-							statusBeforeExpire := backup.RunStatusCommand(ctx)
-							Expect(statusBeforeExpire.LatestRestorablePoint).NotTo(BeNil())
-							expireBeforeVersion := ptr.Deref(
-								statusBeforeExpire.LatestRestorablePoint.Version,
-								0,
-							)
-
-							expireOutput := backup.RunExpireCommand(ctx, expireBeforeVersion)
-							Expect(strings.TrimSpace(expireOutput)).To(Equal(fmt.Sprintf(
-								"Final metadata update...\nAll data before version %d has been deleted.",
-								expireBeforeVersion,
-							)))
+							// Expire all versions up to the maximum log end otherwise this test can be flaky, depending
+							// on where the last log end actually falls.
+							//
+							// See https://github.com/apple/foundationdb/blob/release-7.4/fdbclient/BackupContainerFileSystem.actor.cpp#L954-L963
+							//
+							// The expire command will still print out that all data was expired for the specified version
+							// even thought that it changes the end version silently.
+							Expect(describeBeforeExpire.MaxLogEnd).NotTo(BeNil())
+							Expect(describeBeforeExpire.MaxLogEnd.Version).NotTo(BeNil())
+							expireVersion := ptr.Deref(describeBeforeExpire.MaxLogEnd.Version, 0)
+							expireOutput := backup.RunExpireCommand(ctx, expireVersion)
+							Expect(
+								strings.TrimSpace(expireOutput),
+							).To(HavePrefix("Final metadata update...\nAll data before version"))
 						})
 
 						It("should have deleted the backup snapshot data", func(ctx SpecContext) {
