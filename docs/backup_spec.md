@@ -7,8 +7,9 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 
 * [BackupGenerationStatus](#backupgenerationstatus)
 * [BlobStoreConfiguration](#blobstoreconfiguration)
-* [FDBBackupDescribe](#fdbbackupdescribe)
 * [FoundationDBBackup](#foundationdbbackup)
+* [FoundationDBBackupDescribe](#foundationdbbackupdescribe)
+* [FoundationDBBackupDescribeVersionInfo](#foundationdbbackupdescribeversioninfo)
 * [FoundationDBBackupList](#foundationdbbackuplist)
 * [FoundationDBBackupSpec](#foundationdbbackupspec)
 * [FoundationDBBackupStatus](#foundationdbbackupstatus)
@@ -76,9 +77,21 @@ BlobStoreConfiguration describes the blob store configuration.
 
 [Back to TOC](#table-of-contents)
 
-## FDBBackupDescribe
+## FoundationDBBackup
 
-FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
+FoundationDBBackup is the Schema for the foundationdbbackups API
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta) | false |
+| spec |  | [FoundationDBBackupSpec](#foundationdbbackupspec) | false |
+| status |  | [FoundationDBBackupStatus](#foundationdbbackupstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBBackupDescribe
+
+FoundationDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -89,18 +102,18 @@ FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command
 | MutationLogType | MutationLogType indicates the MutationLogType that was used for the backup. | *string | false |
 | FileLevelEncryption | FileLevelEncryption indicates whether file-level encryption is enabled for the backup data. | *bool | false |
 | TotalSnapshotBytes | TotalSnapshotBytes is the total size in bytes of all snapshot files in the backup destination. Drops to zero once every snapshot covering the live restorable range has been expired. | *int64 | false |
+| MaxLogEnd | MaxLogEnd represents the maximum log end that is present in this backup. | *[FoundationDBBackupDescribeVersionInfo](#foundationdbbackupdescribeversioninfo) | false |
 
 [Back to TOC](#table-of-contents)
 
-## FoundationDBBackup
+## FoundationDBBackupDescribeVersionInfo
 
-FoundationDBBackup is the Schema for the foundationdbbackups API
+FoundationDBBackupDescribeVersionInfo contains the version information for the various describe version information.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta) | false |
-| spec |  | [FoundationDBBackupSpec](#foundationdbbackupspec) | false |
-| status |  | [FoundationDBBackupStatus](#foundationdbbackupstatus) | false |
+| Version | Version represents the internal FDB version (epoch). | *uint64 | false |
+| RelativeDays | RelativeDays represents the relative days as a floating number. | *float64 | false |
 
 [Back to TOC](#table-of-contents)
 
