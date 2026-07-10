@@ -295,7 +295,7 @@ func (fdbClient *realFdbLibClient) getProcessAddresses(
 
 func checkError(err error) error {
 	if err != nil {
-		var fdbError *fdb.Error
+		var fdbError fdb.Error
 		if errors.As(err, &fdbError) {
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
 			// 1031: Operation aborted because the transaction timed out.
