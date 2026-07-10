@@ -27,6 +27,7 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -128,6 +129,9 @@ func (restore *FdbRestore) waitForRestoreToComplete(ctx context.Context, backup 
 
 			log.Println(out)
 			g.Expect(err).To(gomega.Succeed())
+
+			// Dump the operator state and logs.
+			restore.fdbCluster.factory.DumpOperatorLogs(ctx, restore.fdbCluster, ptr.To[int64](300))
 		}
 
 		return currentRestore.Status.State

@@ -776,20 +776,44 @@ func (factory *Factory) DumpStateWithLogsSince(
 		w,
 		"Name\tReady\tSTATUS\tUnschedulable\tRestarts\tMain Image\tSidecar Image\tIPs\tNode\tAge",
 	)
-	var operatorPods []corev1.Pod
-	for _, pod := range pods.Items {
-		if pod.Labels["app"] == "fdb-kubernetes-operator-controller-manager" {
-			operatorPods = append(operatorPods, pod)
-		}
 
-		_, _ = fmt.Fprintln(w, writePodInformation(pod))
-	}
 	_ = w.Flush()
 
 	log.Println(buffer.String())
 
+	factory.DumpOperatorLogs(ctx, fdbCluster, logsSinceSeconds)
+}
+
+// DumpOperatorLogs will write the operator logs for the specified time.
+func (factory *Factory) DumpOperatorLogs(
+	ctx context.Context,
+	cluster *FdbCluster,
+	logsSinceSeconds *int64,
+) {
+	operatorPods := &corev1.PodList{}
+	err := factory.controllerRuntimeClient.List(
+		ctx,
+		operatorPods,
+		client.InNamespace(cluster.Namespace()),
+		client.MatchingLabels(
+			map[string]string{"app": "fdb-kubernetes-operator-controller-manager"},
+		),
+	)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// Make use of a tabwriter for better output.
+	w := tabwriter.NewWriter(log.Writer(), 0, 0, 1, ' ', tabwriter.Debug)
+
+	for _, pod := range operatorPods.Items {
+		_, _ = fmt.Fprintln(w, writePodInformation(pod))
+	}
+	_ = w.Flush()
+
 	// Printout the logs of the operator Pods for the last 300 seconds.
-	for _, pod := range operatorPods {
+	for _, pod := range operatorPods.Items {
 		targetPod := pod
 		log.Println(factory.GetLogsForPod(ctx, &targetPod, "manager", logsSinceSeconds))
 	}
