@@ -372,7 +372,17 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 		return err
 	}
 
+	var retryCounter int
 	for {
+		// We have to keep track of our own retry counter as the internal transaction retry counter will only be
+		// decremented if we call tr.OnError(). Without our own retry counter we could be stuck in a loop if the special
+		// key error always returns a retriable error. The retry limit/counter works across a retryable transaction error
+		// and a retriable special key error. The retry counter does not distinguish between those retries.
+		retryCounter++
+		if retryCounter > transactionRetryLimit {
+			return fmt.Errorf("retry limit for transactions reached")
+		}
+
 		if err = setCommonOptions(&tr); err != nil {
 			return err
 		}
