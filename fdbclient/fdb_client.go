@@ -466,7 +466,7 @@ func fetchSpecialKeyErrorMessage(logger logr.Logger, tr fdb.Transaction, err err
 			}
 		}
 
-		// fdbcli does the same, this error means the current coordinators where already the coordinators of the cluster
+		// fdbcli does the same, this error means the current coordinators are already the coordinators of the cluster
 		// https://github.com/apple/foundationdb/blob/main/fdbcli/CoordinatorsCommand.cpp#L163-L169
 		// NOTE(johscheuer): There might be more special cases and handling in fdbcli.
 		if ptr.Deref(mgmtAPIError.Command, "") == "coordinators" &&
@@ -475,7 +475,7 @@ func fetchSpecialKeyErrorMessage(logger logr.Logger, tr fdb.Transaction, err err
 				"",
 			) == "No change (existing configuration satisfies request)" {
 			logger.V(1).
-				Info("coordinator command didn't change nay coordinators. The provided coordinators were already recruited.")
+				Info("coordinator command didn't change any coordinators. The provided coordinators were already recruited.")
 			return nil
 		}
 

@@ -85,7 +85,7 @@ var _ = Describe("fdb_client_test", Label("manual"), func() {
 		})
 
 		When("setting the maintenance mode", func() {
-			It("should return an error message that the address is invalid", func() {
+			It("should successfully set the maintenance mode", func() {
 				Expect(adminClient.SetMaintenanceZone("test", 100)).To(Succeed())
 			})
 		})
