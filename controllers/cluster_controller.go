@@ -350,7 +350,11 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 		if cluster.ShouldUseLocks() {
 			lockErr := r.releaseLock(clusterLog, cluster)
 			if lockErr != nil {
-				clusterLog.Info("could not release lock after sub-reconcilers have run")
+				clusterLog.Info(
+					"could not release lock after sub-reconcilers have run",
+					"err",
+					lockErr,
+				)
 			}
 		}
 	}()

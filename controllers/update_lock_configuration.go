@@ -45,7 +45,7 @@ func (updateLockConfiguration) reconcile(
 	}
 
 	// If no lock entries must be set or removed we can skip all the work.
-	if len(cluster.Status.Locks.DenyList) == 0 && len(cluster.Spec.LockOptions.DenyList) == 0 {
+	if len(cluster.Spec.LockOptions.DenyList) == 0 {
 		return nil
 	}
 
