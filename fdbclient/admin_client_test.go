@@ -30,7 +30,7 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	fdberrors "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -1480,7 +1480,7 @@ protocol fdb00b071010000`,
 			It("should return a RestoreDoesNotExist error and an empty status", func() {
 				Expect(status).To(BeEmpty())
 				Expect(err).To(HaveOccurred())
-				Expect(internal.IsRestoreDoesNotExist(err)).To(BeTrue())
+				Expect(fdberrors.IsRestoreDoesNotExist(err)).To(BeTrue())
 			})
 		})
 
@@ -1508,7 +1508,7 @@ protocol fdb00b071010000`,
 			It("should propagate the raw error and not report RestoreDoesNotExist", func() {
 				Expect(status).To(BeEmpty())
 				Expect(err).To(HaveOccurred())
-				Expect(internal.IsRestoreDoesNotExist(err)).To(BeFalse())
+				Expect(fdberrors.IsRestoreDoesNotExist(err)).To(BeFalse())
 			})
 		})
 	})

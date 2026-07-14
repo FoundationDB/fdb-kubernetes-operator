@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package internal
+package errors
 
 import (
 	"errors"
@@ -26,6 +26,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -57,7 +58,25 @@ func IsNetworkError(err error) bool {
 // IsTimeoutError returns true if the observed error was a timeout error
 func IsTimeoutError(err error) bool {
 	var timeoutError fdbv1beta2.TimeoutError
-	return errors.As(err, &timeoutError)
+	if errors.As(err, &timeoutError) {
+		return true
+	}
+
+	var fdbErr fdb.Error
+	// transaction_timed_out: "Operation aborted because the transaction timed out"
+	return errors.As(err, &fdbErr) && fdbErr.Code == 1031
+}
+
+// IsSpecialKeysAPIFailureError returns true if the observed error was an error from the management API.
+func IsSpecialKeysAPIFailureError(err error) bool {
+	var specialKeysAPIFailureError fdbv1beta2.SpecialKeysAPIFailureError
+	if errors.As(err, &specialKeysAPIFailureError) {
+		return true
+	}
+
+	var fdbErr fdb.Error
+	// special_keys_api_failure: Api call through special keys failed. For more information, call get on special key 0xff0xff/error_message to get a json string of the error message.
+	return errors.As(err, &fdbErr) && fdbErr.Code == 2117
 }
 
 // IsQuotaExceeded returns true if the error returned by the Kubernetes API is a forbidden error with the error message

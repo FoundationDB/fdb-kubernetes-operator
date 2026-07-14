@@ -44,6 +44,9 @@ var DefaultTimeout = 10 * time.Second
 // MaxTimeout is the maximum timeout that will be used for requests that might be slower to respond.
 var MaxTimeout = 40 * time.Second
 
+// transactionRetryLimit defines the retry limit per transaction.
+const transactionRetryLimit = 1
+
 func parseMachineReadableStatus(
 	logger logr.Logger,
 	contents []byte,
@@ -119,7 +122,7 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 	}
 
 	// We set a low retry limit as the operator will retry the reconciliation process anyway.
-	err = database.Options().SetTransactionRetryLimit(1)
+	err = database.Options().SetTransactionRetryLimit(transactionRetryLimit)
 	if err != nil {
 		return fdb.Database{}, err
 	}

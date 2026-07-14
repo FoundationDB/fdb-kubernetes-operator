@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 )
 
 // updateRestoreStatus provides a reconciliation step for updating the restore status.
@@ -49,7 +49,7 @@ func (updateRestoreStatus) reconcile(
 
 	status, err := adminClient.GetRestoreStatus()
 	if err != nil {
-		if internal.IsRestoreDoesNotExist(err) {
+		if errors.IsRestoreDoesNotExist(err) {
 			return nil
 		}
 

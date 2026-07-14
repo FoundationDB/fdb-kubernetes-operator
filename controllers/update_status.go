@@ -28,6 +28,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"k8s.io/utils/ptr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
@@ -403,7 +404,7 @@ func checkAndSetProcessStatus(
 	} else {
 		substitutions, err = podClient.GetVariableSubstitutions()
 		if err != nil {
-			if internal.IsNetworkError(err) {
+			if errors.IsNetworkError(err) {
 				sidecarUnreachable = true
 			}
 		}
