@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"strings"
 	"sync"
@@ -75,6 +76,7 @@ type AdminClient struct {
 	ActiveGenerations                        *int
 	MaintenanceZone                          fdbv1beta2.FaultDomain
 	restoreURL                               string
+	restoreDoesNotExist                      bool
 	maintenanceZoneStartTimestamp            time.Time
 	MockAdditionTimeForGlobalCoordination    time.Time
 	uptimeSecondsForMaintenanceZone          float64
@@ -277,9 +279,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 					fdbv1beta2.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 				}
 
-				for key, value := range client.localityInfo[processGroupID] {
-					locality[key] = value
-				}
+				maps.Copy(locality, client.localityInfo[processGroupID])
 
 				for _, container := range pod.Spec.Containers {
 					for _, envVar := range container.Env {
@@ -375,9 +375,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			fdbv1beta2.FDBLocalityZoneIDKey:     string(processGroup.ProcessGroupID),
 		}
 
-		for key, value := range client.localityInfo[processGroup.ProcessGroupID] {
-			locality[key] = value
-		}
+		maps.Copy(locality, client.localityInfo[processGroup.ProcessGroupID])
 
 		var uptimeSeconds float64 = 60000
 		underMaintenance := false
@@ -895,6 +893,7 @@ func (client *AdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) er
 	backupDetails := fdbv1beta2.FoundationDBBackupStatusBackupDetails{
 		URL:     backupURL,
 		Running: true,
+		Tag:     string(backup.GetBackupTag()),
 	}
 
 	// Only set snapshot period for continuous backups
@@ -902,7 +901,7 @@ func (client *AdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) er
 		backupDetails.SnapshotPeriodSeconds = backup.SnapshotPeriodSeconds()
 	}
 
-	client.Backups["default"] = backupDetails
+	client.Backups[string(backup.GetBackupTag())] = backupDetails
 	return nil
 }
 
@@ -919,6 +918,7 @@ func (client *AdminClient) PauseBackups() error {
 		backup.Paused = true
 		client.Backups[tag] = backup
 	}
+
 	return nil
 }
 
@@ -935,6 +935,7 @@ func (client *AdminClient) ResumeBackups() error {
 		backup.Paused = false
 		client.Backups[tag] = backup
 	}
+
 	return nil
 }
 
@@ -947,14 +948,18 @@ func (client *AdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) e
 		return client.mockError
 	}
 
-	currentBackup := client.Backups["default"]
+	currentBackup, ok := client.Backups[string(backup.GetBackupTag())]
+	if !ok {
+		return fmt.Errorf("backup: %s with tag: %s not found", backup.Name, backup.GetBackupTag())
+	}
+
 	currentBackup.SnapshotPeriodSeconds = backup.SnapshotPeriodSeconds()
 	backupURL, err := backup.BackupURL()
 	if err != nil {
 		return err
 	}
 	currentBackup.URL = backupURL
-	client.Backups["default"] = currentBackup
+	client.Backups[string(backup.GetBackupTag())] = currentBackup
 	return nil
 }
 
@@ -967,27 +972,29 @@ func (client *AdminClient) StopBackup(backup *fdbv1beta2.FoundationDBBackup) err
 		return client.mockError
 	}
 
-	for tag, currentBackup := range client.Backups {
-		backupURL, err := backup.BackupURL()
-		if err != nil {
-			return err
-		}
-		if currentBackup.URL == backupURL {
-			currentBackup.Running = false
-			client.Backups[tag] = currentBackup
-			return nil
-		}
+	currentState, ok := client.Backups[string(backup.GetBackupTag())]
+	if !ok {
+		return fmt.Errorf("backup: %s with tag: %s not found", backup.Name, backup.GetBackupTag())
 	}
 
 	backupURL, err := backup.BackupURL()
 	if err != nil {
 		return err
 	}
+
+	if currentState.URL == backupURL {
+		currentState.Running = false
+		client.Backups[string(backup.GetBackupTag())] = currentState
+		return nil
+	}
+
 	return fmt.Errorf("no backup found for URL %s", backupURL)
 }
 
 // GetBackupStatus gets the status of the current backup.
-func (client *AdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
+func (client *AdminClient) GetBackupStatus(
+	backup *fdbv1beta2.FoundationDBBackup,
+) (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -997,13 +1004,13 @@ func (client *AdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackup
 
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 
-	tag := "default"
-	backup, present := client.Backups[tag]
+	currentBackupState, present := client.Backups[string(backup.GetBackupTag())]
 	if present {
-		status.DestinationURL = backup.URL
-		status.Status.Running = backup.Running
-		status.BackupAgentsPaused = backup.Paused
-		status.SnapshotIntervalSeconds = backup.SnapshotPeriodSeconds
+		status.DestinationURL = currentBackupState.URL
+		status.Status.Running = currentBackupState.Running
+		status.BackupAgentsPaused = currentBackupState.Paused
+		status.SnapshotIntervalSeconds = currentBackupState.SnapshotPeriodSeconds
+		status.Tag = ptr.To(currentBackupState.Tag)
 	}
 
 	return status, nil
@@ -1021,6 +1028,7 @@ func (client *AdminClient) StartRestore(
 		return client.mockError
 	}
 
+	client.restoreDoesNotExist = false
 	client.restoreURL = url
 	return nil
 }
@@ -1032,6 +1040,10 @@ func (client *AdminClient) GetRestoreStatus() (string, error) {
 
 	if client.mockError != nil {
 		return "", client.mockError
+	}
+
+	if client.restoreDoesNotExist {
+		return "", fdbv1beta2.RestoreDoesNotExist{Err: fmt.Errorf("no restores found")}
 	}
 
 	if client.restoreURL == "" {
@@ -1184,6 +1196,15 @@ func (client *AdminClient) MockError(err error) {
 	client.mockError = err
 }
 
+// MockRestoreDoesNotExist makes GetRestoreStatus return a RestoreDoesNotExist error, mimicking the fdbrestore CLI
+// when no restore has ever been started for the cluster.
+func (client *AdminClient) MockRestoreDoesNotExist(doesNotExist bool) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	client.restoreDoesNotExist = doesNotExist
+}
+
 // SetLimitingDurabilityLag sets/mocks the limiting durability lag of any storage server in the cluster.
 func (client *AdminClient) SetLimitingDurabilityLag(lagInfo *fdbv1beta2.FoundationDBStatusLagInfo) {
 	adminClientMutex.Lock()
@@ -1237,7 +1258,7 @@ func (client *AdminClient) GetWorstDurabilityLag() (fdbv1beta2.FoundationDBStatu
 
 // WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 // arguments must be even.
-func (client *AdminClient) WithValues(_ ...interface{}) {}
+func (client *AdminClient) WithValues(_ ...any) {}
 
 // SetTimeout will overwrite the default timeout for interacting the FDB cluster.
 func (client *AdminClient) SetTimeout(_ time.Duration) {}
@@ -1248,9 +1269,7 @@ func (client *AdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Proces
 	// We have to create a copy here as the map will be a pointer.
 	res := make(map[fdbv1beta2.ProcessGroupID]int64, len(client.processesUnderMaintenance))
 
-	for processGroupID, timestamp := range client.processesUnderMaintenance {
-		res[processGroupID] = timestamp
-	}
+	maps.Copy(res, client.processesUnderMaintenance)
 
 	return res, nil
 }

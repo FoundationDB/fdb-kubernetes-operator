@@ -7,8 +7,9 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 
 * [BackupGenerationStatus](#backupgenerationstatus)
 * [BlobStoreConfiguration](#blobstoreconfiguration)
-* [FDBBackupDescribe](#fdbbackupdescribe)
 * [FoundationDBBackup](#foundationdbbackup)
+* [FoundationDBBackupDescribe](#foundationdbbackupdescribe)
+* [FoundationDBBackupDescribeVersionInfo](#foundationdbbackupdescribeversioninfo)
 * [FoundationDBBackupList](#foundationdbbackuplist)
 * [FoundationDBBackupSpec](#foundationdbbackupspec)
 * [FoundationDBBackupStatus](#foundationdbbackupstatus)
@@ -51,6 +52,12 @@ BackupState defines the desired state of a backup
 
 [Back to TOC](#table-of-contents)
 
+## BackupTag
+
+BackupTag defines the backup tag that should be used for the backup.
+
+[Back to TOC](#table-of-contents)
+
 ## BackupType
 
 BackupType defines the backup type that should be used for the backup.
@@ -70,20 +77,6 @@ BlobStoreConfiguration describes the blob store configuration.
 
 [Back to TOC](#table-of-contents)
 
-## FDBBackupDescribe
-
-FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| SchemaVersion | SchemaVersion is the version of the backup metadata schema. | *string | false |
-| URL | URL is the backup destination being described. | *string | false |
-| Restorable | Restorable indicates whether the backup is in a valid state and can be used to restore a database. | *bool | false |
-| Partitioned | Partitioned indicates if the partitioned_log backup system is used. | *bool | false |
-| FileLevelEncryption | FileLevelEncryption indicates whether file-level encryption is enabled for the backup data. | *bool | false |
-
-[Back to TOC](#table-of-contents)
-
 ## FoundationDBBackup
 
 FoundationDBBackup is the Schema for the foundationdbbackups API
@@ -93,6 +86,34 @@ FoundationDBBackup is the Schema for the foundationdbbackups API
 | metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta) | false |
 | spec |  | [FoundationDBBackupSpec](#foundationdbbackupspec) | false |
 | status |  | [FoundationDBBackupStatus](#foundationdbbackupstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBBackupDescribe
+
+FoundationDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| SchemaVersion | SchemaVersion is the version of the backup metadata schema. | *string | false |
+| URL | URL is the backup destination being described. | *string | false |
+| Restorable | Restorable indicates whether the backup is in a valid state and can be used to restore a database. | *bool | false |
+| Partitioned | Partitioned indicates if the partitioned_log backup system is used. Removed in 7.4.7. **Deprecated: use MutationLogType instead.** | *bool | false |
+| MutationLogType | MutationLogType indicates the MutationLogType that was used for the backup. | *string | false |
+| FileLevelEncryption | FileLevelEncryption indicates whether file-level encryption is enabled for the backup data. | *bool | false |
+| TotalSnapshotBytes | TotalSnapshotBytes is the total size in bytes of all snapshot files in the backup destination. Drops to zero once every snapshot covering the live restorable range has been expired. | *int64 | false |
+| MaxLogEnd | MaxLogEnd represents the maximum log end that is present in this backup. | *[FoundationDBBackupDescribeVersionInfo](#foundationdbbackupdescribeversioninfo) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBBackupDescribeVersionInfo
+
+FoundationDBBackupDescribeVersionInfo contains the version information for the various describe version information.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| Version | Version represents the internal FDB version (epoch). | *uint64 | false |
+| RelativeDays | RelativeDays represents the relative days as a floating number. | *float64 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -131,6 +152,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
 | deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
 | backupMode | BackupMode defines the backup mode that should be used for the backup. When the BackupMode is set to BackupModeOneTime, the backup will create a single snapshot and then stop. When set to BackupModeContinuous, the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds. Default: \"Continuous\". | *[BackupMode](#backupmode) | false |
+| tag | Tag defines the backup tag that should be used. Using different tags allows to have multiple backups for the same cluster. Default: \"default\". | *[BackupTag](#backuptag) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -158,6 +180,7 @@ FoundationDBBackupStatusBackupDetails provides information about the state of th
 | paused |  | bool | false |
 | snapshotTime |  | int | false |
 | restorable |  | bool | false |
+| tag |  | string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -174,6 +197,7 @@ FoundationDBLiveBackupStatus describes the live status of the backup for a clust
 | Restorable | Restorable if true, the backup can be restored | *bool | false |
 | LatestRestorablePoint | LatestRestorablePoint contains information about the latest restorable point if any exists. | *[LatestRestorablePoint](#latestrestorablepoint) | false |
 | UID | UID is the unique identifier of the backup. | *string | false |
+| Tag | Tag is the tag of the backup. | *string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -183,7 +207,9 @@ FoundationDBLiveBackupStatusState provides the state of a backup in the backup s
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
+| Name | Name is the name of the backup state. | string | false |
 | Running | Running determines whether the backup is currently running. | bool | false |
+| Completed | Completed determines whether the backup has completed. | bool | false |
 
 [Back to TOC](#table-of-contents)
 

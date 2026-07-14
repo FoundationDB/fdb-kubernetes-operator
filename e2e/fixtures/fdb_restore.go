@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -45,10 +46,21 @@ type FdbRestore struct {
 // For more information how the backup system with the operator is working please look at
 // the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/backup.md
 func (factory *Factory) CreateRestoreForCluster(
+	ctx context.Context,
 	backup *FdbBackup,
 	backupVersion *uint64,
 ) *FdbRestore {
 	gomega.Expect(backup).NotTo(gomega.BeNil())
+	// If a backup is still running or paused on this cluster the restore will be stuck in queued. The stop will
+	// discontinue the backup, which allows the restore to get started.
+	if backup.backup.Spec.BackupState != fdbv1beta2.BackupStateStopped {
+		log.Println(
+			"backup was not stopped, will stop backup before restore. Current desired state:",
+			backup.backup.Spec.BackupState,
+		)
+		backup.Stop(ctx)
+	}
+
 	restore := &FdbRestore{
 		restore: &fdbv1beta2.FoundationDBRestore{
 			ObjectMeta: metav1.ObjectMeta{
@@ -66,26 +78,26 @@ func (factory *Factory) CreateRestoreForCluster(
 		fdbCluster: backup.fdbCluster,
 	}
 
-	gomega.Expect(factory.CreateIfAbsent(restore.restore)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(factory.CreateIfAbsent(ctx, restore.restore)).NotTo(gomega.HaveOccurred())
 
 	factory.AddShutdownHook(func() error {
-		restore.Destroy()
+		restore.Destroy(context.Background())
 		return nil
 	})
 
-	restore.waitForRestoreToComplete(backup)
+	restore.waitForRestoreToComplete(ctx, backup)
 
 	return restore
 }
 
 // waitForRestoreToComplete waits until the restore completed.
-func (restore *FdbRestore) waitForRestoreToComplete(backup *FdbBackup) {
+func (restore *FdbRestore) waitForRestoreToComplete(ctx context.Context, backup *FdbBackup) {
 	ctrlClient := restore.fdbCluster.getClient()
 
 	lastReconcile := time.Now()
 	gomega.Eventually(func(g gomega.Gomega) fdbv1beta2.FoundationDBRestoreState {
 		currentRestore := &fdbv1beta2.FoundationDBRestore{}
-		g.Expect(ctrlClient.Get(context.Background(), client.ObjectKeyFromObject(restore.restore), currentRestore)).
+		g.Expect(ctrlClient.Get(ctx, client.ObjectKeyFromObject(restore.restore), currentRestore)).
 			To(gomega.Succeed())
 		log.Println("restore state:", currentRestore.Status.State)
 
@@ -103,12 +115,13 @@ func (restore *FdbRestore) waitForRestoreToComplete(backup *FdbBackup) {
 			// This will apply an Annotation to the object which will trigger the reconcile loop.
 			// This should speed up the reconcile phase.
 			gomega.Expect(ctrlClient.Patch(
-				context.Background(),
+				ctx,
 				currentRestore,
 				patch)).To(gomega.Succeed())
 
 			out, _, err := restore.fdbCluster.ExecuteCmdOnPod(
-				*backup.GetBackupPod(),
+				ctx,
+				*backup.GetBackupPod(ctx),
 				fdbv1beta2.MainContainerName,
 				"fdbrestore status --dest_cluster_file $FDB_CLUSTER_FILE",
 				false,
@@ -116,17 +129,20 @@ func (restore *FdbRestore) waitForRestoreToComplete(backup *FdbBackup) {
 
 			log.Println(out)
 			g.Expect(err).To(gomega.Succeed())
+
+			// Dump the operator state and logs.
+			restore.fdbCluster.factory.DumpOperatorLogs(ctx, restore.fdbCluster, ptr.To[int64](300))
 		}
 
 		return currentRestore.Status.State
-	}).WithTimeout(20 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Equal(fdbv1beta2.CompletedFoundationDBRestoreState))
+	}).WithTimeout(30 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Equal(fdbv1beta2.CompletedFoundationDBRestoreState))
 }
 
 // Destroy will delete the FoundationDBRestore for the associated FdbBackup if it exists.
-func (restore *FdbRestore) Destroy() {
+func (restore *FdbRestore) Destroy(ctx context.Context) {
 	gomega.Eventually(func(g gomega.Gomega) {
 		err := restore.fdbCluster.factory.GetControllerRuntimeClient().
-			Delete(context.Background(), restore.restore)
+			Delete(ctx, restore.restore)
 		if k8serrors.IsNotFound(err) {
 			return
 		}
@@ -138,7 +154,7 @@ func (restore *FdbRestore) Destroy() {
 	gomega.Eventually(func(g gomega.Gomega) {
 		currentRestore := &fdbv1beta2.FoundationDBRestore{}
 		err := restore.fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKeyFromObject(restore.restore), currentRestore)
+			Get(ctx, client.ObjectKeyFromObject(restore.restore), currentRestore)
 		g.Expect(k8serrors.IsNotFound(err)).To(gomega.BeTrue())
 	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
 }

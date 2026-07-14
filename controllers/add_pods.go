@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -144,7 +145,7 @@ func (a addPods) reconcile(
 
 		err = r.PodLifecycleManager.CreatePod(logr.NewContext(ctx, logger), r, pod)
 		if err != nil {
-			if internal.IsQuotaExceeded(err) {
+			if errors.IsQuotaExceeded(err) {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 

@@ -60,8 +60,7 @@ type FoundationDBClusterAutomationOptionsApplyConfiguration struct {
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
 	// DeletionMode defines the deletion mode for this cluster. This can be
 	// PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
-	// DeletionMode defines how Pods are deleted in order to update them or
-	// when they are removed.
+	// DeletionMode defines how Pods are deleted in order to update them.
 	DeletionMode *apiv1beta2.PodUpdateMode `json:"deletionMode,omitempty"`
 	// RemovalMode defines the removal mode for this cluster. This can be
 	// PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The

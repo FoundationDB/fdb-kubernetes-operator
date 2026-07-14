@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,10 +66,7 @@ func (a addProcessGroups) reconcile(
 
 	hasNewProcessGroups := false
 	for _, processClass := range fdbv1beta2.ProcessClasses {
-		desiredCount := desiredCounts[processClass]
-		if desiredCount < 0 {
-			desiredCount = 0
-		}
+		desiredCount := max(desiredCounts[processClass], 0)
 		newCount := desiredCount - processCounts[processClass]
 		if newCount <= 0 {
 			continue
@@ -98,7 +95,7 @@ func (a addProcessGroups) reconcile(
 			"AddingProcesses",
 			fmt.Sprintf("Adding %d %s processes", newCount, processClass),
 		)
-		for i := 0; i < newCount; i++ {
+		for range newCount {
 			processGroupID := cluster.GetNextRandomProcessGroupIDWithExclusions(
 				processClass,
 				processGroupIDs[processClass],

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 var _ = Describe("image setup", func() {
 	DescribeTable(
 		"when generating the sidecar image configuration",
-		func(factory *Factory, config *ClusterConfig, expected fdbv1beta2.ContainerOverrides) {
+		func(_ SpecContext, factory *Factory, config *ClusterConfig, expected fdbv1beta2.ContainerOverrides) {
 			result := factory.GetSidecarContainerOverrides(config)
 			Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))
 		},
@@ -253,7 +253,7 @@ var _ = Describe("image setup", func() {
 
 	DescribeTable(
 		"when generating the main image configuration",
-		func(factory *Factory, config *ClusterConfig, expected fdbv1beta2.ContainerOverrides) {
+		func(_ SpecContext, factory *Factory, config *ClusterConfig, expected fdbv1beta2.ContainerOverrides) {
 			result := factory.GetMainContainerOverrides(config)
 			Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))
 		},

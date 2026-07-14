@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -651,7 +652,6 @@ func analyzeStatusInternal(
 
 		foundIssues = true
 		addr := process.Address.StringWithoutFlags()
-		processesWithError = append(processesWithError, addr)
 		for _, message := range process.Messages {
 			printStatement(
 				cmd,
@@ -664,6 +664,16 @@ func analyzeStatusInternal(
 				errorMessage,
 			)
 		}
+
+		if autoFix && process.Address.IPAddress == nil {
+			cmd.Printf(
+				"Skipping auto-fix for process %s: address %q is not a valid IP\n",
+				process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+				addr,
+			)
+			continue
+		}
+		processesWithError = append(processesWithError, addr)
 	}
 
 	if len(processesWithError) > 0 && autoFix {
@@ -672,17 +682,30 @@ func analyzeStatusInternal(
 		for _, process := range processesWithError {
 			cmd.Println("Start killing", process)
 			killCmd := fmt.Sprintf("kill; kill %s; sleep 5; status", process)
-			_, stderr, err := kubeHelper.ExecuteCommandOnPod(
+			var stderr bytes.Buffer
+			// Use ExecuteCommandRaw (argv) here instead of ExecuteCommandOnPod. The latter wraps in
+			// bash -c, and the address comes from FDB's status JSON, so a shell metacharacter in
+			// there would let an attacker inject commands.
+			err := kubeHelper.ExecuteCommandRaw(
 				cmd.Context(),
 				kubeClient,
 				restConfig,
-				pod,
+				pod.Namespace,
+				pod.Name,
 				fdbv1beta2.MainContainerName,
-				fmt.Sprintf("fdbcli --exec '%s'", killCmd),
+				[]string{"fdbcli", "--exec", killCmd},
+				nil,
+				nil,
+				&stderr,
 				false,
 			)
 			if err != nil {
-				return fmt.Errorf("error killing process %s status: %s, %w", process, stderr, err)
+				return fmt.Errorf(
+					"error killing process %s status: %s, %w",
+					process,
+					stderr.String(),
+					err,
+				)
 			}
 			time.Sleep(5 * time.Second)
 		}

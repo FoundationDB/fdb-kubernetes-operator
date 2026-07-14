@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,23 +21,23 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
+	"k8s.io/utils/ptr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"context"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func reloadBackup(backup *fdbv1beta2.FoundationDBBackup) (int64, error) {
@@ -130,7 +130,7 @@ var _ = Describe("backup_controller", func() {
 			err = k8sClient.Get(
 				context.TODO(),
 				types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name},
-				cluster,
+				backup,
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -165,6 +165,7 @@ var _ = Describe("backup_controller", func() {
 						URL:                   "blobstore://test@test-service:443/test-backup?bucket=fdb-backups",
 						Running:               true,
 						SnapshotPeriodSeconds: 864000,
+						Tag:                   fdbv1beta2.DefaultBackupTagBackupTag,
 					},
 					Generations: fdbv1beta2.BackupGenerationStatus{
 						Reconciled: 1,
@@ -173,21 +174,21 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should start a backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(
 					status.DestinationURL,
 				).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
 				Expect(status.Status.Running).To(BeTrue())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
+				Expect(status.Tag).To(Equal(ptr.To("default")))
 			})
 		})
 
 		Context("with a nil backup agent count", func() {
 			BeforeEach(func() {
 				backup.Spec.AgentCount = nil
-				err = k8sClient.Update(context.TODO(), backup)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
 			})
 
 			It("should set the default replica count", func() {
@@ -223,7 +224,7 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should stop the backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.Status.Running).To(BeFalse())
 			})
@@ -236,7 +237,7 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should pause the backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.BackupAgentsPaused).To(BeTrue())
 			})
@@ -253,7 +254,7 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should resume the backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
 			})
@@ -268,7 +269,7 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should modify the backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				status, err := adminClient.GetBackupStatus(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.SnapshotIntervalSeconds).To(Equal(100000))
 			})
@@ -338,6 +339,36 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
+		When("a backup agent pod is stuck in a Failed state", func() {
+			BeforeEach(func(ctx SpecContext) {
+				generationGap = 0
+				setupUnreadyDeploymentWithTerminalPod(
+					ctx,
+					backup,
+					corev1.PodFailed,
+				)
+			})
+
+			It("should delete the terminal pod", func() {
+				expectNoTerminalBackupAgentPods(backup)
+			})
+		})
+
+		When("a backup agent pod completed but was not cleaned up", func() {
+			BeforeEach(func(ctx SpecContext) {
+				generationGap = 0
+				setupUnreadyDeploymentWithTerminalPod(
+					ctx,
+					backup,
+					corev1.PodSucceeded,
+				)
+			})
+
+			It("should delete the terminal pod", func() {
+				expectNoTerminalBackupAgentPods(backup)
+			})
+		})
+
 		When("providing custom parameters", func() {
 			BeforeEach(func() {
 				backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
@@ -372,7 +403,7 @@ var _ = Describe("backup_controller", func() {
 
 					// Backup should still be running (was started before switching to unmanaged)
 					// but operator won't manage it anymore
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(status.Status.Running).To(BeTrue())
 				})
@@ -387,7 +418,7 @@ var _ = Describe("backup_controller", func() {
 				})
 
 				It("should not modify the backup", func() {
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					// Should still be the original default value
 					Expect(status.SnapshotIntervalSeconds).To(Equal(864000))
@@ -403,7 +434,7 @@ var _ = Describe("backup_controller", func() {
 				})
 
 				It("should not modify the backup URL", func() {
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					// Should still be the original URL
 					Expect(
@@ -420,7 +451,7 @@ var _ = Describe("backup_controller", func() {
 				})
 
 				It("should not stop the backup", func() {
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					// Backup state should not be affected
 					Expect(status.Status.Running).To(BeTrue())
@@ -435,7 +466,7 @@ var _ = Describe("backup_controller", func() {
 				})
 
 				It("should not pause the backup", func() {
-					status, err := adminClient.GetBackupStatus()
+					status, err := adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(status.BackupAgentsPaused).To(BeFalse())
 				})
@@ -458,4 +489,154 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 	})
+
+	Describe("Reconciliation a cluster with a custom tag", func() {
+		var originalVersion int64
+		var generationGap int64
+		var reconcileError error
+		customTag := "custom"
+
+		BeforeEach(func() {
+			Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeZero())
+
+			generation, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).NotTo(Equal(int64(0)))
+
+			Expect(
+				k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name},
+					cluster,
+				),
+			).To(Succeed())
+
+			backup.Spec.Tag = ptr.To(fdbv1beta2.BackupTag(customTag))
+			Expect(k8sClient.Create(context.TODO(), backup)).To(Succeed())
+
+			result, err = reconcileBackup(backup)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeZero())
+
+			generation, err = reloadBackup(backup)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).NotTo(Equal(int64(0)))
+			Expect(
+				k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name},
+					cluster,
+				),
+			).To(Succeed())
+
+			originalVersion = backup.ObjectMeta.Generation
+			generationGap = 1
+		})
+
+		JustBeforeEach(func() {
+			result, err := reconcileBackup(backup)
+			reconcileError = err
+			if err == nil {
+				Expect(result.RequeueAfter).To(BeZero())
+				generation, genErr := reloadBackup(backup)
+				Expect(genErr).NotTo(HaveOccurred())
+				Expect(generation).To(Equal(originalVersion + generationGap))
+			}
+
+			Expect(k8sClient.Get(
+				context.TODO(),
+				types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name},
+				backup,
+			)).To(Succeed())
+		})
+
+		When("reconciling a new backup", func() {
+			BeforeEach(func() {
+				generationGap = 0
+			})
+
+			It("should update the status on the resource", func() {
+				Expect(reconcileError).NotTo(HaveOccurred())
+				Expect(backup.Status).To(Equal(fdbv1beta2.FoundationDBBackupStatus{
+					AgentCount:           3,
+					DeploymentConfigured: true,
+					BackupDetails: &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
+						URL:                   "blobstore://test@test-service:443/test-backup?bucket=fdb-backups",
+						Running:               true,
+						SnapshotPeriodSeconds: 864000,
+						Tag:                   customTag,
+					},
+					Generations: fdbv1beta2.BackupGenerationStatus{
+						Reconciled: 1,
+					},
+				}))
+			})
+
+			It("should start a backup", func() {
+				Expect(reconcileError).NotTo(HaveOccurred())
+				status, err := adminClient.GetBackupStatus(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(
+					status.DestinationURL,
+				).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
+				Expect(status.Status.Running).To(BeTrue())
+				Expect(status.BackupAgentsPaused).To(BeFalse())
+				Expect(status.Tag).To(Equal(ptr.To(customTag)))
+			})
+		})
+
+		When("the backup tag is changed", func() {
+			BeforeEach(func() {
+				generationGap = 0
+				backup.Spec.Tag = ptr.To[fdbv1beta2.BackupTag]("newtag")
+				Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+			})
+
+			It(
+				"should result in a reconciliation error and not change the current backup",
+				func() {
+					Expect(reconcileError).To(HaveOccurred())
+					// This will fetch the status for `newTag` which doesn't exist and will return an empty status.
+					status, err := adminClient.GetBackupStatus(backup)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(
+						status.DestinationURL,
+					).To(BeEmpty())
+					Expect(status.Status.Running).To(BeFalse())
+					Expect(status.BackupAgentsPaused).To(BeFalse())
+					Expect(status.Tag).To(BeNil())
+
+					// Reset the backup tag and fetch the status for the correct tag.
+					backup.Spec.Tag = ptr.To(fdbv1beta2.BackupTag(customTag))
+					status, err = adminClient.GetBackupStatus(backup)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(
+						status.DestinationURL,
+					).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
+					Expect(status.Status.Running).To(BeTrue())
+					Expect(status.BackupAgentsPaused).To(BeFalse())
+					Expect(status.Tag).To(Equal(ptr.To(customTag)))
+				},
+			)
+		})
+	})
 })
+
+// expectNoTerminalBackupAgentPods asserts that no Pod with the backup's deployment selector labels
+// remains in the namespace after reconciliation.
+func expectNoTerminalBackupAgentPods(backup *fdbv1beta2.FoundationDBBackup) {
+	podList := &corev1.PodList{}
+	Expect(k8sClient.List(
+		context.TODO(),
+		podList,
+		client.InNamespace(backup.Namespace),
+		client.MatchingLabels(map[string]string{
+			fdbv1beta2.BackupDeploymentPodLabel: internal.GetBackupDeploymentName(backup),
+		}),
+	)).To(Succeed())
+	Expect(podList.Items).To(BeEmpty())
+}

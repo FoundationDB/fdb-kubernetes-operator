@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,10 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"k8s.io/utils/ptr"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -94,6 +96,7 @@ func (u updateBackupAgents) reconcile(
 			return &requeue{curError: err}
 		}
 	}
+
 	if !needCreation && deployment != nil {
 		annotationChange := internal.MergeAnnotations(
 			&existingDeployment.ObjectMeta,
@@ -106,6 +109,62 @@ func (u updateBackupAgents) reconcile(
 			err = r.Update(ctx, deployment)
 			if err != nil {
 				return &requeue{curError: err}
+			}
+		}
+
+		if existingDeployment.Status.ReadyReplicas < existingDeployment.Status.Replicas {
+			backupAgentPods := &corev1.PodList{}
+			err = r.List(
+				ctx,
+				backupAgentPods,
+				client.InNamespace(backup.Namespace),
+				client.MatchingLabels(existingDeployment.Spec.Selector.MatchLabels),
+			)
+			if err != nil {
+				return &requeue{curError: err}
+			}
+
+			// minTimeTillNextDeletion keeps track of the minimum time the operator has to wait before it can delete a new pod that
+			// is stuck in a terminal state.
+			var minTimeTillNextDeletion time.Duration
+			for _, pod := range backupAgentPods.Items {
+				phase := pod.Status.Phase
+				reason := pod.Status.Reason
+				if phase != corev1.PodFailed && phase != corev1.PodSucceeded {
+					continue
+				}
+
+				remaining := time.Until(
+					pod.CreationTimestamp.Add(r.MinimumAgeForTerminalPodDeletion),
+				)
+				if remaining > 0 {
+					logger.Info("Pod in terminal state is too young to be deleted",
+						"pod", pod.Name,
+						"phase", phase,
+						"reason", reason,
+						"minimumAge", r.MinimumAgeForTerminalPodDeletion)
+					if minTimeTillNextDeletion == 0 || remaining < minTimeTillNextDeletion {
+						minTimeTillNextDeletion = remaining
+					}
+					continue
+				}
+
+				logger.Info("Deleting pod that is stuck in a terminal state",
+					"pod", pod.Name,
+					"phase", phase,
+					"reason", reason)
+				err = r.Delete(ctx, ptr.To(pod))
+				if err != nil {
+					return &requeue{curError: err}
+				}
+			}
+
+			if minTimeTillNextDeletion > 0 {
+				return &requeue{
+					message:        "pod in terminal state is too young to be deleted",
+					delay:          minTimeTillNextDeletion,
+					delayedRequeue: true,
+				}
 			}
 		}
 	}

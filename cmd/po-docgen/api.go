@@ -178,7 +178,7 @@ func fmtRawDoc(rawDoc string) string {
 	// Ignore all lines after ---
 	rawDoc = strings.Split(rawDoc, "---")[0]
 
-	for _, line := range strings.Split(rawDoc, "\n") {
+	for line := range strings.SplitSeq(rawDoc, "\n") {
 		line = strings.TrimRight(line, " ")
 		leading := strings.TrimLeft(line, " ")
 		switch {
@@ -237,7 +237,7 @@ func fieldName(field *ast.Field) string {
 	if field.Tag != nil {
 		jsonTag = reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1]).
 			Get("json")
-			// Delete first and last quotation
+		// Delete first and last quotation
 		if strings.Contains(jsonTag, "inline") {
 			return "-"
 		}
@@ -259,7 +259,7 @@ func fieldRequired(field *ast.Field) bool {
 	if field.Tag != nil {
 		jsonTag = reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1]).
 			Get("json")
-			// Delete first and last quotation
+		// Delete first and last quotation
 		return !strings.Contains(jsonTag, "omitempty")
 	}
 

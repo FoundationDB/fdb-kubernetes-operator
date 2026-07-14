@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-    foundationdb.org/release: v2.28.0
+    foundationdb.org/release: v2.32.0
   name: foundationdbbackups.apps.foundationdb.org
 spec:
   group: apps.foundationdb.org
@@ -30,6 +30,10 @@ spec:
       jsonPath: .status.backupDetails.restorable
       name: Restorable
       type: boolean
+    - description: The current backup tag
+      jsonPath: .status.backupDetails.tag
+      name: Tag
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -4026,6 +4030,12 @@ spec:
                 type: object
               snapshotPeriodSeconds:
                 type: integer
+              tag:
+                maxLength: 64
+                type: string
+                x-kubernetes-validations:
+                - message: BackupTag is immutable
+                  rule: self == oldSelf
               version:
                 type: string
             required:
@@ -4046,6 +4056,8 @@ spec:
                     type: boolean
                   snapshotTime:
                     type: integer
+                  tag:
+                    type: string
                   url:
                     type: string
                 type: object

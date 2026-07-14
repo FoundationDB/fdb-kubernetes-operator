@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 )
 
@@ -43,7 +44,7 @@ func (shutdown *ShutdownHooks) Defer(f func() error) {
 }
 
 // ToJSON tries to convert any object to a string representing the struct as JSON.
-func ToJSON(v interface{}) string {
+func ToJSON(v any) string {
 	s, err := json.Marshal(v)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return string(s)
@@ -79,6 +80,8 @@ func CheckInvariant(
 	var failureStartTime time.Time
 	var currentFailureDuration time.Duration
 	var longestFailureDuration time.Duration
+	// Handle failures in this call since we are calling a go routine. https://onsi.github.io/ginkgo/#mental-model-how-ginkgo-handles-failure
+	defer ginkgo.GinkgoRecover()
 
 	go func() {
 		defer waitGroup.Done()

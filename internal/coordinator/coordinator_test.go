@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -161,7 +161,7 @@ var _ = Describe("Change coordinators", func() {
 				It("should return always the same processes", func() {
 					initialCandidates := candidates
 
-					for i := 0; i < 100; i++ {
+					for range 100 {
 						newCandidates, err := selectCoordinatorsLocalities(
 							logr.Discard(),
 							cluster,
@@ -459,7 +459,7 @@ var _ = Describe("Change coordinators", func() {
 					It("should return always the same processes", func() {
 						initialCandidates := candidates
 
-						for i := 0; i < 100; i++ {
+						for range 100 {
 							newCandidates, err := selectCoordinatorsLocalities(
 								logr.Discard(),
 								cluster,
@@ -703,7 +703,7 @@ var _ = Describe("Change coordinators", func() {
 					It("should return always the same processes", func() {
 						initialCandidates := candidates
 
-						for i := 0; i < 100; i++ {
+						for range 100 {
 							newCandidates, err := selectCoordinatorsLocalities(
 								logr.Discard(),
 								cluster,
@@ -1124,7 +1124,7 @@ func generateProcessInfoForThreeDataHall(
 	res := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	logCnt := 4
 
-	for i := 0; i < dataHallCount; i++ {
+	for range dataHallCount {
 		dataHallID := internal.GenerateRandomString(10)
 		generateProcessInfoDetails(
 			res,
@@ -1158,7 +1158,7 @@ func generateProcessInfoDetails(
 	pClass fdbv1beta2.ProcessClass,
 	version string,
 ) {
-	for idx := 0; idx < cnt; idx++ {
+	for idx := range cnt {
 		excluded := false
 		var zoneID string
 

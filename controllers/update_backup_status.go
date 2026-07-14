@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/utils/ptr"
 
@@ -69,10 +70,10 @@ func (s updateBackupStatus) reconcile(
 	}
 
 	if currentBackupDeployment != nil && desiredBackupDeployment != nil {
-		status.AgentCount = int(currentBackupDeployment.Status.ReadyReplicas)
-		if status.AgentCount > int(currentBackupDeployment.Status.UpdatedReplicas) {
-			status.AgentCount = int(currentBackupDeployment.Status.UpdatedReplicas)
-		}
+		status.AgentCount = min(
+			int(currentBackupDeployment.Status.ReadyReplicas),
+			int(currentBackupDeployment.Status.UpdatedReplicas),
+		)
 		generationsMatch := currentBackupDeployment.Status.ObservedGeneration == currentBackupDeployment.ObjectMeta.Generation
 
 		annotationChange := internal.MergeAnnotations(
@@ -106,11 +107,12 @@ func (s updateBackupStatus) reconcile(
 		_ = adminClient.Close()
 	}()
 
-	liveStatus, err := adminClient.GetBackupStatus()
+	liveStatus, err := adminClient.GetBackupStatus(backup)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
+	originalStatus := backup.Status.DeepCopy()
 	status.BackupDetails = &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
 		URL:                   liveStatus.DestinationURL,
 		Running:               liveStatus.Status.Running,
@@ -119,7 +121,24 @@ func (s updateBackupStatus) reconcile(
 		Restorable:            ptr.Deref(liveStatus.Restorable, false),
 	}
 
-	originalStatus := backup.Status.DeepCopy()
+	// If the live status has a tag present we use the tag from the live status, otherwise we fall back to the
+	// previous tag. Since tags are immutable in fdbbackup both should always be the same.
+	if originalStatus.BackupDetails != nil {
+		status.BackupDetails.Tag = ptr.Deref(liveStatus.Tag, originalStatus.BackupDetails.Tag)
+	}
+
+	// Ensure that the tag was not changed, e.g. in a case where someone creates a new backup with the same name
+	// but a different tag.
+	if status.BackupDetails.Tag != "" &&
+		status.BackupDetails.Tag != string(backup.GetBackupTag()) {
+		return &requeue{
+			curError: fmt.Errorf(
+				"current tag: %s cannot be changed to %s, backup tags are immutable",
+				status.BackupDetails.Tag,
+				backup.GetBackupTag(),
+			),
+		}
+	}
 
 	backup.Status = status
 	_, err = backup.CheckReconciliation()

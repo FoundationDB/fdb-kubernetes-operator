@@ -79,6 +79,26 @@ apiVersion: apps/v1
                value: /usr/bin/fdb/primary/lib
 ```
 
+## Setting custom FDB client knobs
+
+A user can set custom FDB client knobs by using the environment variable `FDB_NETWORK_OPTION_KNOB`, the value would specify the knobs in the following format: `knob_name=knob_value`, multiple knobs can be added by using `:` as a separator.
+The following snippet shows how to set some networking knobs:
+
+```yaml
+    # In your operator deployment under the operator container spec
+    env:
+    - name: FDB_NETWORK_OPTION_KNOB
+      value: max_reconnection_time=20:reconnection_time_growth_rate=10:reconnection_reset_time=60
+```
+
+These knobs will be used by the FDB bindings and the `fdbcli` commands.
+A list of possible knobs can be found in the [FoundationDB repository](https://github.com/apple/foundationdb/blob/main/flow/Knobs.cpp#L49).
+The knob names must be lowercase.
+
+## Restricting Pod Template Modifications
+
+In multi-tenant environments where CR-write access is granted to less-trusted users, you can restrict which `podTemplate` fields those users may set. See [Restricting Pod Template Modifications](pod_template_restrictions.md) for the full configuration reference.
+
 ## Next
 
 You can continue on to the [next section](replacements_and_deletions.md) or go back to the [table of contents](index.md).

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 package fixtures
 
 import (
+	"context"
 	"strconv"
 
 	"k8s.io/utils/ptr"
@@ -45,6 +46,7 @@ func ensurePodPhaseSelectorIsSet(selector *chaosmesh.PodSelectorSpec) {
 
 // InjectNetworkLoss injects network loss between the source and the target.
 func (factory *Factory) InjectNetworkLoss(
+	ctx context.Context,
 	lossPercentage string,
 	source chaosmesh.PodSelectorSpec,
 	target chaosmesh.PodSelectorSpec,
@@ -53,49 +55,54 @@ func (factory *Factory) InjectNetworkLoss(
 	ensurePodPhaseSelectorIsSet(&source)
 	ensurePodPhaseSelectorIsSet(&target)
 
-	return factory.CreateExperiment(&chaosmesh.NetworkChaos{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      factory.RandStringRunes(32),
-			Namespace: factory.GetChaosNamespace(),
-			Labels:    factory.GetDefaultLabels(),
-		},
-		Spec: chaosmesh.NetworkChaosSpec{
-			Action:   chaosmesh.LossAction,
-			Duration: ptr.To(ChaosDurationForever),
-			PodSelector: chaosmesh.PodSelector{
-				Selector: source,
-				Mode:     chaosmesh.AllMode,
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.NetworkChaos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      factory.RandStringRunes(32),
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
 			},
-			Target: &chaosmesh.PodSelector{
-				Mode:     chaosmesh.AllMode,
-				Selector: target,
-			},
-			Direction: direction,
-			TcParameter: chaosmesh.TcParameter{
-				Loss: &chaosmesh.LossSpec{
-					Loss:        lossPercentage,
-					Correlation: lossPercentage,
+			Spec: chaosmesh.NetworkChaosSpec{
+				Action:   chaosmesh.LossAction,
+				Duration: ptr.To(ChaosDurationForever),
+				PodSelector: chaosmesh.PodSelector{
+					Selector: source,
+					Mode:     chaosmesh.AllMode,
+				},
+				Target: &chaosmesh.PodSelector{
+					Mode:     chaosmesh.AllMode,
+					Selector: target,
+				},
+				Direction: direction,
+				TcParameter: chaosmesh.TcParameter{
+					Loss: &chaosmesh.LossSpec{
+						Loss:        lossPercentage,
+						Correlation: lossPercentage,
+					},
 				},
 			},
-		},
-	})
+		})
 }
 
 // InjectNetworkLossBetweenPods Injects network loss b/w each combination of podGroups.
 func (factory *Factory) InjectNetworkLossBetweenPods(
+	ctx context.Context,
 	pods []chaosmesh.PodSelectorSpec,
 	loss string,
 ) {
 	count := len(pods)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		for j := i + 1; j < count; j++ {
-			factory.InjectNetworkLoss(loss, pods[i], pods[j], chaosmesh.Both)
+			factory.InjectNetworkLoss(ctx, loss, pods[i], pods[j], chaosmesh.Both)
 		}
 	}
 }
 
 // InjectPartition injects a partition to the provided selector.
-func (factory *Factory) InjectPartition(selector chaosmesh.PodSelectorSpec) *ChaosMeshExperiment {
+func (factory *Factory) InjectPartition(
+	ctx context.Context,
+	selector chaosmesh.PodSelectorSpec,
+) *ChaosMeshExperiment {
 	namespaces := make([]string, 0, len(selector.Pods))
 	for namespace := range selector.Pods {
 		namespaces = append(namespaces, namespace)
@@ -108,38 +115,42 @@ func (factory *Factory) InjectPartition(selector chaosmesh.PodSelectorSpec) *Cha
 		},
 	}
 
-	return factory.InjectPartitionBetween(selector, target)
+	return factory.InjectPartitionBetween(ctx, selector, target)
 }
 
 // InjectPartitionWithExternalTargets injects a partition to the provided selector with the external targets
 func (factory *Factory) InjectPartitionWithExternalTargets(
+	ctx context.Context,
 	selector chaosmesh.PodSelectorSpec,
 	externalTargets []string,
 ) *ChaosMeshExperiment {
-	return factory.injectPartitionBetween(selector, nil, chaosmesh.Both, externalTargets)
+	return factory.injectPartitionBetween(ctx, selector, nil, chaosmesh.Both, externalTargets)
 }
 
 // InjectPartitionBetween injects a partition between the source and the target.
 func (factory *Factory) InjectPartitionBetween(
+	ctx context.Context,
 	source chaosmesh.PodSelectorSpec,
 	target chaosmesh.PodSelectorSpec,
 ) *ChaosMeshExperiment {
-	return factory.InjectPartitionBetweenWithDirection(source, target, chaosmesh.Both)
+	return factory.InjectPartitionBetweenWithDirection(ctx, source, target, chaosmesh.Both)
 }
 
 // InjectPartitionBetweenWithDirection injects a partition between the source and the target for the specified direction.
 func (factory *Factory) InjectPartitionBetweenWithDirection(
+	ctx context.Context,
 	source chaosmesh.PodSelectorSpec,
 	target chaosmesh.PodSelectorSpec,
 	direction chaosmesh.Direction,
 ) *ChaosMeshExperiment {
-	return factory.injectPartitionBetween(source, &chaosmesh.PodSelector{
+	return factory.injectPartitionBetween(ctx, source, &chaosmesh.PodSelector{
 		Mode:     chaosmesh.AllMode,
 		Selector: target,
 	}, direction, nil)
 }
 
 func (factory *Factory) injectPartitionBetween(
+	ctx context.Context,
 	source chaosmesh.PodSelectorSpec,
 	target *chaosmesh.PodSelector,
 	direction chaosmesh.Direction,
@@ -150,34 +161,36 @@ func (factory *Factory) injectPartitionBetween(
 		ensurePodPhaseSelectorIsSet(&target.Selector)
 	}
 
-	return factory.CreateExperiment(&chaosmesh.NetworkChaos{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      factory.RandStringRunes(32),
-			Namespace: factory.GetChaosNamespace(),
-			Labels:    factory.GetDefaultLabels(),
-		},
-		Spec: chaosmesh.NetworkChaosSpec{
-			Action:   chaosmesh.PartitionAction,
-			Duration: ptr.To(ChaosDurationForever),
-			PodSelector: chaosmesh.PodSelector{
-				Selector: source,
-				Mode:     chaosmesh.AllMode,
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.NetworkChaos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      factory.RandStringRunes(32),
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
 			},
-			Target:          target,
-			Direction:       direction,
-			ExternalTargets: externalTargets,
-		},
-	})
+			Spec: chaosmesh.NetworkChaosSpec{
+				Action:   chaosmesh.PartitionAction,
+				Duration: ptr.To(ChaosDurationForever),
+				PodSelector: chaosmesh.PodSelector{
+					Selector: source,
+					Mode:     chaosmesh.AllMode,
+				},
+				Target:          target,
+				Direction:       direction,
+				ExternalTargets: externalTargets,
+			},
+		})
 }
 
 // InjectPartitionOnSomeTargetPods injects a partition on some Pods instead of all Pods.
 // It picks a specific number of pods randomly. If the specified "fixedNumber" is greater than the number of all targets, all targets will be chosen.
 func (factory *Factory) InjectPartitionOnSomeTargetPods(
+	ctx context.Context,
 	source chaosmesh.PodSelectorSpec,
 	target chaosmesh.PodSelectorSpec,
 	fixedNumber int,
 ) *ChaosMeshExperiment {
-	return factory.injectPartitionBetween(source, &chaosmesh.PodSelector{
+	return factory.injectPartitionBetween(ctx, source, &chaosmesh.PodSelector{
 		Mode:     chaosmesh.FixedMode,
 		Value:    strconv.Itoa(fixedNumber),
 		Selector: target,
@@ -186,6 +199,7 @@ func (factory *Factory) InjectPartitionOnSomeTargetPods(
 
 // InjectNetworkLatency injects network latency between the source and the target.
 func (factory *Factory) InjectNetworkLatency(
+	ctx context.Context,
 	source chaosmesh.PodSelectorSpec,
 	target chaosmesh.PodSelectorSpec,
 	direction chaosmesh.Direction,
@@ -194,27 +208,28 @@ func (factory *Factory) InjectNetworkLatency(
 	ensurePodPhaseSelectorIsSet(&source)
 	ensurePodPhaseSelectorIsSet(&target)
 
-	return factory.CreateExperiment(&chaosmesh.NetworkChaos{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      factory.RandStringRunes(32),
-			Namespace: factory.GetChaosNamespace(),
-			Labels:    factory.GetDefaultLabels(),
-		},
-		Spec: chaosmesh.NetworkChaosSpec{
-			Action:   chaosmesh.DelayAction,
-			Duration: ptr.To(ChaosDurationForever),
-			PodSelector: chaosmesh.PodSelector{
-				Selector: source,
-				Mode:     chaosmesh.AllMode,
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.NetworkChaos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      factory.RandStringRunes(32),
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
 			},
-			Target: &chaosmesh.PodSelector{
-				Mode:     chaosmesh.AllMode,
-				Selector: target,
+			Spec: chaosmesh.NetworkChaosSpec{
+				Action:   chaosmesh.DelayAction,
+				Duration: ptr.To(ChaosDurationForever),
+				PodSelector: chaosmesh.PodSelector{
+					Selector: source,
+					Mode:     chaosmesh.AllMode,
+				},
+				Target: &chaosmesh.PodSelector{
+					Mode:     chaosmesh.AllMode,
+					Selector: target,
+				},
+				Direction: direction,
+				TcParameter: chaosmesh.TcParameter{
+					Delay: delay,
+				},
 			},
-			Direction: direction,
-			TcParameter: chaosmesh.TcParameter{
-				Delay: delay,
-			},
-		},
-	})
+		})
 }

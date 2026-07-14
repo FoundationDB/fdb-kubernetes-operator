@@ -1,9 +1,9 @@
 /*
- * operator_test_three_data_hall.go
+ * operator_three_data_hall_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,26 +50,30 @@ func init() {
 	testOptions = fixtures.InitFlags()
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
 	config := fixtures.DefaultClusterConfig(false)
 	config.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
 	config.UseUnifiedImage = ptr.To(true)
 
-	fdbCluster = factory.CreateFdbCluster(
+	fdbCluster = factory.CreateFdbCluster(ctx,
 		config,
 	)
 
 	// Make sure that the test suite is able to fetch logs from Pods.
-	operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.Namespace()).Items)
-	Expect(factory.GetLogsForPod(&operatorPod, "manager", nil)).NotTo(BeEmpty())
+	operatorPod := factory.RandomPickOnePod(
+		factory.GetOperatorPods(ctx, fdbCluster.Namespace()).Items,
+	)
+	Expect(
+		factory.GetLogsForPod(ctx, &operatorPod, "manager", nil),
+	).NotTo(BeEmpty())
 
 	// Load some data async into the cluster. We will only block as long as the Job is created.
-	factory.CreateDataLoaderIfAbsent(fdbCluster)
+	factory.CreateDataLoaderIfAbsent(ctx, fdbCluster)
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {
-		scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
+		scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(ctx,
 			fixtures.GetOperatorSelector(fdbCluster.Namespace()),
 			"*/2 * * * *",
 			chaosmesh.OneMode,
@@ -78,28 +82,28 @@ var _ = BeforeSuite(func() {
 	}
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	if CurrentSpecReport().Failed() {
 		log.Printf("failed due to %s", CurrentSpecReport().FailureMessage())
 	}
-	factory.Shutdown()
+	factory.Shutdown(ctx)
 })
 
 // TODO (johscheuer): Add those tests later again to the e2e pipeline.
 var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 	var availabilityCheck bool
 
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		// Reset availabilityCheck if a test case removes this check.
 		availabilityCheck = true
 		if CurrentSpecReport().Failed() {
-			factory.DumpState(fdbCluster)
+			factory.DumpState(ctx, fdbCluster)
 		}
-		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
+		Expect(fdbCluster.WaitForReconciliation(ctx)).ToNot(HaveOccurred())
 		factory.StopInvariantCheck()
 		// Make sure all data is present in the cluster
-		fdbCluster.EnsureTeamTrackersAreHealthy()
-		fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+		fdbCluster.EnsureTeamTrackersAreHealthy(ctx)
+		fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 	})
 
 	JustBeforeEach(func() {
@@ -109,8 +113,8 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 		}
 	})
 
-	It("should bring up the cluster with three data hall redundancy", func() {
-		status := fdbCluster.GetStatus()
+	It("should bring up the cluster with three data hall redundancy", func(ctx SpecContext) {
+		status := fdbCluster.GetStatus(ctx)
 		Expect(
 			status.Cluster.DatabaseConfiguration.RedundancyMode,
 		).To(Equal(fdbv1beta2.RedundancyModeThreeDataHall))
@@ -123,9 +127,9 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 		var replacedPod corev1.Pod
 		var useLocalitiesForExclusion bool
 
-		JustBeforeEach(func() {
-			initialPods := fdbCluster.GetLogPods()
-			coordinators := fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus())
+		JustBeforeEach(func(ctx SpecContext) {
+			initialPods := fdbCluster.GetLogPods(ctx)
+			coordinators := fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx))
 
 			for _, pod := range initialPods.Items {
 				_, isCoordinator := coordinators[string(fixtures.GetProcessGroupID(pod))]
@@ -141,36 +145,36 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 			}
 
 			log.Println("coordinators:", coordinators, "replacedPod", replacedPod.Name)
-			fdbCluster.ReplacePod(replacedPod, true)
+			fdbCluster.ReplacePod(ctx, replacedPod, true)
 		})
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
 			// See: https://github.com/apple/foundationdb/issues/11222
 			// We can remove this once 7.1 is the default version.
-			factory.DeleteChaosMeshExperiment(scheduleInjectPodKill)
-			useLocalitiesForExclusion = fdbCluster.GetCluster().UseLocalitiesForExclusion()
+			factory.DeleteChaosMeshExperiment(ctx, scheduleInjectPodKill)
+			useLocalitiesForExclusion = fdbCluster.GetCluster(ctx).UseLocalitiesForExclusion()
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+		AfterEach(func(ctx SpecContext) {
+			Expect(fdbCluster.ClearProcessGroupsToRemove(ctx)).NotTo(HaveOccurred())
 			// Make sure we reset the previous behaviour.
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 				useLocalitiesForExclusion,
 			)
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 			Expect(
-				fdbCluster.GetCluster().UseLocalitiesForExclusion(),
+				fdbCluster.GetCluster(ctx).UseLocalitiesForExclusion(),
 			).To(Equal(useLocalitiesForExclusion))
 
 			// Making sure we included back all the process groups after exclusion is complete.
 			Expect(
-				fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers,
+				fdbCluster.GetStatus(ctx).Cluster.DatabaseConfiguration.ExcludedServers,
 			).To(BeEmpty())
 
 			if factory.ChaosTestsEnabled() {
-				scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
+				scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(ctx,
 					fixtures.GetOperatorSelector(fdbCluster.Namespace()),
 					"*/2 * * * *",
 					chaosmesh.OneMode,
@@ -180,21 +184,21 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 		})
 
 		When("IP addresses are used for exclusion", func() {
-			BeforeEach(func() {
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			BeforeEach(func(ctx SpecContext) {
+				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
-				Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(BeFalse())
+				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+				Expect(fdbCluster.GetCluster(ctx).UseLocalitiesForExclusion()).To(BeFalse())
 			})
 
-			It("should remove the targeted Pod", func() {
-				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+			It("should remove the targeted Pod", func(ctx SpecContext) {
+				fdbCluster.EnsurePodIsDeleted(ctx, replacedPod.Name)
 			})
 		})
 
 		When("localities are used for exclusion", func() {
-			BeforeEach(func() {
-				cluster := fdbCluster.GetCluster()
+			BeforeEach(func(ctx SpecContext) {
+				cluster := fdbCluster.GetCluster(ctx)
 
 				fdbVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 				Expect(err).NotTo(HaveOccurred())
@@ -207,18 +211,18 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 
 				spec := cluster.Spec.DeepCopy()
 				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
-				Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
+				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+				Expect(fdbCluster.GetCluster(ctx).UseLocalitiesForExclusion()).To(BeTrue())
 			})
 
-			It("should remove the targeted Pod", func() {
+			It("should remove the targeted Pod", func(ctx SpecContext) {
 				Expect(
 					ptr.Deref(
-						fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion,
+						fdbCluster.GetCluster(ctx).Spec.AutomationOptions.UseLocalitiesForExclusion,
 						false,
 					),
 				).To(BeTrue())
-				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+				fdbCluster.EnsurePodIsDeleted(ctx, replacedPod.Name)
 			})
 		})
 	})

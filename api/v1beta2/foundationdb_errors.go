@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,12 +41,25 @@ type BackupNotRunning struct {
 	Err error
 }
 
+// RestoreDoesNotExist represents an error for the restore command when the targeted restore does not exist.
+// +k8s:deepcopy-gen=false
+type RestoreDoesNotExist struct {
+	Err error
+}
+
 // SpecialKeysAPIFailureError represents the error when an Api call through special keys failed.
 // For more information, call get on special key 0xff0xff/error_message to get a json string of the error message.
 // See: https://github.com/apple/foundationdb/blob/main/flow/include/flow/error_definitions.h
 // +k8s:deepcopy-gen=false
 type SpecialKeysAPIFailureError struct {
 	Err error
+	// Retriable is true if the special key error_message reported that this operation can be retried.
+	Retriable bool
+}
+
+// Unwrap returns the underlying error, allowing errors.As/errors.Is to see through to e.g. the raw fdb.Error.
+func (err SpecialKeysAPIFailureError) Unwrap() error {
+	return err.Err
 }
 
 // Error returns the error message of the internal timeout error.
@@ -67,4 +80,20 @@ func (err BackupNotRunning) Error() string {
 // Error returns the error message from a failed Api call through special keys.
 func (err SpecialKeysAPIFailureError) Error() string {
 	return fmt.Sprintf("fdb special_keys_api_failure: %s", err.Err.Error())
+}
+
+// Error returns the error message of the fdbrestore command if no restore is present.
+func (err RestoreDoesNotExist) Error() string {
+	return fmt.Sprintf("fdb restore does not exist: %s", err.Err.Error())
+}
+
+// ManagementAPIError represents the ManagementAPIError from the FDB management API.
+// +k8s:deepcopy-gen=false
+type ManagementAPIError struct {
+	// Retriable true if the error can be retried.
+	Retriable *bool `json:"retriable,omitempty"`
+	// Command the command that was tried to be executed.
+	Command *string `json:"command,omitempty"`
+	// Message the error message.
+	Message *string `json:"message,omitempty"`
 }

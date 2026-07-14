@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 package fixtures
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand/v2"
@@ -170,23 +171,25 @@ func (haFDBCluster *HaFdbCluster) GetNamespaceSelector() chaosmesh.PodSelectorSp
 
 // SetDatabaseConfiguration sets the new DatabaseConfiguration, without waiting for reconciliation.
 func (haFDBCluster *HaFdbCluster) SetDatabaseConfiguration(
+	ctx context.Context,
 	config fdbv1beta2.DatabaseConfiguration,
 ) {
 	for _, fdbCluster := range haFDBCluster.clusters {
-		gomega.Expect(fdbCluster.SetDatabaseConfiguration(config, false)).
+		gomega.Expect(fdbCluster.SetDatabaseConfiguration(ctx, config, false)).
 			NotTo(gomega.HaveOccurred())
 	}
 }
 
 // WaitForReconciliation waits for all associated FoundationDBClusters to be reconciled
 func (haFDBCluster *HaFdbCluster) WaitForReconciliation(
+	ctx context.Context,
 	options ...func(*ReconciliationOptions),
 ) error {
 	g := new(errgroup.Group)
 	for _, cluster := range haFDBCluster.GetAllClusters() {
 		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
-			return singleCluster.WaitForReconciliation(options...)
+			return singleCluster.WaitForReconciliation(ctx, options...)
 		})
 	}
 
@@ -194,12 +197,14 @@ func (haFDBCluster *HaFdbCluster) WaitForReconciliation(
 }
 
 func (factory *Factory) createHaFdbClusterSpec(
+	ctx context.Context,
 	config *ClusterConfig,
 	dcID string,
 	seedConnection string,
 	databaseConfiguration *fdbv1beta2.DatabaseConfiguration,
 ) *fdbv1beta2.FoundationDBCluster {
 	cluster := factory.createFDBClusterSpec(
+		ctx,
 		config,
 		*databaseConfiguration,
 	)
@@ -212,19 +217,24 @@ func (factory *Factory) createHaFdbClusterSpec(
 }
 
 // Delete removes all Clusters associated FoundationDBClusters.
-func (haFDBCluster *HaFdbCluster) Delete() {
+func (haFDBCluster *HaFdbCluster) Delete(ctx context.Context) {
 	for _, cluster := range haFDBCluster.GetAllClusters() {
-		gomega.Expect(cluster.Destroy()).NotTo(gomega.HaveOccurred())
+		gomega.Expect(cluster.Destroy(ctx)).NotTo(gomega.HaveOccurred())
 	}
 }
 
 // UpgradeCluster upgrades the HA FoundationDBCluster to the specified version.
-func (haFDBCluster *HaFdbCluster) UpgradeCluster(version string, waitForReconciliation bool) error {
-	return haFDBCluster.UpgradeClusterWithTimeout(version, waitForReconciliation, 0)
+func (haFDBCluster *HaFdbCluster) UpgradeCluster(
+	ctx context.Context,
+	version string,
+	waitForReconciliation bool,
+) error {
+	return haFDBCluster.UpgradeClusterWithTimeout(ctx, version, waitForReconciliation, 0)
 }
 
 // UpgradeClusterWithTimeout upgrades the HA FoundationDBCluster to the specified version with the provided timeout.
 func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
+	ctx context.Context,
 	version string,
 	waitForReconciliation bool,
 	timeout int,
@@ -238,7 +248,7 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 	})
 
 	for _, cluster := range clusters {
-		curCluster := cluster.GetCluster()
+		curCluster := cluster.GetCluster(ctx)
 
 		generation := curCluster.ObjectMeta.Generation
 		// Only increase the expected generation if the cluster is not already upgraded.
@@ -249,7 +259,7 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 		expectedGenerations[cluster.Name()] = generation
 		cluster.cluster = curCluster
 
-		err := cluster.UpgradeCluster(version, false)
+		err := cluster.UpgradeCluster(ctx, version, false)
 		if err != nil {
 			return err
 		}
@@ -268,6 +278,7 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
 			return singleCluster.WaitForReconciliation(
+				ctx,
 				MinimumGenerationOption(expectedGenerations[singleCluster.Name()]),
 				TimeOutInSecondsOption(timeout),
 				PollTimeInSecondsOption(30),
@@ -279,14 +290,15 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 }
 
 // DumpState logs the current state of all FoundationDBClusters.
-func (haFDBCluster *HaFdbCluster) DumpState() {
+func (haFDBCluster *HaFdbCluster) DumpState(ctx context.Context) {
 	for _, cluster := range haFDBCluster.clusters {
-		cluster.factory.DumpState(cluster)
+		cluster.factory.DumpState(ctx, cluster)
 	}
 }
 
 // SetCustomParameters sets the custom parameters for the provided process class.
 func (haFDBCluster *HaFdbCluster) SetCustomParameters(
+	ctx context.Context,
 	customParameters map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters,
 	waitForReconcile bool,
 ) error {
@@ -294,7 +306,7 @@ func (haFDBCluster *HaFdbCluster) SetCustomParameters(
 	for _, cluster := range haFDBCluster.clusters {
 		clusterCopy := cluster
 		wg.Go(func() error {
-			return clusterCopy.SetCustomParameters(customParameters, false)
+			return clusterCopy.SetCustomParameters(ctx, customParameters, false)
 		})
 	}
 
@@ -311,7 +323,7 @@ func (haFDBCluster *HaFdbCluster) SetCustomParameters(
 	for _, cluster := range haFDBCluster.clusters {
 		clusterCopy := cluster
 		reconcileWg.Go(func() error {
-			return clusterCopy.WaitForReconciliation()
+			return clusterCopy.WaitForReconciliation(ctx)
 		})
 	}
 
@@ -322,12 +334,13 @@ func (haFDBCluster *HaFdbCluster) SetCustomParameters(
 // Before that we checked the cluster status json by checking the reported version of all processes. This approach only worked for
 // version compatible upgrades, since incompatible processes won't be part of the cluster anyway. To simplify the check
 // we verify the reported running version from the operator.
-func (haFDBCluster *HaFdbCluster) VerifyVersion(version string) {
+func (haFDBCluster *HaFdbCluster) VerifyVersion(ctx context.Context, version string) {
 	g := new(errgroup.Group)
 	for _, cluster := range haFDBCluster.GetAllClusters() {
 		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
 			return singleCluster.WaitUntilWithForceReconcile(
+				ctx,
 				2,
 				600,
 				func(cluster *fdbv1beta2.FoundationDBCluster) bool {

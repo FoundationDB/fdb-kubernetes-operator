@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,11 @@ func (factory *Factory) getRandomizedNamespaceName() string {
 }
 
 // MultipleNamespaces creates multiple namespaces for HA testing.
-func (factory *Factory) MultipleNamespaces(config *ClusterConfig, dcIDs []string) []string {
+func (factory *Factory) MultipleNamespaces(
+	ctx context.Context,
+	config *ClusterConfig,
+	dcIDs []string,
+) []string {
 	// If a namespace is provided in the config we will use this name as prefix.
 	if config.Namespace != "" {
 		factory.namespace = config.Namespace
@@ -65,19 +69,19 @@ func (factory *Factory) MultipleNamespaces(config *ClusterConfig, dcIDs []string
 
 	factory.namespaces = make([]string, len(dcIDs))
 	for idx, dcID := range dcIDs {
-		factory.namespaces[idx] = factory.createNamespace(dcID)
+		factory.namespaces[idx] = factory.createNamespace(ctx, dcID)
 	}
 
 	return factory.namespaces
 }
 
 // SingleNamespace returns a single namespace.
-func (factory *Factory) SingleNamespace() string {
+func (factory *Factory) SingleNamespace(ctx context.Context) string {
 	if len(factory.namespaces) > 0 {
 		return factory.namespaces[0]
 	}
 
-	namespace := factory.createNamespace("")
+	namespace := factory.createNamespace(ctx, "")
 	if len(factory.namespaces) == 0 {
 		factory.namespaces = append(factory.namespaces, namespace)
 	}
@@ -85,7 +89,7 @@ func (factory *Factory) SingleNamespace() string {
 	return namespace
 }
 
-func (factory *Factory) createNamespace(suffix string) string {
+func (factory *Factory) createNamespace(ctx context.Context, suffix string) string {
 	var namespace string
 	gomega.Eventually(func(g gomega.Gomega) error {
 		namespace = factory.namespace
@@ -100,15 +104,15 @@ func (factory *Factory) createNamespace(suffix string) string {
 
 		g.Expect(len(namespace)).To(gomega.BeNumerically("<=", 63))
 
-		err := factory.checkIfNamespaceIsTerminating(namespace)
+		err := factory.checkIfNamespaceIsTerminating(ctx, namespace)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		err = factory.ensureNamespaceExists(namespace)
+		err = factory.ensureNamespaceExists(ctx, namespace)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		namespaceResource := &corev1.Namespace{}
 		err = factory.controllerRuntimeClient.Get(
-			context.Background(),
+			ctx,
 			client.ObjectKey{Namespace: "", Name: namespace},
 			namespaceResource,
 		)
@@ -133,7 +137,7 @@ func (factory *Factory) createNamespace(suffix string) string {
 	secret := factory.getCertificate()
 	secret.SetNamespace(namespace)
 	secret.SetResourceVersion("")
-	gomega.Expect(factory.CreateIfAbsent(secret)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(factory.CreateIfAbsent(ctx, secret)).NotTo(gomega.HaveOccurred())
 
 	// Create the backup credentials for backup related operations.
 	backupCredentials := &corev1.Secret{
@@ -154,13 +158,13 @@ func (factory *Factory) createNamespace(suffix string) string {
 }`,
 		},
 	}
-	gomega.Expect(factory.CreateIfAbsent(backupCredentials)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(factory.CreateIfAbsent(ctx, backupCredentials)).NotTo(gomega.HaveOccurred())
 
 	// Create the encryption key secret for backup encryption operations.
-	factory.CreateEncryptionKeySecret(namespace)
+	factory.CreateEncryptionKeySecret(ctx, namespace)
 
-	factory.ensureRBACSetupExists(namespace)
-	gomega.Expect(factory.ensureFDBOperatorExists(namespace)).ToNot(gomega.HaveOccurred())
+	factory.ensureRBACSetupExists(ctx, namespace)
+	gomega.Expect(factory.ensureFDBOperatorExists(ctx, namespace)).ToNot(gomega.HaveOccurred())
 	log.Printf("using namespace %s for testing", namespace)
 	factory.AddShutdownHook(func() error {
 		log.Printf("finished all tests, start deleting namespace %s\n", namespace)
@@ -177,7 +181,7 @@ func (factory *Factory) createNamespace(suffix string) string {
 			for _, pod := range podList.Items {
 				if len(pod.Finalizers) > 0 {
 					log.Printf("Removing finalizer from Pod %s/%s\n", namespace, pod.Name)
-					factory.SetFinalizerForPod(&pod, []string{})
+					factory.SetFinalizerForPod(context.Background(), &pod, []string{})
 				}
 			}
 
@@ -216,7 +220,7 @@ func (factory *Factory) createNamespace(suffix string) string {
 			}
 		}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Succeed())
 
-		factory.Delete(&corev1.Namespace{
+		factory.Delete(context.Background(), &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
@@ -230,11 +234,11 @@ func (factory *Factory) createNamespace(suffix string) string {
 
 // checkIfNamespaceIsTerminating will check if the namespace has a deletionTimestamp set. If so this method will wait
 // up to 5 minutes until the namespace is deleted to prevent race conditions.
-func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
+func (factory *Factory) checkIfNamespaceIsTerminating(ctx context.Context, name string) error {
 	controllerClient := factory.GetControllerRuntimeClient()
 
 	namespace := &corev1.Namespace{}
-	err := controllerClient.Get(context.Background(), client.ObjectKey{Name: name}, namespace)
+	err := controllerClient.Get(ctx, client.ObjectKey{Name: name}, namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -262,7 +266,7 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 		deletionTimestamp.String(),
 	)
 	podList := &corev1.PodList{}
-	err = controllerClient.List(context.Background(), podList, client.InNamespace(name))
+	err = controllerClient.List(ctx, podList, client.InNamespace(name))
 	if err != nil {
 		return err
 	}
@@ -270,7 +274,7 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 	for _, pod := range podList.Items {
 		if len(pod.Finalizers) > 0 {
 			log.Printf("Removing finalizer from Pod %s/%s\n", namespace, pod.Name)
-			factory.SetFinalizerForPod(&pod, []string{})
+			factory.SetFinalizerForPod(ctx, &pod, []string{})
 		}
 	}
 
@@ -281,8 +285,8 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 	)
 }
 
-func (factory *Factory) ensureNamespaceExists(namespace string) error {
-	return factory.CreateIfAbsent(&corev1.Namespace{
+func (factory *Factory) ensureNamespaceExists(ctx context.Context, namespace string) error {
+	return factory.CreateIfAbsent(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   namespace,
 			Labels: factory.GetDefaultLabels(),
@@ -293,8 +297,8 @@ func (factory *Factory) ensureNamespaceExists(namespace string) error {
 	})
 }
 
-func (factory *Factory) ensureRBACSetupExists(namespace string) {
-	gomega.Expect(factory.CreateIfAbsent(&corev1.ServiceAccount{
+func (factory *Factory) ensureRBACSetupExists(ctx context.Context, namespace string) {
+	gomega.Expect(factory.CreateIfAbsent(ctx, &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      foundationdbServiceAccount,
 			Labels:    factory.GetDefaultLabels(),
@@ -302,7 +306,7 @@ func (factory *Factory) ensureRBACSetupExists(namespace string) {
 		},
 	})).ToNot(gomega.HaveOccurred())
 
-	gomega.Expect(factory.CreateIfAbsent(&rbacv1.Role{
+	gomega.Expect(factory.CreateIfAbsent(ctx, &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      foundationdbServiceAccount,
 			Labels:    factory.GetDefaultLabels(),
@@ -327,7 +331,7 @@ func (factory *Factory) ensureRBACSetupExists(namespace string) {
 		},
 	})).ToNot(gomega.HaveOccurred())
 
-	gomega.Expect(factory.CreateIfAbsent(&rbacv1.RoleBinding{
+	gomega.Expect(factory.CreateIfAbsent(ctx, &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      foundationdbServiceAccount,
 			Labels:    factory.GetDefaultLabels(),
@@ -347,7 +351,7 @@ func (factory *Factory) ensureRBACSetupExists(namespace string) {
 	})).ToNot(gomega.HaveOccurred())
 
 	nodeRoleName := namespace + "-" + foundationdbNodeRole
-	gomega.Expect(factory.CreateIfAbsent(&rbacv1.ClusterRole{
+	gomega.Expect(factory.CreateIfAbsent(ctx, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nodeRoleName,
 			Labels:    factory.GetDefaultLabels(),
@@ -370,7 +374,7 @@ func (factory *Factory) ensureRBACSetupExists(namespace string) {
 		},
 	})).ToNot(gomega.HaveOccurred())
 
-	gomega.Expect(factory.CreateIfAbsent(&rbacv1.ClusterRoleBinding{
+	gomega.Expect(factory.CreateIfAbsent(ctx, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nodeRoleName,
 			Labels:    factory.GetDefaultLabels(),
@@ -391,14 +395,14 @@ func (factory *Factory) ensureRBACSetupExists(namespace string) {
 	})).ToNot(gomega.HaveOccurred())
 
 	factory.AddShutdownHook(func() error {
-		factory.Delete(&rbacv1.ClusterRole{
+		factory.Delete(context.Background(), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nodeRoleName,
 				Namespace: namespace,
 			},
 		})
 
-		factory.Delete(&rbacv1.ClusterRoleBinding{
+		factory.Delete(context.Background(), &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nodeRoleName,
 				Namespace: namespace,

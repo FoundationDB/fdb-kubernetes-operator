@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,9 @@ type AdminClient interface {
 	ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) error
 
 	// GetBackupStatus gets the status of the current backup.
-	GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error)
+	GetBackupStatus(
+		backup *fdbv1beta2.FoundationDBBackup,
+	) (*fdbv1beta2.FoundationDBLiveBackupStatus, error)
 
 	// StartRestore starts a new restore.
 	StartRestore(
@@ -117,7 +119,7 @@ type AdminClient interface {
 
 	// WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 	// arguments must be even.
-	WithValues(keysAndValues ...interface{})
+	WithValues(keysAndValues ...any)
 
 	// SetTimeout will overwrite the default timeout for interacting the FDB cluster.
 	SetTimeout(timeout time.Duration)

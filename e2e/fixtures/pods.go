@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,7 +126,11 @@ func (factory *Factory) RandomPickOneCluster(input []*FdbCluster) *FdbCluster {
 }
 
 // SetFinalizerForPod will set the provided finalizer slice for the Pods
-func (factory *Factory) SetFinalizerForPod(pod *corev1.Pod, finalizers []string) {
+func (factory *Factory) SetFinalizerForPod(
+	ctx context.Context,
+	pod *corev1.Pod,
+	finalizers []string,
+) {
 	if pod == nil {
 		return
 	}
@@ -134,12 +138,12 @@ func (factory *Factory) SetFinalizerForPod(pod *corev1.Pod, finalizers []string)
 	controllerClient := factory.GetControllerRuntimeClient()
 	gomega.Eventually(func(g gomega.Gomega) {
 		fetchedPod := &corev1.Pod{}
-		g.Expect(controllerClient.Get(context.Background(), client.ObjectKeyFromObject(pod), fetchedPod)).
+		g.Expect(controllerClient.Get(ctx, client.ObjectKeyFromObject(pod), fetchedPod)).
 			NotTo(gomega.HaveOccurred())
 
 		if !equality.Semantic.DeepEqual(finalizers, fetchedPod.Finalizers) {
 			fetchedPod.SetFinalizers(finalizers)
-			g.Expect(controllerClient.Update(context.Background(), fetchedPod)).
+			g.Expect(controllerClient.Update(ctx, fetchedPod)).
 				NotTo(gomega.HaveOccurred())
 		}
 

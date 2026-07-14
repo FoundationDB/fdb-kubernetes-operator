@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,21 +44,21 @@ var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 })
 
-var _ = AfterSuite(func() {
-	factory.Shutdown()
+var _ = AfterSuite(func(ctx SpecContext) {
+	factory.Shutdown(ctx)
 })
 
 var _ = Describe("Operator Stress", Label("e2e"), func() {
 	When("creating and deleting a cluster multiple times", func() {
-		It("should create a healthy and available cluster", func() {
+		It("should create a healthy and available cluster", func(ctx SpecContext) {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.
 			// We create and delete a cluster 10 times to ensure we don't have any flaky behaviour in the operator.
-			for i := 0; i < 10; i++ {
-				fdbCluster := factory.CreateFdbCluster(
+			for range 10 {
+				fdbCluster := factory.CreateFdbCluster(ctx,
 					fixtures.DefaultClusterConfig(false),
 				)
-				Expect(fdbCluster.IsAvailable()).To(BeTrue())
-				Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
+				Expect(fdbCluster.IsAvailable(ctx)).To(BeTrue())
+				Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
 			}
 		})
 	})
@@ -66,23 +66,23 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 	When("replacing processes in a continuously manner", func() {
 		var fdbCluster *fixtures.FdbCluster
 
-		BeforeEach(func() {
-			fdbCluster = factory.CreateFdbCluster(
+		BeforeEach(func(ctx SpecContext) {
+			fdbCluster = factory.CreateFdbCluster(ctx,
 				fixtures.DefaultClusterConfig(false),
 			)
 			Expect(fdbCluster.InvariantClusterStatusAvailable()).NotTo(HaveOccurred())
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
+		AfterEach(func(ctx SpecContext) {
+			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
 		})
 
-		It("should replace the targeted Pod", func() {
+		It("should replace the targeted Pod", func(ctx SpecContext) {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.
-			for i := 0; i < 10; i++ {
-				Expect(fdbCluster.ClearProcessGroupsToRemove()).ShouldNot(HaveOccurred())
-				pod := factory.ChooseRandomPod(fdbCluster.GetPods())
-				fdbCluster.ReplacePod(*pod, true)
+			for range 10 {
+				Expect(fdbCluster.ClearProcessGroupsToRemove(ctx)).ShouldNot(HaveOccurred())
+				pod := factory.ChooseRandomPod(fdbCluster.GetPods(ctx))
+				fdbCluster.ReplacePod(ctx, *pod, true)
 			}
 		})
 	})

@@ -1,22 +1,27 @@
 /*
-Copyright 2020-2026 FoundationDB project authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ * foundationdbbackup_types.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package v1beta2
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -30,10 +35,11 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdbbackup
 // +kubebuilder:subresource:status
-// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.28.0"
+// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.32.0"
 // +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Restorable",type="boolean",JSONPath=".status.backupDetails.restorable",description="If the backup is restorable",priority=0
+// +kubebuilder:printcolumn:name="Tag",type="string",JSONPath=".status.backupDetails.tag",description="The current backup tag",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
 // +kubebuilder:ac:generate=true
@@ -149,7 +155,17 @@ type FoundationDBBackupSpec struct {
 	// +kubebuilder:validation:Enum=continuous;oneTime
 	// +kubebuilder:default:=continuous
 	BackupMode *BackupMode `json:"backupMode,omitempty"`
+
+	// Tag defines the backup tag that should be used. Using different tags allows to have multiple backups
+	// for the same cluster.
+	// Default: "default".
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="BackupTag is immutable"
+	Tag *BackupTag `json:"tag,omitempty"`
 }
+
+// BackupTag defines the backup tag that should be used for the backup.
+// +kubebuilder:validation:MaxLength=64
+type BackupTag string
 
 // BackupType defines the backup type that should be used for the backup.
 // +kubebuilder:validation:MaxLength=64
@@ -166,6 +182,9 @@ const (
 	// BackupTypeUnmanaged is a special backup type. If this backup type is used the operator will only manage
 	// the backup agent pods but not manage the actual backup.
 	BackupTypeUnmanaged BackupType = "unmanaged"
+
+	// DefaultBackupTagBackupTag represents the "default" tag for backups.
+	DefaultBackupTagBackupTag = "default"
 )
 
 // BackupDeletionPolicy defines the deletion policy when the backup is deleted.
@@ -223,6 +242,7 @@ type FoundationDBBackupStatusBackupDetails struct {
 	Paused                bool   `json:"paused,omitempty"`
 	SnapshotPeriodSeconds int    `json:"snapshotTime,omitempty"`
 	Restorable            bool   `json:"restorable,omitempty"`
+	Tag                   string `json:"tag,omitempty"`
 }
 
 // BackupGenerationStatus stores information on which generations have reached
@@ -349,8 +369,8 @@ func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
 	return ptr.Deref(backup.Spec.SnapshotPeriodSeconds, 864000)
 }
 
-// FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
-type FDBBackupDescribe struct {
+// FoundationDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
+type FoundationDBBackupDescribe struct {
 	// SchemaVersion is the version of the backup metadata schema.
 	SchemaVersion *string `json:"SchemaVersion,omitempty"`
 
@@ -361,12 +381,32 @@ type FDBBackupDescribe struct {
 	// and can be used to restore a database.
 	Restorable *bool `json:"Restorable,omitempty"`
 
-	// Partitioned indicates if the partitioned_log backup system is used.
+	// Partitioned indicates if the partitioned_log backup system is used. Removed in 7.4.7.
+	// Deprecated: use MutationLogType instead.
 	Partitioned *bool `json:"Partitioned,omitempty"`
+
+	// MutationLogType indicates the MutationLogType that was used for the backup.
+	MutationLogType *string `json:"MutationLogType,omitempty"`
 
 	// FileLevelEncryption indicates whether file-level encryption
 	// is enabled for the backup data.
 	FileLevelEncryption *bool `json:"FileLevelEncryption,omitempty"`
+
+	// TotalSnapshotBytes is the total size in bytes of all snapshot files in
+	// the backup destination. Drops to zero once every snapshot covering the
+	// live restorable range has been expired.
+	TotalSnapshotBytes *int64 `json:"TotalSnapshotBytes,omitempty"`
+
+	// MaxLogEnd represents the maximum log end that is present in this backup.
+	MaxLogEnd *FoundationDBBackupDescribeVersionInfo `json:"MaxLogEnd,omitempty"`
+}
+
+// FoundationDBBackupDescribeVersionInfo contains the version information for the various describe version information.
+type FoundationDBBackupDescribeVersionInfo struct {
+	// Version represents the internal FDB version (epoch).
+	Version *uint64 `json:"Version,omitempty"`
+	// RelativeDays represents the relative days as a floating number.
+	RelativeDays *float64 `json:"RelativeDays,omitempty"`
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a
@@ -392,13 +432,22 @@ type FoundationDBLiveBackupStatus struct {
 
 	// UID is the unique identifier of the backup.
 	UID *string `json:"UID,omitempty"`
+
+	// Tag is the tag of the backup.
+	Tag *string `json:"Tag,omitempty"`
 }
 
 // FoundationDBLiveBackupStatusState provides the state of a backup in the
 // backup status.
 type FoundationDBLiveBackupStatusState struct {
+	// Name is the name of the backup state.
+	Name string `json:"Name,omitempty"`
+
 	// Running determines whether the backup is currently running.
 	Running bool `json:"Running,omitempty"`
+
+	// Completed determines whether the backup has completed.
+	Completed bool `json:"Completed,omitempty"`
 }
 
 // LatestRestorablePoint contains information about the latest restorable point if any exists.
@@ -415,6 +464,11 @@ func (backup *FoundationDBBackup) GetDesiredAgentCount() int {
 
 // NeedsBackupReconfiguration determines if the backup needs to be reconfigured.
 func (backup *FoundationDBBackup) NeedsBackupReconfiguration() bool {
+	// If the backup is not running we don't have to modify it.
+	if backup.Status.BackupDetails == nil || !backup.Status.BackupDetails.Running {
+		return false
+	}
+
 	hasSnapshotSecondsChanged := backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds
 	currentBackupURL, err := backup.BackupURL()
 	// In case that the backup URL cannot be parsed, we opt to return false here to not cause a constant reconfiguration
@@ -509,6 +563,36 @@ func (backup *FoundationDBBackup) GetBackupMode() BackupMode {
 // UseUnifiedImage returns true if the unified image should be used.
 func (backup *FoundationDBBackup) UseUnifiedImage() bool {
 	return ptr.Deref(backup.Spec.ImageType, ImageTypeUnified) == ImageTypeUnified
+}
+
+// GetBackupTag returns the backup tag for this backup.
+func (backup *FoundationDBBackup) GetBackupTag() BackupTag {
+	return ptr.Deref(backup.Spec.Tag, DefaultBackupTagBackupTag)
+}
+
+// Validate checks if all settings in the FoundationDBBackup are valid, if not an error will be returned.
+// If multiple issues are found all of them will be returned in a single error.
+func (backup *FoundationDBBackup) Validate(allowedPodModifications *AllowedPodModifications) error {
+	var validations []string
+
+	if backup.Spec.PodTemplateSpec != nil {
+		err := PodSpecIsSanitized(&backup.Spec.PodTemplateSpec.Spec, allowedPodModifications)
+		if err != nil {
+			validations = append(
+				validations,
+				fmt.Sprintf(
+					"Forbidden PodSpec: %s",
+					err,
+				),
+			)
+		}
+	}
+
+	if len(validations) == 0 {
+		return nil
+	}
+
+	return errors.New(strings.Join(validations, ", "))
 }
 
 // parseAccountName will parse the accountName and return a *url.URL for the getURL method.

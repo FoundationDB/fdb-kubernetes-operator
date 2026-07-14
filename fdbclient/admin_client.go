@@ -1,9 +1,9 @@
 /*
- * fdbadminclient.go
+ * admin_client.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,10 +35,10 @@ import (
 	"strings"
 	"time"
 
+	fdberrors "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -332,7 +332,7 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// If the cluster is under an upgrade and the getStatus call returns an error, we have to retry it with the new version,
 	// as it could be that the wrong version was selected.
 	if client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() &&
-		internal.IsTimeoutError(err) {
+		fdberrors.IsTimeoutError(err) {
 		client.log.V(1).
 			Info("retry fetching status with version specified in spec.Version", "error", err, "status", status)
 		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
@@ -358,7 +358,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// If we hit a timeout we will also use fdbcli to retry the get status command.
 	client.log.V(1).
 		Info("Result from multi version client (bindings)", "error", err, "status", status)
-	if client.Cluster.Status.Configured && internal.IsTimeoutError(err) &&
+	if client.Cluster.Status.Configured && fdberrors.IsTimeoutError(err) &&
 		client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		client.log.Info("retry fetching status with fdbcli instead of using the client library")
 		status, err = client.getStatus()
@@ -384,6 +384,12 @@ func (client *cliAdminClient) ConfigureDatabase(
 		configurationString = "new " + configurationString
 	}
 
+	// Ensure the provided configuration string doesn't contain any invalid characters, e.g. to run another fdbcli
+	// command.
+	if strings.ContainsAny(configurationString, ";\n\r") {
+		return fmt.Errorf("configuration string contains invalid characters")
+	}
+
 	_, err = client.runCommand(
 		cliCommand{command: fmt.Sprintf("configure %s", configurationString)},
 	)
@@ -404,7 +410,7 @@ func (client *cliAdminClient) SetMaintenanceZone(zone string, timeoutSeconds int
 			// The value is a literal text of a non-negative double which represents the remaining time for the zone to be in maintenance.
 			tr.Set(
 				fdb.Key(path.Join("\xff\xff/management/maintenance/", zone)),
-				[]byte(fmt.Sprintf("%d.0", timeoutSeconds)),
+				fmt.Appendf(nil, "%d.0", timeoutSeconds),
 			)
 			return nil
 		})
@@ -843,6 +849,8 @@ func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup)
 		"start",
 		"-d",
 		backupURL,
+		"-t",
+		string(backup.GetBackupTag()),
 	}
 
 	// Add continuous backup flags only if backup mode is continuous.
@@ -860,7 +868,16 @@ func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup)
 	}
 
 	if backup.GetBackupType() == fdbv1beta2.BackupTypePartitionedLog {
-		args = append(args, "--partitioned-log-experimental")
+		fdbVersion, err := fdbv1beta2.ParseFdbVersion(backup.Spec.Version)
+		if err != nil {
+			return err
+		}
+
+		if fdbVersion.UsesMutationLogType() {
+			args = append(args, "--mutation-log-type", "partitioned-log-experimental")
+		} else {
+			args = append(args, "--partitioned-log-experimental")
+		}
 	}
 
 	_, err = client.runCommand(cliCommand{
@@ -872,11 +889,13 @@ func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup)
 }
 
 // StopBackup stops a backup.
-func (client *cliAdminClient) StopBackup(_ *fdbv1beta2.FoundationDBBackup) error {
+func (client *cliAdminClient) StopBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"discontinue",
+			"-t",
+			string(backup.GetBackupTag()),
 		},
 	})
 
@@ -884,11 +903,13 @@ func (client *cliAdminClient) StopBackup(_ *fdbv1beta2.FoundationDBBackup) error
 }
 
 // AbortBackup will abort a running backup.
-func (client *cliAdminClient) AbortBackup(_ *fdbv1beta2.FoundationDBBackup) error {
+func (client *cliAdminClient) AbortBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"abort",
+			"-t",
+			string(backup.GetBackupTag()),
 		},
 	})
 
@@ -953,6 +974,8 @@ func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup
 		strconv.Itoa(backup.SnapshotPeriodSeconds()),
 		"-d",
 		backupURL,
+		"-t",
+		string(backup.GetBackupTag()),
 	}
 
 	encryptionKeyPath, err := backup.GetEncryptionKey()
@@ -973,12 +996,16 @@ func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup
 }
 
 // GetBackupStatus gets the status of the current backup.
-func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
+func (client *cliAdminClient) GetBackupStatus(
+	backup *fdbv1beta2.FoundationDBBackup,
+) (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	statusString, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"status",
 			"--json",
+			"-t",
+			string(backup.GetBackupTag()),
 		},
 	})
 
@@ -1044,12 +1071,22 @@ func (client *cliAdminClient) StartRestore(
 
 // GetRestoreStatus gets the status of the current restore.
 func (client *cliAdminClient) GetRestoreStatus() (string, error) {
-	return client.runCommand(cliCommand{
+	output, err := client.runCommand(cliCommand{
 		binary: fdbrestoreStr,
 		args: []string{
 			"status",
 		},
 	})
+
+	if strings.Contains(output, "No restores found") {
+		if err == nil {
+			err = fmt.Errorf("no restores found")
+		}
+
+		return "", fdbv1beta2.RestoreDoesNotExist{Err: err}
+	}
+
+	return output, err
 }
 
 // Close cleans up any pending resources.
@@ -1065,7 +1102,7 @@ func (client *cliAdminClient) SetKnobs(knobs []string) {
 
 // WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 // arguments must be even.
-func (client *cliAdminClient) WithValues(keysAndValues ...interface{}) {
+func (client *cliAdminClient) WithValues(keysAndValues ...any) {
 	newLogger := client.log.WithValues(keysAndValues...)
 	client.log = newLogger
 

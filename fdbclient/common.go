@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,9 @@ var DefaultTimeout = 10 * time.Second
 
 // MaxTimeout is the maximum timeout that will be used for requests that might be slower to respond.
 var MaxTimeout = 40 * time.Second
+
+// transactionRetryLimit defines the retry limit per transaction.
+const transactionRetryLimit = 1
 
 func parseMachineReadableStatus(
 	logger logr.Logger,
@@ -119,7 +122,7 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 	}
 
 	// We set a low retry limit as the operator will retry the reconciliation process anyway.
-	err = database.Options().SetTransactionRetryLimit(1)
+	err = database.Options().SetTransactionRetryLimit(transactionRetryLimit)
 	if err != nil {
 		return fdb.Database{}, err
 	}

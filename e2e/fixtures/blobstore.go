@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ type blobstoreConfig struct {
 }
 
 // CreateBlobstoreIfAbsent creates the blobstore Deployment based on the template.
-func (factory *Factory) CreateBlobstoreIfAbsent(namespace string) {
+func (factory *Factory) CreateBlobstoreIfAbsent(ctx context.Context, namespace string) {
 	seaweedFSDeploymentTemplate, err := template.New("seaweedFSDeployment").
 		Parse(seaweedFSDeployment)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -204,20 +204,20 @@ func (factory *Factory) CreateBlobstoreIfAbsent(namespace string) {
 		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
 
 		gomega.Expect(
-			factory.CreateIfAbsent(unstructuredObj),
+			factory.CreateIfAbsent(ctx, unstructuredObj),
 		).NotTo(gomega.HaveOccurred())
 	}
 
 	// Make sure the blobstore Pods are running before moving forward.
-	factory.waitUntilBlobstorePodsRunning(namespace)
+	factory.waitUntilBlobstorePodsRunning(ctx, namespace)
 }
 
 // waitUntilBlobstorePodsRunning waits until the blobstore Pods are running.
-func (factory *Factory) waitUntilBlobstorePodsRunning(namespace string) {
+func (factory *Factory) waitUntilBlobstorePodsRunning(ctx context.Context, namespace string) {
 	deployment := &appsv1.Deployment{}
 	gomega.Expect(
 		factory.GetControllerRuntimeClient().
-			Get(context.Background(), client.ObjectKey{Name: seaweedFSName, Namespace: namespace}, deployment),
+			Get(ctx, client.ObjectKey{Name: seaweedFSName, Namespace: namespace}, deployment),
 	).NotTo(gomega.HaveOccurred())
 
 	factory.AddShutdownHook(func() error {
@@ -235,7 +235,7 @@ func (factory *Factory) waitUntilBlobstorePodsRunning(namespace string) {
 
 	expectedReplicas := int(ptr.Deref(deployment.Spec.Replicas, 1))
 	gomega.Eventually(func(g gomega.Gomega) int {
-		pods := factory.getBlobstorePods(namespace)
+		pods := factory.getBlobstorePods(ctx, namespace)
 		var runningReplicas int
 		for _, pod := range pods.Items {
 			if pod.Status.Phase == corev1.PodRunning && pod.DeletionTimestamp.IsZero() {
@@ -251,7 +251,7 @@ func (factory *Factory) waitUntilBlobstorePodsRunning(namespace string) {
 					"not running after 120 seconds, going to delete this Pod, status:",
 					pod.Status,
 				)
-				err := factory.GetControllerRuntimeClient().Delete(context.Background(), &pod)
+				err := factory.GetControllerRuntimeClient().Delete(ctx, &pod)
 				if k8serrors.IsNotFound(err) {
 					continue
 				}
@@ -265,11 +265,11 @@ func (factory *Factory) waitUntilBlobstorePodsRunning(namespace string) {
 }
 
 // getBlobstorePods returns the blobstore Pods in the provided namespace.
-func (factory *Factory) getBlobstorePods(namespace string) *corev1.PodList {
+func (factory *Factory) getBlobstorePods(ctx context.Context, namespace string) *corev1.PodList {
 	pods := &corev1.PodList{}
 	gomega.Eventually(func() error {
 		return factory.GetControllerRuntimeClient().
-			List(context.Background(), pods, client.InNamespace(namespace), client.MatchingLabels(map[string]string{"app": seaweedFSName}))
+			List(ctx, pods, client.InNamespace(namespace), client.MatchingLabels(map[string]string{"app": seaweedFSName}))
 	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return pods

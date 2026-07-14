@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1810,7 +1810,7 @@ var _ = Describe("update_status", func() {
 			var unknownID fdbv1beta2.ProcessGroupID
 
 			BeforeEach(func() {
-				unknownID = "storage-99"
+				unknownID = "storage-999999"
 				pod := &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
@@ -1841,7 +1841,7 @@ var _ = Describe("update_status", func() {
 
 		When("a pod with an unknown process group ID is being deleted", func() {
 			BeforeEach(func() {
-				unknownID := fdbv1beta2.ProcessGroupID("storage-99")
+				unknownID := fdbv1beta2.ProcessGroupID("storage-999999")
 				pod := &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
@@ -1871,7 +1871,7 @@ var _ = Describe("update_status", func() {
 			var unknownID fdbv1beta2.ProcessGroupID
 
 			BeforeEach(func() {
-				unknownID = "storage-99"
+				unknownID = "storage-999999"
 				pvc := &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
@@ -1902,7 +1902,7 @@ var _ = Describe("update_status", func() {
 
 		When("a PVC with an unknown process group ID is being deleted", func() {
 			BeforeEach(func() {
-				unknownID := fdbv1beta2.ProcessGroupID("storage-99")
+				unknownID := fdbv1beta2.ProcessGroupID("storage-999999")
 				pvc := &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
@@ -1932,7 +1932,7 @@ var _ = Describe("update_status", func() {
 			var unknownID fdbv1beta2.ProcessGroupID
 
 			BeforeEach(func() {
-				unknownID = "storage-99"
+				unknownID = "storage-999999"
 				svc := &corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
@@ -1984,7 +1984,7 @@ var _ = Describe("update_status", func() {
 
 		When("a service with an unknown process group ID is being deleted", func() {
 			BeforeEach(func() {
-				unknownID := fdbv1beta2.ProcessGroupID("storage-99")
+				unknownID := fdbv1beta2.ProcessGroupID("storage-999999")
 				svc := &corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),
@@ -2014,7 +2014,7 @@ var _ = Describe("update_status", func() {
 			var unknownID fdbv1beta2.ProcessGroupID
 
 			BeforeEach(func() {
-				unknownID = "storage-99"
+				unknownID = "storage-999999"
 				pod := &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%s", cluster.Name, unknownID),

@@ -1,18 +1,22 @@
 /*
-Copyright 2020-2026 FoundationDB project authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-	http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ * foundationdbcluster_types.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package v1beta2
 
@@ -22,6 +26,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -39,7 +44,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdb
 // +kubebuilder:subresource:status
-// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.28.0"
+// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.32.0"
 // +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Available",type="boolean",JSONPath=".status.health.available",description="Database available",priority=0
@@ -1319,8 +1324,7 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// DeletionMode defines the deletion mode for this cluster. This can be
 	// PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
-	// DeletionMode defines how Pods are deleted in order to update them or
-	// when they are removed.
+	// DeletionMode defines how Pods are deleted in order to update them.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=All;Zone;ProcessGroup;None
 	// +kubebuilder:default:=Zone
@@ -2120,7 +2124,7 @@ func (str *ConnectionString) String() string {
 // GenerateNewGenerationID builds a new generation ID
 func (str *ConnectionString) GenerateNewGenerationID() error {
 	id := strings.Builder{}
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		err := id.WriteByte(alphanum[rand.IntN(len(alphanum))])
 		if err != nil {
 			return err
@@ -2353,19 +2357,11 @@ func (cluster *FoundationDBCluster) ProcessGroupIsBeingRemoved(processGroupID Pr
 		}
 	}
 
-	for _, id := range cluster.Spec.ProcessGroupsToRemove {
-		if id == processGroupID {
-			return true
-		}
+	if slices.Contains(cluster.Spec.ProcessGroupsToRemove, processGroupID) {
+		return true
 	}
 
-	for _, id := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
-		if id == processGroupID {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroupID)
 }
 
 // ShouldUseLocks determine whether we should use locks to coordinator global
@@ -2597,10 +2593,8 @@ func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(
 	pClass ProcessClass,
 ) {
 	if pClass == ProcessClassStorage {
-		for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
-			if curServersPerDisk == serversPerDisk {
-				return
-			}
+		if slices.Contains(clusterStatus.StorageServersPerDisk, serversPerDisk) {
+			return
 		}
 		clusterStatus.StorageServersPerDisk = append(
 			clusterStatus.StorageServersPerDisk,
@@ -2610,10 +2604,8 @@ func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(
 	}
 
 	if pClass.SupportsMultipleLogServers() {
-		for _, curServersPerDisk := range clusterStatus.LogServersPerDisk {
-			if curServersPerDisk == serversPerDisk {
-				return
-			}
+		if slices.Contains(clusterStatus.LogServersPerDisk, serversPerDisk) {
+			return
 		}
 		clusterStatus.LogServersPerDisk = append(clusterStatus.LogServersPerDisk, serversPerDisk)
 	}
@@ -3346,9 +3338,11 @@ func (cluster *FoundationDBCluster) GetCrashLoopContainerProcessGroups() map[str
 	return crashLoopTargets
 }
 
-// Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are
-// found all of them will be returned in a single error.
-func (cluster *FoundationDBCluster) Validate() error {
+// Validate checks if all settings in the FoundationDBCluster are valid, if not an error will be returned.
+// If multiple issues are found all of them will be returned in a single error.
+func (cluster *FoundationDBCluster) Validate(
+	allowedPodModifications *AllowedPodModifications,
+) error {
 	var validations []string
 
 	// Check if the provided storage engine is valid for the defined FDB version.
@@ -3412,6 +3406,25 @@ func (cluster *FoundationDBCluster) Validate() error {
 				DatabaseInteractionModeMgmtAPI,
 			),
 		)
+	}
+
+	// Verify if any of the user provided pod specs contains forbidden modifications.
+	for processClass, settings := range cluster.Spec.Processes {
+		if settings.PodTemplate == nil {
+			continue
+		}
+
+		err = PodSpecIsSanitized(&settings.PodTemplate.Spec, allowedPodModifications)
+		if err != nil {
+			validations = append(
+				validations,
+				fmt.Sprintf(
+					"Forbidden PodSpec for %s: %s",
+					processClass,
+					err,
+				),
+			)
+		}
 	}
 
 	if len(validations) == 0 {

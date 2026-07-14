@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ package internal
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -375,9 +376,7 @@ func setAffinityForFaultDomain(
 		}
 
 		labelSelectors := make(map[string]string, len(cluster.GetMatchLabels())+1)
-		for key, value := range cluster.GetMatchLabels() {
-			labelSelectors[key] = value
-		}
+		maps.Copy(labelSelectors, cluster.GetMatchLabels())
 
 		processClassLabel := cluster.GetProcessClassLabel()
 		labelSelectors[processClassLabel] = string(processClass)
@@ -1134,12 +1133,11 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	deployment.ObjectMeta.OwnerReferences = BuildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
 
 	if backup.Spec.BackupDeploymentMetadata != nil {
-		for key, value := range backup.Spec.BackupDeploymentMetadata.Labels {
-			deployment.ObjectMeta.Labels[key] = value
-		}
-		for key, value := range backup.Spec.BackupDeploymentMetadata.Annotations {
-			deployment.ObjectMeta.Annotations[key] = value
-		}
+		maps.Copy(deployment.ObjectMeta.Labels, backup.Spec.BackupDeploymentMetadata.Labels)
+		maps.Copy(
+			deployment.ObjectMeta.Annotations,
+			backup.Spec.BackupDeploymentMetadata.Annotations,
+		)
 	}
 	deployment.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
 
@@ -1428,13 +1426,9 @@ func GetObjectMetadata(
 		metadata.Labels = make(map[string]string)
 	}
 
-	for label, value := range GetPodLabels(cluster, processClass, string(id)) {
-		metadata.Labels[label] = value
-	}
+	maps.Copy(metadata.Labels, GetPodLabels(cluster, processClass, string(id)))
 
-	for label, value := range cluster.GetResourceLabels() {
-		metadata.Labels[label] = value
-	}
+	maps.Copy(metadata.Labels, cluster.GetResourceLabels())
 
 	return *metadata
 }

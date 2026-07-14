@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,11 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,6 +50,12 @@ type FoundationDBBackupReconciler struct {
 	InSimulation           bool
 	DatabaseClientProvider fdbadminclient.DatabaseClientProvider
 	ServerSideApply        bool
+	// AllowedPodModifications defines the pod modification that are allowed for the user provided configuration. If a field
+	// is unset in AllowedPodModifications, we allow everything to not break the current setups. In a new major release we could
+	// change this and enforce that fields are only allowed to change if the according AllowedPodModifications is set.
+	AllowedPodModifications *fdbv1beta2.AllowedPodModifications
+	// MinimumAgeForTerminalPodDeletion defines the minimum age of a terminal pod before it will be deleted.
+	MinimumAgeForTerminalPodDeletion time.Duration
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -107,18 +114,59 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 	}
 
+	err = backup.Validate(r.AllowedPodModifications)
+	if err != nil {
+		r.Recorder.Event(
+			backup,
+			corev1.EventTypeWarning,
+			"FoundationDBBackup not valid",
+			err.Error(),
+		)
+		return ctrl.Result{}, fmt.Errorf("FoundationDBBackup is not valid: %w", err)
+	}
+
+	var delayedRequeueDuration time.Duration
+	var delayedRequeue bool
+
 	for _, subReconciler := range backupSubReconcilers {
 		req := subReconciler.reconcile(ctx, r, backup)
 		if req == nil {
 			continue
 		}
 
+		if req.delayedRequeue {
+			backupLog.Info("Delaying requeue for sub-reconciler",
+				"reconciler", fmt.Sprintf("%T", subReconciler),
+				"message", req.message,
+				"delayedRequeueDuration", delayedRequeueDuration.String(),
+				"error", req.curError)
+			if delayedRequeueDuration < req.delay {
+				delayedRequeueDuration = req.delay
+			}
+
+			delayedRequeue = true
+			continue
+		}
+
 		return processRequeue(req, subReconciler, backup, r.Recorder, backupLog)
 	}
 
-	if backup.Status.Generations.Reconciled < originalGeneration {
-		backupLog.Info("Backup was not fully reconciled by reconciliation process")
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	if backup.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
+		backupLog.Info("Backup was not fully reconciled by reconciliation process",
+			"status",
+			backup.Status.Generations,
+			"CurrentGeneration",
+			backup.Status.Generations.Reconciled,
+			"OriginalGeneration",
+			originalGeneration,
+			"DelayedRequeue",
+			delayedRequeueDuration.String())
+
+		if delayedRequeueDuration == time.Duration(0) {
+			delayedRequeueDuration = 5 * time.Second
+		}
+
+		return ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
 	}
 
 	backupLog.Info("Reconciliation complete")
@@ -295,7 +343,7 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 			return err
 		}
 
-		backupStatus, err := adminClient.GetBackupStatus()
+		backupStatus, err := adminClient.GetBackupStatus(backup)
 		if err != nil {
 			return err
 		}
@@ -326,7 +374,7 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 		// complicated unless we get a good signal from the fdbbackup command if the data is deleted.
 		err = adminClient.DeleteBackup(backup)
 		if err != nil {
-			if internal.IsBackupNotfound(err) {
+			if errors.IsBackupNotfound(err) {
 				if controllerutil.RemoveFinalizer(
 					backup,
 					fdbv1beta2.FoundationDBBackupFinalizerName,

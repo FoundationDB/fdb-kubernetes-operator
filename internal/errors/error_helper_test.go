@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@
  * limitations under the License.
  */
 
-package internal
+package errors
 
 import (
 	"fmt"
 	"net"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -131,6 +132,88 @@ var _ = Describe("Internal error helper", func() {
 					err: fmt.Errorf(
 						"test : %w",
 						fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")},
+					),
+					expected: true,
+				}),
+			Entry("FDB timeout error",
+				testCase{
+					err:      fdb.Error{Code: 1031},
+					expected: true,
+				}),
+		)
+	})
+
+	When("checking if an error is a special keys API failure error", func() {
+		type testCase struct {
+			err      error
+			expected bool
+		}
+
+		DescribeTable("it should detect the special keys API failure error",
+			func(tc testCase) {
+				Expect(IsSpecialKeysAPIFailureError(tc.err)).To(Equal(tc.expected))
+			},
+			Entry("simple error",
+				testCase{
+					err:      fmt.Errorf("test"),
+					expected: false,
+				}),
+			Entry("simple special keys API failure error",
+				testCase{
+					err:      fdbv1beta2.SpecialKeysAPIFailureError{Err: fmt.Errorf("api failed")},
+					expected: true,
+				}),
+			Entry("wrapped special keys API failure error",
+				testCase{
+					err: fmt.Errorf(
+						"test : %w",
+						fdbv1beta2.SpecialKeysAPIFailureError{Err: fmt.Errorf("api failed")},
+					),
+					expected: true,
+				}),
+			Entry("FDB special keys API failure error",
+				testCase{
+					err:      fdb.Error{Code: 2117},
+					expected: true,
+				}),
+			Entry("different FDB error code",
+				testCase{
+					err:      fdb.Error{Code: 1031},
+					expected: false,
+				}),
+		)
+	})
+
+	When("checking if an error is a restore does not exist error", func() {
+		type testCase struct {
+			err      error
+			expected bool
+		}
+
+		DescribeTable("it should detect the restore does not exist error",
+			func(tc testCase) {
+				Expect(IsRestoreDoesNotExist(tc.err)).To(Equal(tc.expected))
+			},
+			Entry("simple error",
+				testCase{
+					err:      fmt.Errorf("test"),
+					expected: false,
+				}),
+			Entry("nil error",
+				testCase{
+					err:      nil,
+					expected: false,
+				}),
+			Entry("simple restore does not exist error",
+				testCase{
+					err:      fdbv1beta2.RestoreDoesNotExist{Err: fmt.Errorf("no restores found")},
+					expected: true,
+				}),
+			Entry("wrapped restore does not exist error",
+				testCase{
+					err: fmt.Errorf(
+						"test : %w",
+						fdbv1beta2.RestoreDoesNotExist{Err: fmt.Errorf("no restores found")},
 					),
 					expected: true,
 				}),

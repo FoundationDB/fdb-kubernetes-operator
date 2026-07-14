@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1005,7 +1005,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	When("using MaxConcurrentMisconfiguredReplacements", func() {
 		BeforeEach(func() {
 
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				_, id := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassStorage, i)
 				processGroup := &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
@@ -1026,7 +1026,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				)
 			}
 
-			for i := 0; i < 1; i++ {
+			for i := range 1 {
 				_, id := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassTransaction, i)
 				processGroup := &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassTransaction,

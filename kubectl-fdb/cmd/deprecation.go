@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,7 +190,7 @@ func checkDeprecation(
 	return nil
 }
 
-func getDiff(objectA interface{}, objectB interface{}) (string, error) {
+func getDiff(objectA any, objectB any) (string, error) {
 	aYaml, err := getMinimalYAML(objectA)
 	if err != nil {
 		return "", err
@@ -204,12 +204,12 @@ func getDiff(objectA interface{}, objectB interface{}) (string, error) {
 	return cmp.Diff(aYaml, bYaml), nil
 }
 
-func getMinimalYAML(object interface{}) ([]byte, error) {
+func getMinimalYAML(object any) ([]byte, error) {
 	rawYAML, err := yaml.Marshal(object)
 	if err != nil {
 		return nil, err
 	}
-	genericObject := make(map[string]interface{})
+	genericObject := make(map[string]any)
 	err = yaml.Unmarshal(rawYAML, &genericObject)
 	if err != nil {
 		return nil, err
@@ -218,9 +218,9 @@ func getMinimalYAML(object interface{}) ([]byte, error) {
 	return yaml.Marshal(genericObject)
 }
 
-func removeEmptyFields(object map[string]interface{}) {
+func removeEmptyFields(object map[string]any) {
 	for field, value := range object {
-		mapValue, isMap := value.(map[string]interface{})
+		mapValue, isMap := value.(map[string]any)
 		if isMap {
 			removeEmptyFields(mapValue)
 			if len(mapValue) == 0 {

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -836,7 +836,7 @@ var _ = Describe("cluster_controller", func() {
 
 					sortPodsByName(pods)
 
-					for i := 0; i < 17; i++ {
+					for i := range 17 {
 						Expect(pods.Items[i].Name).To(Equal(originalPods.Items[i].Name))
 					}
 				})

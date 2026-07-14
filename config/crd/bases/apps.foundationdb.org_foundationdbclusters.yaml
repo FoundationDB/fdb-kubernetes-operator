@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-    foundationdb.org/release: v2.28.0
+    foundationdb.org/release: v2.32.0
   name: foundationdbclusters.apps.foundationdb.org
 spec:
   group: apps.foundationdb.org
@@ -324,6 +324,7 @@ spec:
                     maxLength: 100
                     type: string
                   perpetual_storage_wiggle_locality:
+                    pattern: ^([\w.-]+:[\w.-]+|0)$
                     type: string
                   proxies:
                     type: integer
@@ -4716,6 +4717,7 @@ spec:
                     maxLength: 100
                     type: string
                   perpetual_storage_wiggle_locality:
+                    pattern: ^([\w.-]+:[\w.-]+|0)$
                     type: string
                   proxies:
                     type: integer

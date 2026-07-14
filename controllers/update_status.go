@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,11 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"k8s.io/utils/ptr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
@@ -402,7 +404,7 @@ func checkAndSetProcessStatus(
 	} else {
 		substitutions, err = podClient.GetVariableSubstitutions()
 		if err != nil {
-			if internal.IsNetworkError(err) {
+			if errors.IsNetworkError(err) {
 				sidecarUnreachable = true
 			}
 		}
@@ -697,13 +699,7 @@ func validateProcessGroups(
 		status.AddServersPerDisk(processCount, processGroup.ProcessClass)
 
 		imageType := internal.GetImageType(pod)
-		imageTypeFound := false
-		for _, currentImageType := range status.ImageTypes {
-			if imageType == currentImageType {
-				imageTypeFound = true
-				break
-			}
-		}
+		imageTypeFound := slices.Contains(status.ImageTypes, imageType)
 		if !imageTypeFound {
 			status.ImageTypes = append(status.ImageTypes, imageType)
 		}

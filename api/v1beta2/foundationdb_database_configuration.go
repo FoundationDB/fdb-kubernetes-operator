@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,6 +76,7 @@ type DatabaseConfiguration struct {
 
 	// PerpetualStorageWiggleLocality if defined the specified locality will be migrated.
 	// Format is: <<LOCALITY_KEY>:<LOCALITY_VALUE>|0>
+	// +kubebuilder:validation:Pattern=`^([\w.-]+:[\w.-]+|0)$`
 	PerpetualStorageWiggleLocality *string `json:"perpetual_storage_wiggle_locality,omitempty"`
 
 	// PerpetualStorageWiggleEngine defines the perpetual storage engine type.
@@ -948,7 +949,7 @@ var versionFlagIndices = make(map[string]int)
 var roleNames = fieldNames(RoleCounts{})
 
 // fieldNames provides the names of fields on a structure.
-func fieldNames(value interface{}) []ProcessClass {
+func fieldNames(value any) []ProcessClass {
 	countType := reflect.TypeOf(value)
 	names := make([]ProcessClass, 0, countType.NumField())
 	for index := 0; index < countType.NumField(); index++ {
@@ -967,14 +968,14 @@ var processClassIndices = make(map[ProcessClass]int)
 var ProcessClasses = fieldNames(ProcessCounts{})
 
 func init() {
-	fieldIndices(ProcessCounts{}, processClassIndices, reflect.TypeOf(ProcessClassStorage))
-	fieldIndices(RoleCounts{}, roleIndices, reflect.TypeOf(ProcessClassStorage))
-	fieldIndices(VersionFlags{}, versionFlagIndices, reflect.TypeOf(""))
+	fieldIndices(ProcessCounts{}, processClassIndices, reflect.TypeFor[ProcessClass]())
+	fieldIndices(RoleCounts{}, roleIndices, reflect.TypeFor[ProcessClass]())
+	fieldIndices(VersionFlags{}, versionFlagIndices, reflect.TypeFor[string]())
 }
 
 // fieldIndices provides a map from the names of fields in a structure to the
 // index of each field in the list of fields.
-func fieldIndices(value interface{}, result interface{}, keyType reflect.Type) {
+func fieldIndices(value any, result any, keyType reflect.Type) {
 	countType := reflect.TypeOf(value)
 	resultValue := reflect.ValueOf(result)
 	for index := 0; index < countType.NumField(); index++ {

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,23 +60,23 @@ var (
 	testOptions *fixtures.FactoryOptions
 )
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
 	// Create a namespace and wait until the operator Pods are running. We don't want to measure that time.
-	namespace = factory.SingleNamespace()
-	factory.WaitUntilOperatorPodsRunning(namespace)
+	namespace = factory.SingleNamespace(ctx)
+	factory.WaitUntilOperatorPodsRunning(ctx, namespace)
 })
 
-var _ = AfterSuite(func() {
-	factory.Shutdown()
+var _ = AfterSuite(func(ctx SpecContext) {
+	factory.Shutdown(ctx)
 })
 
 var _ = Describe("Test Operator Velocity", Label("e2e"), func() {
 	When("creating a single FDB cluster", func() {
-		It("should roll out knob changes within expected time", func() {
+		It("should roll out knob changes within expected time", func(ctx SpecContext) {
 			startTime := time.Now()
 
-			fdbCluster := factory.CreateFdbCluster(
+			fdbCluster := factory.CreateFdbCluster(ctx,
 				&fixtures.ClusterConfig{
 					Namespace:       namespace,
 					CreationTracker: fixtures.NewDefaultCreationTrackerLogger(),
@@ -85,15 +85,15 @@ var _ = Describe("Test Operator Velocity", Label("e2e"), func() {
 
 			runTime := time.Since(startTime)
 			log.Println("Single-DC cluster creation took: ", runTime.String())
-			Expect(fdbCluster.Destroy()).ToNot(HaveOccurred())
+			Expect(fdbCluster.Destroy(ctx)).ToNot(HaveOccurred())
 		})
 	})
 
 	When("creating a multi-DC FDB cluster", func() {
-		It("benchmark multi-DC cluster creation", func() {
+		It("benchmark multi-DC cluster creation", func(ctx SpecContext) {
 			startTime := time.Now()
 
-			haCluster := factory.CreateFdbHaCluster(
+			haCluster := factory.CreateFdbHaCluster(ctx,
 				&fixtures.ClusterConfig{
 					HaMode:          fixtures.HaFourZoneSingleSat,
 					CreationTracker: fixtures.NewDefaultCreationTrackerLogger(),
@@ -102,7 +102,7 @@ var _ = Describe("Test Operator Velocity", Label("e2e"), func() {
 
 			runTime := time.Since(startTime)
 			log.Println("Multi-DC cluster creation took: ", runTime.String())
-			haCluster.Delete()
+			haCluster.Delete(ctx)
 		})
 	})
 })

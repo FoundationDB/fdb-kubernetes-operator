@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -56,14 +57,21 @@ type FdbBackupConfiguration struct {
 	BackupMode *fdbv1beta2.BackupMode
 	// CustomParameters defines the custom parameters to add to the backup deployment.
 	CustomParameters fdbv1beta2.FoundationDBCustomParameters
+	// Tag for the created backup.
+	Tag *fdbv1beta2.BackupTag
+	// BackupName is the name for the backup that should be created. If not set the default will be
+	// the cluster name.
+	BackupName *string
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
 func (factory *Factory) CreateBackupForCluster(
+	ctx context.Context,
 	fdbCluster *FdbCluster,
 	config *FdbBackupConfiguration,
 ) *FdbBackup {
 	return factory.CreateBackupForClusterFromSpec(
+		ctx,
 		factory.GenerateBackupSpecForCluster(fdbCluster, config),
 		fdbCluster,
 	)
@@ -86,7 +94,7 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 
 	backup := &fdbv1beta2.FoundationDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fdbCluster.Name(),
+			Name:      ptr.Deref(config.BackupName, fdbCluster.Name()),
 			Namespace: fdbCluster.Namespace(),
 		},
 		Spec: fdbv1beta2.FoundationDBBackupSpec{
@@ -101,6 +109,7 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 					"region=us-east-1",
 				},
 			},
+			Tag:              config.Tag,
 			DeletionPolicy:   ptr.To(fdbv1beta2.BackupDeletionPolicyCleanup),
 			BackupType:       config.BackupType,
 			BackupState:      ptr.Deref(config.BackupState, fdbv1beta2.BackupStateRunning),
@@ -111,6 +120,8 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 			SidecarContainer: fdbCluster.cluster.Spec.SidecarContainer,
 			PodTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
+					// The backup_agent is directly started and doesn't listen to the SIGTERM signal.
+					TerminationGracePeriodSeconds: ptr.To[int64](2),
 					Containers: []corev1.Container{
 						{
 							Name: fdbv1beta2.MainContainerName,
@@ -201,6 +212,7 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 // CreateBackupForClusterFromSpec creates a FdbBackup. This method can be used in combination with the GenerateBackupSpecForCluster method.
 // In general this should only be used for special cases that are not covered by changing the FdbBackupConfiguration.
 func (factory *Factory) CreateBackupForClusterFromSpec(
+	ctx context.Context,
 	spec *fdbv1beta2.FoundationDBBackup,
 	fdbCluster *FdbCluster,
 ) *FdbBackup {
@@ -212,39 +224,39 @@ func (factory *Factory) CreateBackupForClusterFromSpec(
 		)
 	}()
 
-	gomega.Expect(factory.CreateIfAbsent(spec)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(factory.CreateIfAbsent(ctx, spec)).NotTo(gomega.HaveOccurred())
 	curBackup := &FdbBackup{
 		backup:     spec,
 		fdbCluster: fdbCluster,
 	}
 
 	factory.AddShutdownHook(func() error {
-		curBackup.Destroy()
+		curBackup.Destroy(context.Background())
 
 		return nil
 	})
 
-	curBackup.WaitForReconciliation()
+	curBackup.WaitForReconciliation(ctx)
 
 	return curBackup
 }
 
 // GetBackup fetch the current state of the fdbv1beta2.FoundationDBBackup and return it.
-func (fdbBackup *FdbBackup) GetBackup() *fdbv1beta2.FoundationDBBackup {
+func (fdbBackup *FdbBackup) GetBackup(ctx context.Context) *fdbv1beta2.FoundationDBBackup {
 	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
 	foundationDBBackup := &fdbv1beta2.FoundationDBBackup{}
 	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
-		Get(context.Background(), objectKey, foundationDBBackup)).NotTo(gomega.HaveOccurred())
+		Get(ctx, objectKey, foundationDBBackup)).NotTo(gomega.HaveOccurred())
 
 	fdbBackup.backup = foundationDBBackup
 	return fdbBackup.backup
 }
 
-func (fdbBackup *FdbBackup) setState(state fdbv1beta2.BackupState) {
+func (fdbBackup *FdbBackup) setState(ctx context.Context, state fdbv1beta2.BackupState) {
 	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
 	foundationDBBackup := &fdbv1beta2.FoundationDBBackup{}
 	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
-		Get(context.Background(), objectKey, foundationDBBackup)).NotTo(gomega.HaveOccurred())
+		Get(ctx, objectKey, foundationDBBackup)).NotTo(gomega.HaveOccurred())
 
 	// Backup is already in desired state
 	if foundationDBBackup.Spec.BackupState == state {
@@ -253,81 +265,113 @@ func (fdbBackup *FdbBackup) setState(state fdbv1beta2.BackupState) {
 
 	foundationDBBackup.Spec.BackupState = state
 	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
-		Update(context.Background(), foundationDBBackup)).NotTo(gomega.HaveOccurred())
+		Update(ctx, foundationDBBackup)).NotTo(gomega.HaveOccurred())
 	fdbBackup.backup = foundationDBBackup
-	fdbBackup.WaitForReconciliation()
+	fdbBackup.WaitForReconciliation(ctx)
 }
 
 // Stop will stop the FdbBackup.
-func (fdbBackup *FdbBackup) Stop() {
-	fdbBackup.setState(fdbv1beta2.BackupStateStopped)
+func (fdbBackup *FdbBackup) Stop(ctx context.Context) {
+	fdbBackup.setState(ctx, fdbv1beta2.BackupStateStopped)
 }
 
 // Start will start the FdbBackup.
-func (fdbBackup *FdbBackup) Start() {
-	fdbBackup.setState(fdbv1beta2.BackupStateRunning)
+func (fdbBackup *FdbBackup) Start(ctx context.Context) {
+	fdbBackup.setState(ctx, fdbv1beta2.BackupStateRunning)
 }
 
 // Pause will pause the FdbBackup.
-func (fdbBackup *FdbBackup) Pause() {
-	fdbBackup.setState(fdbv1beta2.BackupStatePaused)
+func (fdbBackup *FdbBackup) Pause(ctx context.Context) {
+	fdbBackup.setState(ctx, fdbv1beta2.BackupStatePaused)
 }
 
 // SetSnapshotInterval updates the snapshot interval of the current backup.
-func (fdbBackup *FdbBackup) SetSnapshotInterval(snapshotPeriodSeconds int) {
+func (fdbBackup *FdbBackup) SetSnapshotInterval(ctx context.Context, snapshotPeriodSeconds int) {
 	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
 	foundationDBBackup := &fdbv1beta2.FoundationDBBackup{}
 	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
-		Get(context.Background(), objectKey, foundationDBBackup)).To(gomega.Succeed())
+		Get(ctx, objectKey, foundationDBBackup)).To(gomega.Succeed())
 
 	foundationDBBackup.Spec.SnapshotPeriodSeconds = &snapshotPeriodSeconds
 	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
-		Update(context.Background(), foundationDBBackup)).To(gomega.Succeed())
+		Update(ctx, foundationDBBackup)).To(gomega.Succeed())
 	fdbBackup.backup = foundationDBBackup
-	fdbBackup.WaitForReconciliation()
+	fdbBackup.WaitForReconciliation(ctx)
 }
 
 // RunCommandOnBackupPod runs the provided command on a randomly chosen backup pod.
-func (fdbBackup *FdbBackup) RunCommandOnBackupPod(command string) string {
-	backupPod := fdbBackup.GetBackupPod()
-	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
+func (fdbBackup *FdbBackup) RunCommandOnBackupPod(ctx context.Context, command string) string {
+	backupPod := fdbBackup.GetBackupPod(ctx)
+	gomega.Expect(backupPod).NotTo(gomega.BeNil())
+	out, stderr, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
+		ctx,
 		*backupPod,
 		fdbv1beta2.MainContainerName,
 		command,
 		false)
-	gomega.Expect(err).To(gomega.Succeed())
+	log.Println("command:", command, "output:", out, "stderr", stderr)
+	gomega.Expect(err).
+		To(gomega.Succeed(), fmt.Sprintf("could not execute command: %s, got error; %s", command, stderr))
 	return out
 }
 
 // RunDescribeCommand runs the describe command on a randomly chosen backup pod.
-func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
+func (fdbBackup *FdbBackup) RunDescribeCommand(
+	ctx context.Context,
+) *fdbv1beta2.FoundationDBBackupDescribe {
 	backupURL, err := fdbBackup.backup.BackupURL()
 	gomega.Expect(err).To(gomega.Succeed())
 	command := fmt.Sprintf("fdbbackup describe -d \"%s\" --json", backupURL)
-	out := fdbBackup.RunCommandOnBackupPod(command)
-	desc := &fdbv1beta2.FDBBackupDescribe{}
+	out := fdbBackup.RunCommandOnBackupPod(ctx, command)
+	desc := &fdbv1beta2.FoundationDBBackupDescribe{}
 	gomega.Expect(json.Unmarshal([]byte(out), desc)).To(gomega.Succeed())
 	return desc
 }
 
 // RunStatusCommand runs the status command on a randomly chosen backup pod.
-func (fdbBackup *FdbBackup) RunStatusCommand() *fdbv1beta2.FoundationDBLiveBackupStatus {
-	out := fdbBackup.RunCommandOnBackupPod("fdbbackup status --json")
+func (fdbBackup *FdbBackup) RunStatusCommand(
+	ctx context.Context,
+) *fdbv1beta2.FoundationDBLiveBackupStatus {
+	out := fdbBackup.RunCommandOnBackupPod(ctx,
+		fmt.Sprintf("fdbbackup status --json -t %s", fdbBackup.backup.GetBackupTag()),
+	)
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 	gomega.Expect(json.Unmarshal([]byte(out), status)).To(gomega.Succeed())
 	return status
 }
 
+// RunAbortCommand runs the abort command on a randomly chosen backup pod.
+func (fdbBackup *FdbBackup) RunAbortCommand(ctx context.Context) {
+	fdbBackup.RunCommandOnBackupPod(ctx,
+		fmt.Sprintf("fdbbackup abort -t %s", fdbBackup.backup.GetBackupTag()),
+	)
+}
+
 // RunListCommand runs the list command on a randomly chosen backup pod.
-func (fdbBackup *FdbBackup) RunListCommand() []string {
+func (fdbBackup *FdbBackup) RunListCommand(ctx context.Context) []string {
 	backupURL, err := fdbBackup.backup.BaseURL()
 	gomega.Expect(err).To(gomega.Succeed())
 	command := fmt.Sprintf("fdbbackup list -b \"%s\"", backupURL)
-	return strings.Split(fdbBackup.RunCommandOnBackupPod(command), "\\n")
+	return strings.Split(fdbBackup.RunCommandOnBackupPod(ctx, command), "\\n")
+}
+
+// RunExpireCommand runs the expire command on a randomly chosen backup pod.
+func (fdbBackup *FdbBackup) RunExpireCommand(
+	ctx context.Context,
+	expireBeforeVersion uint64,
+) string {
+	backupURL, err := fdbBackup.backup.BackupURL()
+	gomega.Expect(err).To(gomega.Succeed())
+	command := fmt.Sprintf(
+		"fdbbackup expire -d \"%s\" --expire-before-version %d --force",
+		backupURL,
+		expireBeforeVersion,
+	)
+	return fdbBackup.RunCommandOnBackupPod(ctx, command)
 }
 
 // WaitForReconciliation waits until the FdbBackup resource is fully reconciled.
-func (fdbBackup *FdbBackup) WaitForReconciliation() {
+func (fdbBackup *FdbBackup) WaitForReconciliation(ctx context.Context) {
 	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
 
 	startTime := time.Now()
@@ -335,11 +379,11 @@ func (fdbBackup *FdbBackup) WaitForReconciliation() {
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		curBackup := &fdbv1beta2.FoundationDBBackup{}
 		g.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
-			Get(context.Background(), objectKey, curBackup)).NotTo(gomega.HaveOccurred())
+			Get(ctx, objectKey, curBackup)).NotTo(gomega.HaveOccurred())
 
 		// Dump the operator and cluster status after 5 minutes
 		if time.Since(startTime) > waitDuration {
-			fdbBackup.fdbCluster.factory.DumpState(fdbBackup.fdbCluster)
+			fdbBackup.fdbCluster.factory.DumpState(ctx, fdbBackup.fdbCluster)
 			startTime = time.Now()
 		}
 
@@ -348,10 +392,10 @@ func (fdbBackup *FdbBackup) WaitForReconciliation() {
 }
 
 // WaitForRestorableVersion will wait until the back is restorable.
-func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
+func (fdbBackup *FdbBackup) WaitForRestorableVersion(ctx context.Context, version uint64) uint64 {
 	var restorableVersion uint64
 	gomega.Eventually(func(g gomega.Gomega) uint64 {
-		status := fdbBackup.RunStatusCommand()
+		status := fdbBackup.RunStatusCommand(ctx)
 		var latestRestorableVersion uint64
 		if status.LatestRestorablePoint != nil {
 			latestRestorableVersion = ptr.Deref(status.LatestRestorablePoint.Version, 0)
@@ -374,29 +418,28 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
 }
 
 // GetBackupPod returns a random backup Pod for the provided backup.
-func (fdbBackup *FdbBackup) GetBackupPod() *corev1.Pod {
-	return fdbBackup.fdbCluster.factory.ChooseRandomPod(fdbBackup.GetBackupPods())
+func (fdbBackup *FdbBackup) GetBackupPod(ctx context.Context) *corev1.Pod {
+	return fdbBackup.fdbCluster.factory.ChooseRandomPod(fdbBackup.GetBackupPods(ctx))
 }
 
 // GetBackupPods returns a *corev1.PodList, which contains all pods for the provided backup.
-func (fdbBackup *FdbBackup) GetBackupPods() *corev1.PodList {
+func (fdbBackup *FdbBackup) GetBackupPods(ctx context.Context) *corev1.PodList {
 	podList := &corev1.PodList{}
 
-	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().List(context.Background(), podList,
+	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().List(ctx, podList,
 		client.InNamespace(fdbBackup.fdbCluster.Namespace()),
 		client.MatchingLabels(map[string]string{fdbv1beta2.BackupDeploymentPodLabel: fdbBackup.fdbCluster.Name() + "-backup-agents"}),
 	),
-	).
-		NotTo(gomega.HaveOccurred())
+	).NotTo(gomega.HaveOccurred())
 
 	return podList
 }
 
 // Destroy will remove the underlying backup resources.
-func (fdbBackup *FdbBackup) Destroy() {
+func (fdbBackup *FdbBackup) Destroy(ctx context.Context) {
 	gomega.Eventually(func(g gomega.Gomega) {
 		err := fdbBackup.fdbCluster.getClient().
-			Delete(context.Background(), fdbBackup.backup)
+			Delete(ctx, fdbBackup.backup)
 		if k8serrors.IsNotFound(err) {
 			return
 		}
@@ -408,14 +451,14 @@ func (fdbBackup *FdbBackup) Destroy() {
 	gomega.Eventually(func(g gomega.Gomega) {
 		backup := &fdbv1beta2.FoundationDBBackup{}
 		err := fdbBackup.fdbCluster.getClient().
-			Get(context.Background(), client.ObjectKeyFromObject(fdbBackup.backup), backup)
+			Get(ctx, client.ObjectKeyFromObject(fdbBackup.backup), backup)
 		g.Expect(k8serrors.IsNotFound(err)).To(gomega.BeTrue())
 	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
 }
 
 // ForceReconcile will add an annotation with the current timestamp on the FoundationDBBackup resource to make sure
 // the operator reconciliation loop is triggered. This is used to speed up some test cases.
-func (fdbBackup *FdbBackup) ForceReconcile() {
+func (fdbBackup *FdbBackup) ForceReconcile(ctx context.Context) {
 	log.Printf("ForceReconcile: Status Generations=%s, Metadata Generation=%d",
 		ToJSON(fdbBackup.backup.Status.Generations),
 		fdbBackup.backup.ObjectMeta.Generation)
@@ -432,10 +475,53 @@ func (fdbBackup *FdbBackup) ForceReconcile() {
 	// This will apply an Annotation to the object which will trigger the reconcile loop.
 	// This should speed up the reconcile phase.
 	err := fdbBackup.fdbCluster.getClient().Patch(
-		context.Background(),
+		ctx,
 		fdbBackup.backup,
 		patch)
 	if err != nil {
 		log.Println("error patching annotation to force reconcile, error:", err.Error())
 	}
+}
+
+// UpdateBackupSpec ensures that the FoundationDBBackup will be updated in Kubernetes. This method has a retry mechanism
+// implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes.
+func (fdbBackup *FdbBackup) UpdateBackupSpec() {
+	fdbBackup.UpdateBackupSpecWithSpec(fdbBackup.backup.Spec.DeepCopy())
+}
+
+// UpdateBackupSpecWithSpec ensures that the FoundationDBBackup will be updated in Kubernetes. This method has a retry mechanism
+// implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes. You must make sure that you call
+// backup.GetBackup() before updating the spec, to make sure you are not overwriting the current state with an outdated state.
+// An example on how to update a field with this method:
+//
+//	spec := backup.GetBackup().Spec.DeepCopy() // Fetch the current Spec.
+//	spec.AgentCount = "42" // Make your changes.
+//
+//	backup.UpdateBackupSpecWithSpec(backupSpec) // Update the spec.
+func (fdbBackup *FdbBackup) UpdateBackupSpecWithSpec(
+	desiredSpec *fdbv1beta2.FoundationDBBackupSpec,
+) {
+	fetchedBackup := &fdbv1beta2.FoundationDBBackup{}
+
+	// This is flaky. It sometimes responds with an error saying that the object has been updated.
+	// Try every second for 10 minutes  before giving up.
+	gomega.Eventually(func(g gomega.Gomega) bool {
+		err := fdbBackup.fdbCluster.getClient().
+			Get(context.Background(), client.ObjectKeyFromObject(fdbBackup.backup), fetchedBackup)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching backup")
+
+		specUpdated := equality.Semantic.DeepEqual(fetchedBackup.Spec, *desiredSpec)
+		log.Println("UpdateBackupSpec: specUpdated:", specUpdated)
+		if specUpdated {
+			return true
+		}
+
+		desiredSpec.DeepCopyInto(&fetchedBackup.Spec)
+		err = fdbBackup.fdbCluster.getClient().Update(context.Background(), fetchedBackup)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error updating backup spec")
+		// Retry here and let the method fetch the latest version of the backup again until the spec is updated.
+		return false
+	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+
+	fdbBackup.backup = fetchedBackup
 }

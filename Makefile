@@ -41,6 +41,8 @@ GO_LINES_PKG=github.com/golangci/golines@v0.14.0
 GO_LINES=$(GOBIN)/golines
 GO_IMPORTS_PKG=golang.org/x/tools/cmd/goimports@v0.34.0
 GO_IMPORTS=$(GOBIN)/goimports
+GO_VULN_CHECK_PKG=golang.org/x/vuln/cmd/govulncheck@latest
+GO_VULN_CHECK=$(GOBIN)/govulncheck
 
 BUILD_DEPS?=
 BUILDER?="docker"
@@ -64,6 +66,7 @@ $(eval $(call godep,kustomize,KUSTOMIZE))
 $(eval $(call godep,goreleaser,GORELEASER))
 $(eval $(call godep,golines,GO_LINES))
 $(eval $(call godep,goimports,GO_IMPORTS))
+$(eval $(call godep,govulncheck,GO_VULN_CHECK))
 
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go" -not -name ".\#*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
@@ -77,7 +80,7 @@ endif
 
 all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
 
-.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint
+.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint check-license fix-license fix
 
 deps: $(BUILD_DEPS)
 
@@ -102,7 +105,7 @@ cover.out: ${GO_ALL} ${MANIFESTS}
 
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out -ginkgo.timeout=2h -ginkgo.label-filter="!e2e"
+	go test ${go_test_flags} ./... -coverprofile cover.out -ginkgo.timeout=2h -ginkgo.label-filter="!e2e && !manual"
 endif
 
 # Build manager binary
@@ -156,8 +159,12 @@ manifests: ${MANIFESTS}
 ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/..." paths="./controllers/..." applyconfiguration output:crd:artifacts:config=config/crd/bases
 
+# Run the Go fix modernizers against the code.
+fix:
+	go list ./... | grep -v '/e2e/chaos-mesh/' | xargs go fix
+
 # Run go fmt against code
-fmt: deps bin/fmt_check
+fmt: deps fix bin/fmt_check
 
 bin/fmt_check: ${GO_ALL}
 	# We make use of gofmt with golines because of: https://github.com/segmentio/golines/issues/155
@@ -238,6 +245,22 @@ lint: bin/lint
 
 bin/lint: $(GOLANGCI_LINT) ${GO_SRC}
 	$(GOLANGCI_LINT) run ./...
+	@mkdir -p bin
+	@touch $@
+
+check-license: bin/check-license
+	bin/check-license
+
+fix-license: bin/check-license
+	bin/check-license --fix
+
+bin/check-license: cmd/check-license/main.go
+	go build -o $@ ./cmd/check-license/
+
+vulncheck: bin/govulncheck
+
+bin/govulncheck: ${GO_VULN_CHECK} ${GO_SRC}
+	$(GO_VULN_CHECK) ./...
 	@mkdir -p bin
 	@touch $@
 

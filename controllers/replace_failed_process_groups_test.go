@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,7 +190,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			BeforeEach(func() {
 				targetProcessGroups = make([]fdbv1beta2.ProcessGroupID, 2)
-				for i := 0; i < 2; i++ {
+				for i := range 2 {
 					targetProcessGroup := cluster.Status.ProcessGroups[i]
 					timestamp := time.Now().Add(-10 * time.Minute).Unix()
 					targetProcessGroup.UpdateCondition(fdbv1beta2.NodeTaintDetected, true)
@@ -603,8 +603,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 									{
 										Primary: true,
 										State: fdbv1beta2.FoundationDBStatusDataState{
-											Healthy:              false,
-											MinReplicasRemaining: 2,
+											Healthy: false,
+											// The cluster uses double replication and one shard is down.
+											MinReplicasRemaining: 1,
 										},
 									},
 								}
@@ -1214,8 +1215,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 									{
 										Primary: true,
 										State: fdbv1beta2.FoundationDBStatusDataState{
-											Healthy:              false,
-											MinReplicasRemaining: 2,
+											Healthy: false,
+											// The cluster uses double replication and one shard is down.
+											MinReplicasRemaining: 1,
 										},
 									},
 								}

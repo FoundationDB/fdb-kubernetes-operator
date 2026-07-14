@@ -1,9 +1,9 @@
 /*
- * cluster_config_test.go
+ * fdb_data_loader_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ var _ = Describe("FDB Data Loader", func() {
 		var factory *Factory
 		var k8sClient *mockclient.MockClient
 
-		BeforeEach(func() {
+		BeforeEach(func(_ SpecContext) {
 			Expect(scheme.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 			Expect(fdbv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 
@@ -62,8 +62,8 @@ var _ = Describe("FDB Data Loader", func() {
 		})
 
 		When("passing empty arguments options", func() {
-			It("should generate a decoder without errors", func() {
-				factory.CreateDataLoaderIfAbsentWithOptions(&FdbCluster{
+			It("should generate a decoder without errors", func(ctx SpecContext) {
+				factory.CreateDataLoaderIfAbsentWithOptions(ctx, &FdbCluster{
 					cluster: &fdbv1beta2.FoundationDBCluster{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-cluster",
@@ -80,8 +80,8 @@ var _ = Describe("FDB Data Loader", func() {
 		})
 
 		When("passing custom arguments options", func() {
-			It("should generate a decoder without errors", func() {
-				factory.CreateDataLoaderIfAbsentWithOptions(&FdbCluster{
+			It("should generate a decoder without errors", func(ctx SpecContext) {
+				factory.CreateDataLoaderIfAbsentWithOptions(ctx, &FdbCluster{
 					cluster: &fdbv1beta2.FoundationDBCluster{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-cluster",

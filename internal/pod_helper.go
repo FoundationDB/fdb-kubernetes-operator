@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
+	"slices"
 	"strconv"
 
 	"k8s.io/utils/ptr"
@@ -139,7 +141,7 @@ func GetPodGenerationHash(
 
 // GetJSONHash serializes an object to JSON and takes a hash of the resulting
 // JSON.
-func GetJSONHash(object interface{}) (string, error) {
+func GetJSONHash(object any) (string, error) {
 	hash := sha256.New()
 	encoder := json.NewEncoder(hash)
 	err := encoder.Encode(object)
@@ -158,9 +160,7 @@ func GetPodLabels(
 ) map[string]string {
 	labels := map[string]string{}
 
-	for key, value := range cluster.GetMatchLabels() {
-		labels[key] = value
-	}
+	maps.Copy(labels, cluster.GetMatchLabels())
 
 	if processClass != "" {
 		for _, label := range cluster.GetProcessClassLabels() {
@@ -185,9 +185,7 @@ func GetPodMatchLabels(
 ) map[string]string {
 	labels := map[string]string{}
 
-	for key, value := range cluster.GetMatchLabels() {
-		labels[key] = value
-	}
+	maps.Copy(labels, cluster.GetMatchLabels())
 
 	if processClass != "" {
 		labels[cluster.GetProcessClassLabel()] = string(processClass)
@@ -381,10 +379,8 @@ func GetIPFamily(pod *corev1.Pod) (int, error) {
 func PodHasSidecarTLS(pod *corev1.Pod) bool {
 	for _, container := range pod.Spec.Containers {
 		if container.Name == fdbv1beta2.SidecarContainerName {
-			for _, arg := range container.Args {
-				if arg == "--tls" {
-					return true
-				}
+			if slices.Contains(container.Args, "--tls") {
+				return true
 			}
 		}
 	}

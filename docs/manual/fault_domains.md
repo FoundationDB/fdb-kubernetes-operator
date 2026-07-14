@@ -400,6 +400,12 @@ there are not enough storage pods, or the storage pods are not spread across
 enough fault domains it also considers log pods, and finally transaction pods as
 well.
 
+Note that `FoundationDBCluster` resources do not implement the `scale` subresource, and so pod disruption budgets have [some restrictions](https://kubernetes.io/docs/tasks/run-application/configure-pdb/#arbitrary-controllers-and-selectors).
+In particular (to quote the Kubernetes documentation):
+
+> - only `.spec.minAvailable` can be used, not `.spec.maxUnavailable`.
+> - only an integer value can be used with `.spec.minAvailable`, not a percentage.
+
 ## Spreading Pods Across Pod Template Generations
 
 `topologySpreadConstraints` keep pods of a process class spread across fault

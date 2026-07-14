@@ -84,6 +84,65 @@ spec:
 - Once completed, one-time backups will not restart automatically
 - The backup status will show `restorable: true` when finished
 
+## Backup Tags
+
+FoundationDB supports running multiple concurrent backups for the same cluster by using different backup tags.
+Each tag identifies an independent backup stream with its own destination URL and snapshot schedule.
+
+The operator exposes this through the `tag` field in the backup spec.
+If omitted, the tag defaults to `"default"`, which matches the behaviour of the `fdbbackup` CLI when no `-t` flag is given.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster-hourly
+spec:
+  version: 7.1.26
+  clusterName: sample-cluster
+  tag: hourly
+  snapshotPeriodSeconds: 3600  # 1 hour
+  blobStoreConfiguration:
+    accountName: account@object-store.example:443
+```
+
+To run a second, independent backup of the same cluster, create a second `FoundationDBBackup` resource with a different tag and a different destination:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster-daily
+spec:
+  version: 7.1.26
+  clusterName: sample-cluster
+  tag: daily
+  snapshotPeriodSeconds: 86400  # 1 day
+  blobStoreConfiguration:
+    accountName: account@object-store.example:443
+    backupName: sample-cluster-daily
+```
+
+**Important constraints:**
+
+- The `tag` field is **immutable** after the resource is created. To change a tag, stop and delete the existing `FoundationDBBackup` resource and create a new one with the desired tag.
+- Tags are scoped to a cluster — two `FoundationDBBackup` resources targeting the same cluster must use different tags, otherwise they will conflict.
+- The active tag is reflected in `status.backupDetails.tag`.
+
+**Warning — pause and resume are cluster-wide operations**
+
+`fdbbackup pause` and `fdbbackup resume` act on all backup agents for the entire cluster, regardless of tag.
+The confirmation message from FDB ("All backup agents have been paused/resumed") reflects this: there is no per-tag pause.
+
+This has a critical consequence when running multiple `FoundationDBBackup` resources against the same cluster: **all resources must have the same `backupState`**.
+If one resource has `backupState: Paused` and another has no state (running), the operator will pause the agents on behalf of the first resource and immediately resume them on behalf of the second, then pause again — an infinite reconciliation loop.
+
+Always keep `backupState` in sync across all `FoundationDBBackup` resources that target the same cluster.
+
+**Warning — a single deployment will be created**
+
+The operator will create a single `Deployment` for the backup agents if you are using multiple tags, ensure that the `agentCount` matches to prevent the operator to be stuck in a up-scale and down-scale loop.
+
 ## Example Continuous Backup
 
 This is a sample configuration for running a continuous backup of a cluster.

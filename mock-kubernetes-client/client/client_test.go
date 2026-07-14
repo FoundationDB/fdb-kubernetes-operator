@@ -1,9 +1,9 @@
 /*
- * client.go
+ * client_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -558,7 +558,7 @@ var _ = Describe("[mock client]", func() {
 
 					expectedReplicas := ptr.Deref(replicaSet.Spec.Replicas, 1)
 
-					for i := int32(0); i < expectedReplicas; i++ {
+					for i := range expectedReplicas {
 						err := client.Create(ctx, &corev1.Pod{
 							ObjectMeta: metav1.ObjectMeta{
 								Namespace: replicaSet.Namespace,
@@ -616,7 +616,7 @@ var _ = Describe("[mock client]", func() {
 
 				expectedReplicas := ptr.Deref(replicaSet.Spec.Replicas, 1)
 
-				for i := int32(0); i < expectedReplicas; i++ {
+				for i := range expectedReplicas {
 					err := client.Create(ctx, &corev1.Pod{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: replicaSet.Namespace,

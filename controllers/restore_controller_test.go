@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,6 +127,29 @@ var _ = Describe("restore_controller", func() {
 				Expect(adminClient.Knobs).To(HaveLen(1))
 				Expect(adminClient.Knobs).To(HaveKey("--knob_http_verbose_level=3"))
 			})
+		})
+	})
+
+	Describe("reconciling a new restore when the CLI reports no restore found", func() {
+		BeforeEach(func() {
+			Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeZero())
+
+			adminClient.MockRestoreDoesNotExist(true)
+
+			Expect(k8sClient.Create(context.TODO(), restore)).To(Succeed())
+		})
+
+		It("should start the restore", func() {
+			result, err := reconcileRestore(restore)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeZero())
+
+			Expect(reloadRestore(restore)).To(Succeed())
+			Expect(restore.Status.Running).To(BeTrue())
 		})
 	})
 })

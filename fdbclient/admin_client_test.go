@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	fdberrors "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -999,7 +1001,6 @@ protocol fdb00b071010000`,
 			args := mockRunner.receivedArgs[0]
 			// The last 2 args are always the cluster file.
 			Expect(args[:len(args)-2]).To(HaveExactElements(expectedArgs))
-
 		},
 		Entry(
 			"version that doesn't support backup encryption without key",
@@ -1015,6 +1016,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			},
@@ -1034,6 +1036,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			},
@@ -1051,6 +1054,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			}),
@@ -1068,6 +1072,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 				"--encryption-key-file",
@@ -1087,9 +1092,30 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 				"--partitioned-log-experimental",
+			}),
+		Entry("with partitioned log backup type with mutation log type argument",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.UsesMutationLogType.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "@test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+					BackupType:            ptr.To(fdbv1beta2.BackupTypePartitionedLog),
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
+				"-s", "60",
+				"-z",
+				"--mutation-log-type",
+				"partitioned-log-experimental",
 			}),
 		Entry("with backup agent (default) backup type",
 			&fdbv1beta2.FoundationDBBackup{
@@ -1105,6 +1131,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			}),
@@ -1122,6 +1149,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 				"-s", "60",
 				"-z",
 			}),
@@ -1138,6 +1166,7 @@ protocol fdb00b071010000`,
 			}, []string{
 				"start",
 				"-d", "blobstore://@test:443/test-backup?bucket=fdb-backups",
+				"-t", "default",
 			}),
 	)
 
@@ -1323,6 +1352,164 @@ protocol fdb00b071010000`,
 			Expect(
 				counterValue,
 			).To(BeNumerically(">", 0), "coordinator changes counter should be incremented after a coordinator change")
+		})
+	})
+
+	When("changing the configuration", func() {
+		var cliClient *cliAdminClient
+		var mockRunner *mockCommandRunner
+		var newDatabase bool
+		var configuration *fdbv1beta2.DatabaseConfiguration
+		var configurationErr error
+
+		BeforeEach(func() {
+			mockRunner = &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: []string{""},
+			}
+
+			cliClient = &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: "test",
+					},
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.3.1",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion:   "7.3.1",
+						ConnectionString: "abc:dfg@test:4500",
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+				fdbLibClient: &mockFdbLibClient{
+					mockedOutput: []byte(""),
+				},
+			}
+
+		})
+
+		JustBeforeEach(func() {
+			configurationErr = cliClient.ConfigureDatabase(*configuration, newDatabase)
+		})
+
+		When("the database is not yet configured with the default configuration", func() {
+			BeforeEach(func() {
+				newDatabase = true
+				configuration = &fdbv1beta2.DatabaseConfiguration{}
+			})
+
+			It("should configure the database", func() {
+				Expect(configurationErr).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs).To(HaveLen(1))
+				Expect(
+					mockRunner.receivedArgs[0][:2],
+				).To(Equal([]string{"--exec", "configure new   usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[]"}))
+			})
+
+			When("invalid input is provided", func() {
+				BeforeEach(func() {
+					newDatabase = true
+					configuration = &fdbv1beta2.DatabaseConfiguration{
+						PerpetualStorageWiggleLocality: ptr.To("; status details\n"),
+					}
+				})
+
+				It("should not configure the database and return an error", func() {
+					Expect(configurationErr).To(HaveOccurred())
+					Expect(mockRunner.receivedArgs).To(BeEmpty())
+				})
+			})
+		})
+
+		When("the database is already configured", func() {
+			BeforeEach(func() {
+				newDatabase = false
+				configuration = &fdbv1beta2.DatabaseConfiguration{}
+			})
+
+			It("should configure the database", func() {
+				Expect(configurationErr).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs).To(HaveLen(1))
+				Expect(
+					mockRunner.receivedArgs[0][:2],
+				).To(Equal([]string{"--exec", "configure   usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[]"}))
+			})
+
+			When("invalid input is provided", func() {
+				BeforeEach(func() {
+					newDatabase = true
+					configuration = &fdbv1beta2.DatabaseConfiguration{
+						PerpetualStorageWiggleLocality: ptr.To("; status details\n"),
+					}
+				})
+
+				It("should not configure the database and return an error", func() {
+					Expect(configurationErr).To(HaveOccurred())
+					Expect(mockRunner.receivedArgs).To(BeEmpty())
+				})
+			})
+		})
+
+	})
+
+	Describe("getting the restore status", func() {
+		var mockRunner *mockCommandRunner
+		var status string
+		var err error
+
+		JustBeforeEach(func() {
+			cliClient := &cliAdminClient{
+				Cluster:   &fdbv1beta2.FoundationDBCluster{},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+			}
+
+			status, err = cliClient.GetRestoreStatus()
+		})
+
+		When("no restore has ever been started", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedOutput: []string{"No restores found for tag `default'\n"},
+				}
+			})
+
+			It("should return a RestoreDoesNotExist error and an empty status", func() {
+				Expect(status).To(BeEmpty())
+				Expect(err).To(HaveOccurred())
+				Expect(fdberrors.IsRestoreDoesNotExist(err)).To(BeTrue())
+			})
+		})
+
+		When("a restore is currently running", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedOutput: []string{"UID: ABCD, State: running\n"},
+				}
+			})
+
+			It("should return the raw status and no error", func() {
+				Expect(status).To(ContainSubstring("State: running"))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		When("the command fails for an unrelated reason", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedOutput: []string{""},
+					mockedError:  []error{fmt.Errorf("connection failed")},
+				}
+			})
+
+			It("should propagate the raw error and not report RestoreDoesNotExist", func() {
+				Expect(status).To(BeEmpty())
+				Expect(err).To(HaveOccurred())
+				Expect(fdberrors.IsRestoreDoesNotExist(err)).To(BeFalse())
+			})
 		})
 	})
 })

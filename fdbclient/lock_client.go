@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -186,9 +186,8 @@ func (client *realLockClient) GetPendingUpgrades(
 ) (map[fdbv1beta2.ProcessGroupID]bool, error) {
 	var upgrades map[fdbv1beta2.ProcessGroupID]bool
 	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
-		keyPrefix := []byte(
-			fmt.Sprintf("%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String()),
-		)
+		keyPrefix :=
+			fmt.Appendf(nil, "%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String())
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
 			return nil, err
@@ -209,7 +208,7 @@ func (client *realLockClient) GetPendingUpgrades(
 // upgrades.
 func (client *realLockClient) ClearPendingUpgrades() error {
 	_, err := client.fdbLibClient.executeTransaction(func(tr fdb.Transaction) (any, error) {
-		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/", client.cluster.GetLockPrefix()))
+		keyPrefix := fmt.Appendf(nil, "%s/upgrades/", client.cluster.GetLockPrefix())
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
 			return nil, err
@@ -270,7 +269,7 @@ func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntr
 
 // getDenyListKeyRange defines a key range containing the full deny list.
 func (client *realLockClient) getDenyListKeyRange() (fdb.KeyRange, error) {
-	return fdb.PrefixRange([]byte(fmt.Sprintf("%s/denyList/", client.cluster.GetLockPrefix())))
+	return fdb.PrefixRange(fmt.Appendf(nil, "%s/denyList/", client.cluster.GetLockPrefix()))
 }
 
 // getDenyListKeyRange defines a key range containing a potential deny list
