@@ -1727,15 +1727,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var originalStorageNames map[string]bool
 		var podToReplace corev1.Pod
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			// Enabling the opt-in label does not relabel running pods, so we
 			// recreate a single storage pod below so it gets stamped.
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			initialSetting = spec.LabelConfig.IncludePodTemplateGenerationLabel
 			spec.LabelConfig.IncludePodTemplateGenerationLabel = ptr.To(true)
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 
-			storagePods := fdbCluster.GetStoragePods()
+			storagePods := fdbCluster.GetStoragePods(ctx)
 			Expect(storagePods.Items).NotTo(BeEmpty())
 			originalStorageNames = make(map[string]bool, len(storagePods.Items))
 			for _, pod := range storagePods.Items {
@@ -1746,19 +1746,19 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// while the remaining storage pods and all log pods survive
 			// unlabeled, exercising the transitional mixed state.
 			podToReplace = storagePods.Items[0]
-			fdbCluster.ReplacePod(podToReplace, false)
+			fdbCluster.ReplacePod(ctx, podToReplace, false)
 		})
 
-		AfterEach(func() {
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+		AfterEach(func(ctx SpecContext) {
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			spec.LabelConfig.IncludePodTemplateGenerationLabel = initialSetting
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+			Expect(fdbCluster.ClearProcessGroupsToRemove(ctx)).NotTo(HaveOccurred())
 		})
 
-		It("should stamp recreated pods with the generation label but leave surviving pods untouched", func() {
+		It("should stamp recreated pods with the generation label but leave surviving pods untouched", func(ctx SpecContext) {
 			expectedHash, err := internal.GetPodGenerationHash(
-				fdbCluster.GetCluster(),
+				fdbCluster.GetCluster(ctx),
 				fdbv1beta2.ProcessClassStorage,
 			)
 			Expect(err).NotTo(HaveOccurred())
@@ -1768,19 +1768,19 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Eventually(func(g Gomega) {
 				// Force a reconcile periodically to speed up the replacement.
 				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
-					fdbCluster.ForceReconcile()
+					fdbCluster.ForceReconcile(ctx)
 					lastForcedReconciliationTime = time.Now()
 				}
 
 				// The replaced pod must be gone.
-				g.Expect(fdbCluster.GetPodsNames()).
+				g.Expect(fdbCluster.GetPodsNames(ctx)).
 					NotTo(ContainElement(podToReplace.Name))
 
 				// A newly created storage pod (not in the original set) must
 				// carry the class-scoped hash, while storage pods that survived
 				// must not have the label.
 				var sawRecreatedPod bool
-				for _, pod := range fdbCluster.GetStoragePods().Items {
+				for _, pod := range fdbCluster.GetStoragePods(ctx).Items {
 					if originalStorageNames[pod.Name] {
 						g.Expect(pod.Labels).
 							NotTo(HaveKey(fdbv1beta2.PodTemplateGenerationLabel))
@@ -1794,7 +1794,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 				// Log pods were never recreated, so they must not have gained
 				// the label; it is never patched onto a surviving pod.
-				for _, pod := range fdbCluster.GetLogPods().Items {
+				for _, pod := range fdbCluster.GetLogPods(ctx).Items {
 					g.Expect(pod.Labels).
 						NotTo(HaveKey(fdbv1beta2.PodTemplateGenerationLabel))
 				}
