@@ -224,12 +224,18 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				}, chaosmesh.Both)
 
 			// Also inject network loss b/w operator pods and cluster pods.
-			operatorPods := factory.GetOperatorPods(ctx, fdbCluster.Namespace())
 			factory.InjectNetworkLoss(
 				ctx,
 				"20",
 				fixtures.PodsSelector(allPods.Items),
-				fixtures.PodsSelector(operatorPods.Items),
+				chaosmesh.PodSelectorSpec{
+					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+						Namespaces: []string{fdbCluster.Namespace()},
+						LabelSelectors: map[string]string{
+							"app": "fdb-kubernetes-operator-controller-manager",
+						},
+					},
+				},
 				chaosmesh.Both)
 
 			// 2. Start cluster upgrade.
