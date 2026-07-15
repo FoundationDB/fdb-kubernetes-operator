@@ -332,6 +332,7 @@ func (client *realLockClient) ReleaseLock() error {
 
 		return nil, nil
 	})
+
 	return err
 }
 

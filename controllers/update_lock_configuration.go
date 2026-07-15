@@ -40,8 +40,12 @@ func (updateLockConfiguration) reconcile(
 	_ *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
-	if len(cluster.Spec.LockOptions.DenyList) == 0 || !cluster.ShouldUseLocks() ||
-		!cluster.Status.Configured {
+	if !cluster.ShouldUseLocks() || !cluster.Status.Configured {
+		return nil
+	}
+
+	// If no lock entries must be set or removed we can skip all the work.
+	if len(cluster.Spec.LockOptions.DenyList) == 0 {
 		return nil
 	}
 

@@ -286,20 +286,24 @@ func (c updateStatus) reconcile(
 		clusterStatus.NeedsNewCoordinators = !coordinatorsValid
 	}
 
-	if len(cluster.Spec.LockOptions.DenyList) > 0 && cluster.ShouldUseLocks() &&
-		clusterStatus.Configured {
-		lockClient, err := r.getLockClient(logger, cluster)
-		if err != nil {
-			return &requeue{curError: err}
+	if cluster.ShouldUseLocks() && clusterStatus.Configured {
+		// If the original status had an entry for the deny list we have to query the FDB cluster until that entry was
+		// removed. Same for the case a user added at least one entry to the deny list.
+		if len(cluster.Spec.LockOptions.DenyList) > 0 || len(originalStatus.Locks.DenyList) > 0 {
+			lockClient, err := r.getLockClient(logger, cluster)
+			if err != nil {
+				return &requeue{curError: err}
+			}
+			denyList, err := lockClient.GetDenyList()
+			if err != nil {
+				return &requeue{curError: err}
+			}
+			if len(denyList) == 0 {
+				denyList = nil
+			}
+
+			clusterStatus.Locks.DenyList = denyList
 		}
-		denyList, err := lockClient.GetDenyList()
-		if err != nil {
-			return &requeue{curError: err}
-		}
-		if len(denyList) == 0 {
-			denyList = nil
-		}
-		clusterStatus.Locks.DenyList = denyList
 	}
 
 	// Sort slices that are assembled based on pods to prevent a reordering from
@@ -332,14 +336,6 @@ func (c updateStatus) reconcile(
 		err = coordination.UpdateGlobalCoordinationState(logger, cluster, adminClient, processMap)
 		if err != nil {
 			return &requeue{curError: err}
-		}
-	}
-
-	if reconciled && cluster.ShouldUseLocks() {
-		// Once the cluster is reconciled the operator will release any pending locks for this cluster.
-		lockErr := r.releaseLock(logger, cluster)
-		if lockErr != nil {
-			return &requeue{curError: lockErr}
 		}
 	}
 
