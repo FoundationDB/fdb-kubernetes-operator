@@ -97,8 +97,9 @@ func (c chooseRemovals) reconcile(
 		excessCount := currentCounts[processClass] - desiredCount
 		processClassLocality := make([]locality.Info, 0, currentCounts[processClass])
 
-		// TODO (johscheuer): We could add a higher priority to the process groups that have a condition that requires
-		// an automatic replacement.
+		// Prioritize degraded process groups for removal. If a process group is degraded,
+		// we set its priority to a low value (-100) so that healthy process groups
+		// are prioritized to remain, and degraded ones are naturally chosen for removal.
 		for _, processGroup := range cluster.Status.ProcessGroupsByProcessClass(processClass) {
 			if processGroup.IsMarkedForRemoval() {
 				excessCount--
@@ -106,6 +107,14 @@ func (c chooseRemovals) reconcile(
 			}
 			localityInfo, present := localityMap[string(processGroup.ProcessGroupID)]
 			if present {
+				_, failureTime := processGroup.NeedsReplacementWithConditions(
+					cluster.GetFailureDetectionTimeSeconds(),
+					cluster.GetTaintReplacementTimeSeconds(),
+					cluster.GetConditionsThatNeedReplacement(),
+				)
+				if failureTime > 0 {
+					localityInfo.Priority = -100
+				}
 				processClassLocality = append(processClassLocality, localityInfo)
 			}
 		}
