@@ -481,6 +481,18 @@ not carry the key, so the constraint degrades gracefully to the broader
 `labelSelector` spread rather than failing to schedule. To have every pod carry
 the label from the start, enable the setting when the cluster is first created.
 
+### Pods marked for removal
+
+When a process group is marked for removal (for example during a replacement),
+any pod the operator creates for it is stamped with the fixed value
+`marked-for-removal` instead of a generation hash. This buckets the doomed pod
+away from every live generation, so it is never counted toward — and therefore
+cannot skew — the spread of the pods that will survive. The sentinel is applied
+only to pods created while the group is already being removed; pods that were
+created earlier keep whatever value they had (the operator never rewrites the
+label in place, per the rule above). Because `marked-for-removal` is not a
+16-character hash, it can never collide with a real generation value.
+
 ## Coordinators
 
 Per default the FDB operator will try to select the best fitting processes to be coordinators.

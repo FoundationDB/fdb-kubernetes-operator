@@ -38,6 +38,14 @@ const (
 	// opt-in via LabelConfig.IncludePodTemplateGenerationLabel.
 	PodTemplateGenerationLabel = "foundationdb.org/pod-template-generation"
 
+	// PodTemplateGenerationRemovalValue is the PodTemplateGenerationLabel value
+	// stamped on pods whose process group is marked for removal. It buckets
+	// these doomed pods away from any live generation so they do not participate
+	// in — and therefore cannot skew — the surviving cohort's topology spread.
+	// It is not a 16-hex SHA-256 prefix, so it can never collide with a real
+	// generation value.
+	PodTemplateGenerationRemovalValue = "marked-for-removal"
+
 	// LastConfigMapKey provides the annotation name we use to store the hash of the
 	// config map.
 	LastConfigMapKey = "foundationdb.org/last-applied-config-map"

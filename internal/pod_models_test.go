@@ -249,6 +249,38 @@ var _ = Describe("pod_models", func() {
 					Expect(logPod.ObjectMeta.Labels[fdbv1beta2.PodTemplateGenerationLabel]).
 						NotTo(Equal(pod.ObjectMeta.Labels[fdbv1beta2.PodTemplateGenerationLabel]))
 				})
+
+				It("should set the removal sentinel for a process group marked for removal", func() {
+					processGroup := GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					processGroup.MarkForRemoval()
+					// Mirror how addPods feeds GetPod: the process group is an
+					// element of cluster.Status.ProcessGroups.
+					cluster.Status.ProcessGroups = []*fdbv1beta2.ProcessGroupStatus{processGroup}
+
+					doomedPod, removalErr := GetPod(cluster, processGroup)
+					Expect(removalErr).NotTo(HaveOccurred())
+					Expect(doomedPod.ObjectMeta.Labels).To(HaveKeyWithValue(
+						fdbv1beta2.PodTemplateGenerationLabel,
+						fdbv1beta2.PodTemplateGenerationRemovalValue,
+					))
+				})
+
+				It("should set the removal sentinel for a process group listed in spec.processGroupsToRemove before status is marked", func() {
+					processGroup := GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					// Spec lists it for removal, but the status removal timestamp
+					// is NOT yet set (the addPods-before-updateStatus window).
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
+						processGroup.ProcessGroupID,
+					}
+					Expect(processGroup.IsMarkedForRemoval()).To(BeFalse())
+
+					doomedPod, removalErr := GetPod(cluster, processGroup)
+					Expect(removalErr).NotTo(HaveOccurred())
+					Expect(doomedPod.ObjectMeta.Labels).To(HaveKeyWithValue(
+						fdbv1beta2.PodTemplateGenerationLabel,
+						fdbv1beta2.PodTemplateGenerationRemovalValue,
+					))
+				})
 			})
 
 			Context("with the pod-template-generation label disabled (default)", func() {

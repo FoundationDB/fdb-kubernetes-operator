@@ -116,6 +116,31 @@ func GetService(
 	}, nil
 }
 
+// podTemplateGenerationValue returns the value to stamp under
+// fdbv1beta2.PodTemplateGenerationLabel for a process group's new pod. A
+// process group being removed gets the PodTemplateGenerationRemovalValue
+// sentinel so its (doomed) pod is bucketed away from any live generation and
+// cannot skew the surviving cohort's topology spread; every other pod gets the
+// rendered-PodSpec generation hash.
+func podTemplateGenerationValue(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+) (string, error) {
+	// ProcessGroupIsBeingRemoved (rather than processGroup.IsMarkedForRemoval)
+	// so the sentinel also applies in the window after a group is listed in
+	// spec.processGroupsToRemove[WithoutExclusion] but before its status
+	// removal timestamp is set: with DNS in the cluster file, addPods runs
+	// before updateStatus, so a pod recreated in that window would otherwise
+	// get the live generation hash and never be corrected. addPods always
+	// passes a cluster.Status.ProcessGroups element, so this also covers
+	// status-marked groups.
+	if cluster.ProcessGroupIsBeingRemoved(processGroup.ProcessGroupID) {
+		return fdbv1beta2.PodTemplateGenerationRemovalValue, nil
+	}
+
+	return GetPodGenerationHash(cluster, processGroup.ProcessClass)
+}
+
 // GetPod builds a pod for a new process group
 func GetPod(
 	cluster *fdbv1beta2.FoundationDBCluster,
@@ -146,14 +171,14 @@ func GetPod(
 	// podMetadataCorrect, so there's no need to recompute it on every
 	// PodMetadataCorrect call.
 	if cluster.ShouldIncludePodTemplateGenerationLabel() {
-		hash, err := GetPodGenerationHash(cluster, processGroup.ProcessClass)
+		generation, err := podTemplateGenerationValue(cluster, processGroup)
 		if err != nil {
 			return nil, err
 		}
 		if metadata.Labels == nil {
 			metadata.Labels = make(map[string]string)
 		}
-		metadata.Labels[fdbv1beta2.PodTemplateGenerationLabel] = hash
+		metadata.Labels[fdbv1beta2.PodTemplateGenerationLabel] = generation
 	}
 
 	return &corev1.Pod{
