@@ -2565,6 +2565,15 @@ type LabelConfig struct {
 	// by the match labels.
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
+
+	// IncludePodTemplateGenerationLabel determines whether the operator stamps
+	// each Pod at creation time with the "foundationdb.org/pod-template-generation"
+	// label, a class-scoped hash of the rendered PodSpec. The label is intended
+	// for use with topologySpreadConstraints.matchLabelKeys so that a rolling
+	// update spreads the new pod generation independently of the old one. It is
+	// applied only when a Pod is created, so enabling it on an existing cluster
+	// populates the label gradually as Pods are recreated. Defaults to false.
+	IncludePodTemplateGenerationLabel *bool `json:"includePodTemplateGenerationLabel,omitempty"`
 }
 
 // PublicIPSource models options for how a pod gets its public IP.
@@ -2682,6 +2691,13 @@ func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClas
 // when determining if a resource is related to this cluster.
 func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
 	return ptr.Deref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
+}
+
+// ShouldIncludePodTemplateGenerationLabel returns whether the cluster wants
+// Pods to be labeled with a content hash of their canonical rendered PodSpec
+// under PodTemplateGenerationLabel. Defaults to false.
+func (cluster *FoundationDBCluster) ShouldIncludePodTemplateGenerationLabel() bool {
+	return ptr.Deref(cluster.Spec.LabelConfig.IncludePodTemplateGenerationLabel, false)
 }
 
 // SkipProcessGroup checks if a ProcessGroupStatus should be skipped during reconciliation.

@@ -320,6 +320,7 @@ LabelConfig allows customizing labels used by the operator.
 | processGroupIDLabels | ProcessGroupIDLabels provides the labels that we use for the process group ID field. The first label will be used by the operator when filtering resources. | []string | false |
 | processClassLabels | ProcessClassLabels provides the labels that we use for the process class field. The first label will be used by the operator when filtering resources. | []string | false |
 | filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
+| includePodTemplateGenerationLabel | IncludePodTemplateGenerationLabel determines whether the operator stamps each Pod at creation time with the \"foundationdb.org/pod-template-generation\" label, a class-scoped hash of the rendered PodSpec. The label is intended for use with topologySpreadConstraints.matchLabelKeys so that a rolling update spreads the new pod generation independently of the old one. It is applied only when a Pod is created, so enabling it on an existing cluster populates the label gradually as Pods are recreated. Defaults to false. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
