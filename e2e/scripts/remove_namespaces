@@ -20,14 +20,23 @@ do
       continue
     fi
 
-    echo "start deleting namespace ${ns}"
+    echo "Start deleting namespace ${ns}"
+    # Ensure we are deleting the operator deployment first, otherwise it will block the deletion of the namespace
+    # by re-adding the finalizer on the backup resource. Wait for 30 seconds to get the namespace and all resources in
+    # it deleted. If the timeout is exceeded we still continue.
+    kubectl delete ns --ignore-not-found "${ns}" --timeout=30s --grace-period=1 || true
+    # Remove the finalizer from the backup resource if present.
     for backup in $(kubectl -n ${ns} get fdbbackup --no-headers -o name);
     do
       echo "Removing finalizer from ${backup} in namespace ${ns}"
       kubectl -n ${ns} patch ${backup} -p '{"metadata":{"finalizers":null}}' --type=merge
     done
-
-    kubectl delete ns --ignore-not-found "${ns}"
+    # Remove the finalizer from the pod resource if present.
+    for po in $(kubectl -n ${ns} get po --no-headers -o name);
+    do
+      echo "Removing finalizer from ${po} in namespace ${ns}"
+      kubectl -n ${ns} patch ${po} -p '{"metadata":{"finalizers":null}}' --type=merge
+    done
   ) &
 done
 wait
