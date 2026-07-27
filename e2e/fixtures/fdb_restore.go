@@ -131,7 +131,12 @@ func (restore *FdbRestore) waitForRestoreToComplete(ctx context.Context, backup 
 			g.Expect(err).To(gomega.Succeed())
 
 			// Dump the operator state and logs.
-			restore.fdbCluster.factory.DumpOperatorLogs(ctx, restore.fdbCluster, ptr.To[int64](300))
+			restore.fdbCluster.factory.DumpOperatorLogs(
+				ctx,
+				restore.fdbCluster,
+				ptr.To[int64](300),
+				true,
+			)
 		}
 
 		return currentRestore.Status.State

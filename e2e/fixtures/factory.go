@@ -768,8 +768,14 @@ func (factory *Factory) DumpStateWithLogsSince(
 
 	buffer.WriteString("---------- Pods ----------")
 	log.Println(buffer.String())
-	buffer.Reset()
 
+	dumpPodInformation(pods)
+
+	factory.DumpOperatorLogs(ctx, fdbCluster, logsSinceSeconds, false)
+}
+
+// dumpPodInformation will write the information for each pod in the provided PodList to the current log writer.
+func dumpPodInformation(pods *corev1.PodList) {
 	// Make use of a tabwriter for better output.
 	w := tabwriter.NewWriter(log.Writer(), 0, 0, 1, ' ', tabwriter.Debug)
 	_, _ = fmt.Fprintln(
@@ -777,11 +783,11 @@ func (factory *Factory) DumpStateWithLogsSince(
 		"Name\tReady\tSTATUS\tUnschedulable\tRestarts\tMain Image\tSidecar Image\tIPs\tNode\tAge",
 	)
 
+	for _, pod := range pods.Items {
+		_, _ = fmt.Fprintln(w, writePodInformation(pod))
+	}
+
 	_ = w.Flush()
-
-	log.Println(buffer.String())
-
-	factory.DumpOperatorLogs(ctx, fdbCluster, logsSinceSeconds)
 }
 
 // DumpOperatorLogs will write the operator logs for the specified time.
@@ -789,6 +795,7 @@ func (factory *Factory) DumpOperatorLogs(
 	ctx context.Context,
 	cluster *FdbCluster,
 	logsSinceSeconds *int64,
+	printPodInfo bool,
 ) {
 	operatorPods := &corev1.PodList{}
 	err := factory.controllerRuntimeClient.List(
@@ -804,13 +811,9 @@ func (factory *Factory) DumpOperatorLogs(
 		return
 	}
 
-	// Make use of a tabwriter for better output.
-	w := tabwriter.NewWriter(log.Writer(), 0, 0, 1, ' ', tabwriter.Debug)
-
-	for _, pod := range operatorPods.Items {
-		_, _ = fmt.Fprintln(w, writePodInformation(pod))
+	if printPodInfo {
+		dumpPodInformation(operatorPods)
 	}
-	_ = w.Flush()
 
 	// Printout the logs of the operator Pods for the last 300 seconds.
 	for _, pod := range operatorPods.Items {
