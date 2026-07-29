@@ -303,6 +303,12 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 
 [Back to TOC](#table-of-contents)
 
+## Host
+
+Host represents the host of a process group
+
+[Back to TOC](#table-of-contents)
+
 ## ImageType
 
 ImageType defines a single kind of images used in the cluster.
@@ -436,6 +442,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
 | faultDomain | FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. | [FaultDomain](#faultdomain) | false |
+| host | Host represents the last seen host from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. The information is gathered from the locality information. | [Host](#host) | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -1235,10 +1235,12 @@ func hasExactMatchedTaintKey(
 	return false
 }
 
-// getFaultDomainFromProcesses returns the fault domain from the process information slice.
-func getFaultDomainFromProcesses(processes []fdbv1beta2.FoundationDBStatusProcessInfo) string {
+// getFaultDomainAndHostFromProcesses returns the fault domain and the host (machineid) from the process information slice.
+func getFaultDomainAndHostFromProcesses(
+	processes []fdbv1beta2.FoundationDBStatusProcessInfo,
+) (string, string) {
 	if len(processes) == 1 {
-		return processes[0].Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+		return processes[0].Locality[fdbv1beta2.FDBLocalityZoneIDKey], processes[0].Locality[fdbv1beta2.FDBLocalityMachineIDKey]
 	}
 
 	// If we find more than one process with the same process group ID, we might have a case were one process was restarted
@@ -1250,6 +1252,7 @@ func getFaultDomainFromProcesses(processes []fdbv1beta2.FoundationDBStatusProces
 		}
 
 		for _, process := range processes {
+			// The assumption here is that if the process has the zoneid set, the machineid should also be set.
 			_, hasZone := process.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
 			if !hasZone {
 				continue
@@ -1262,10 +1265,10 @@ func getFaultDomainFromProcesses(processes []fdbv1beta2.FoundationDBStatusProces
 			latestProcess = process
 		}
 
-		return latestProcess.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+		return latestProcess.Locality[fdbv1beta2.FDBLocalityZoneIDKey], latestProcess.Locality[fdbv1beta2.FDBLocalityMachineIDKey]
 	}
 
-	return ""
+	return "", ""
 }
 
 // updateFaultDomains will update the process groups fault domain, based on the last seen zone id in the cluster status.
@@ -1286,23 +1289,32 @@ func updateFaultDomains(
 		)
 		if len(processes) == 0 {
 			logger.Info(
-				"skip updating fault domain for process group with missing process in FoundationDB cluster status",
+				"skip updating fault domain and host for process group with missing process in FoundationDB cluster status",
 				"processGroupID",
 				processGroup.ProcessGroupID,
 			)
 			continue
 		}
 
-		faultDomain := getFaultDomainFromProcesses(processes)
+		faultDomain, host := getFaultDomainAndHostFromProcesses(processes)
 		if faultDomain == "" {
 			logger.Info(
 				"skip updating fault domain for process group with missing zoneid",
 				"processGroupID",
 				processGroup.ProcessGroupID,
 			)
-			continue
+		} else {
+			status.ProcessGroups[idx].FaultDomain = fdbv1beta2.FaultDomain(faultDomain)
 		}
 
-		status.ProcessGroups[idx].FaultDomain = fdbv1beta2.FaultDomain(faultDomain)
+		if host == "" {
+			logger.Info(
+				"skip updating host for process group with missing machineid",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
+		} else {
+			status.ProcessGroups[idx].Host = fdbv1beta2.Host(host)
+		}
 	}
 }

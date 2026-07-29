@@ -194,7 +194,8 @@ func ReplaceFailedProcessGroups(
 			logger.Info(
 				"Skip process group that is in maintenance zone",
 				"processGroupID", processGroup.ProcessGroupID,
-				"maintenance zone", processGroup.FaultDomain)
+				"maintenance zone", processGroup.FaultDomain,
+				"host", processGroup.Host)
 			continue
 		}
 
@@ -222,7 +223,8 @@ func ReplaceFailedProcessGroups(
 				logger.Info(
 					"Skip process group with missing address",
 					"processGroupID", processGroup.ProcessGroupID,
-					"failureTime", time.Unix(failureTime, 0).UTC().String())
+					"failureTime", time.Unix(failureTime, 0).UTC().String(),
+					"host", processGroup.Host)
 				continue
 			}
 
@@ -233,7 +235,8 @@ func ReplaceFailedProcessGroups(
 			logger.Info(
 				"Replace process group with missing address",
 				"processGroupID", processGroup.ProcessGroupID,
-				"failureTime", time.Unix(failureTime, 0).UTC().String())
+				"failureTime", time.Unix(failureTime, 0).UTC().String(),
+				"host", processGroup.Host)
 		}
 
 		// We are not allowed to replace additional process groups.
@@ -254,6 +257,8 @@ func ReplaceFailedProcessGroups(
 				failureCondition,
 				"faultDomain",
 				processGroup.FaultDomain,
+				"host",
+				processGroup.Host,
 				"reason",
 				fmt.Sprintf(
 					"automatic replacement detected failure time: %s",
@@ -271,6 +276,8 @@ func ReplaceFailedProcessGroups(
 			failureCondition,
 			"faultDomain",
 			processGroup.FaultDomain,
+			"host",
+			processGroup.Host,
 			"reason",
 			fmt.Sprintf(
 				"automatic replacement detected failure time: %s",

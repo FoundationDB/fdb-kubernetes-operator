@@ -1497,9 +1497,10 @@ var _ = Describe("update_status", func() {
 			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
 		})
 
-		It("should set the fault domain for all process groups", func() {
+		It("should set the fault domain and host for all process groups", func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+				Expect(processGroup.Host).NotTo(BeEmpty())
 			}
 		})
 
@@ -1532,9 +1533,10 @@ var _ = Describe("update_status", func() {
 				Expect(generation).To(Equal(int64(2)))
 			})
 
-			It("should set the fault domain for all process groups", func() {
+			It("should set the fault domain and host for all process groups", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+					Expect(processGroup.Host).NotTo(BeEmpty())
 				}
 			})
 		})
@@ -1644,20 +1646,23 @@ var _ = Describe("update_status", func() {
 					"storage-1": {
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-1-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-1-host",
 							},
 						},
 					},
 					"storage-2": {
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "second",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "second",
+								fdbv1beta2.FDBLocalityMachineIDKey: "second-host",
 							},
 							UptimeSeconds: 1000,
 						},
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-2-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-2-host",
 							},
 							UptimeSeconds: 1,
 						},
@@ -1672,12 +1677,16 @@ var _ = Describe("update_status", func() {
 				for _, processGroup := range status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-3" {
 						Expect(processGroup.FaultDomain).To(BeEmpty())
+						Expect(processGroup.Host).To(BeEmpty())
 						continue
 					}
 
 					Expect(
 						string(processGroup.FaultDomain),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+					Expect(
+						string(processGroup.Host),
+					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("host")))
 				}
 			})
 		})
@@ -1688,7 +1697,8 @@ var _ = Describe("update_status", func() {
 					"storage-1": {
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-1-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-1-host",
 							},
 						},
 					},
@@ -1698,7 +1708,8 @@ var _ = Describe("update_status", func() {
 						},
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-2-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-2-host",
 							},
 							UptimeSeconds: 1000,
 						},
@@ -1713,12 +1724,63 @@ var _ = Describe("update_status", func() {
 				for _, processGroup := range status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-3" {
 						Expect(processGroup.FaultDomain).To(BeEmpty())
+						Expect(processGroup.Host).To(BeEmpty())
 						continue
 					}
 
 					Expect(
 						string(processGroup.FaultDomain),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+					Expect(
+						string(processGroup.Host),
+					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("host")))
+				}
+			})
+		})
+
+		When("storage-2 has a zoneid but no machineid", func() {
+			BeforeEach(func() {
+				processes = map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{
+					"storage-1": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-1-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-1-host",
+							},
+						},
+					},
+					"storage-2": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+							},
+						},
+					},
+				}
+			})
+
+			It("should update the fault domain but not the host", func() {
+				Expect(status.ProcessGroups).To(HaveLen(3))
+
+				for _, processGroup := range status.ProcessGroups {
+					if processGroup.ProcessGroupID == "storage-3" {
+						Expect(processGroup.FaultDomain).To(BeEmpty())
+						Expect(processGroup.Host).To(BeEmpty())
+						continue
+					}
+
+					Expect(
+						string(processGroup.FaultDomain),
+					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+				}
+
+				for _, processGroup := range status.ProcessGroups {
+					if processGroup.ProcessGroupID == "storage-1" {
+						Expect(string(processGroup.Host)).To(Equal("storage-1-host"))
+						continue
+					}
+
+					Expect(processGroup.Host).To(BeEmpty())
 				}
 			})
 		})
@@ -1729,28 +1791,32 @@ var _ = Describe("update_status", func() {
 					"storage-1-1": {
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-1-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-1-host",
 							},
 						},
 					},
 					"storage-1-2": {
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-1-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-1-host",
 							},
 						},
 					},
 					"storage-2-1": {
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-2-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-2-host",
 							},
 						},
 					},
 					"storage-2-2": {
 						fdbv1beta2.FoundationDBStatusProcessInfo{
 							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+								fdbv1beta2.FDBLocalityZoneIDKey:    "storage-2-zone",
+								fdbv1beta2.FDBLocalityMachineIDKey: "storage-2-host",
 							},
 						},
 					},
@@ -1763,12 +1829,16 @@ var _ = Describe("update_status", func() {
 				for _, processGroup := range status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-3" {
 						Expect(processGroup.FaultDomain).To(BeEmpty())
+						Expect(processGroup.Host).To(BeEmpty())
 						continue
 					}
 
 					Expect(
 						string(processGroup.FaultDomain),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+					Expect(
+						string(processGroup.Host),
+					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("host")))
 				}
 			})
 		})
@@ -1778,11 +1848,12 @@ var _ = Describe("update_status", func() {
 				processes = map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 			})
 
-			It("should skip the process group fault domains", func() {
+			It("should skip the process group fault domains and hosts", func() {
 				Expect(status.ProcessGroups).To(HaveLen(3))
 
 				for _, processGroup := range status.ProcessGroups {
 					Expect(processGroup.FaultDomain).To(BeEmpty())
+					Expect(processGroup.Host).To(BeEmpty())
 				}
 			})
 		})

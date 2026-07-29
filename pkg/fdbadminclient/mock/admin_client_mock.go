@@ -276,6 +276,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				locality = map[string]string{
 					fdbv1beta2.FDBLocalityInstanceIDKey: string(processGroupID),
 					fdbv1beta2.FDBLocalityZoneIDKey:     pod.Name,
+					fdbv1beta2.FDBLocalityMachineIDKey:  pod.Spec.NodeName,
 					fdbv1beta2.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 				}
 

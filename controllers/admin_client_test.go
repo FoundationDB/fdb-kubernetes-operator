@@ -115,6 +115,7 @@ var _ = Describe("admin_client_test", func() {
 						Locality: map[string]string{
 							"instance_id": string(pickedProcessGroup.ProcessGroupID),
 							"zoneid":      zoneID,
+							"machineid":   zoneID + "-node",
 							"dcid":        "",
 						},
 						Version:       cluster.GetRunningVersion(),

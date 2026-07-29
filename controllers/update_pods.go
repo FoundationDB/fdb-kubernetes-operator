@@ -102,7 +102,7 @@ func (u updatePods) reconcile(
 	if len(updates) > 0 {
 		if cluster.Spec.AutomationOptions.PodUpdateStrategy == fdbv1beta2.PodUpdateStrategyReplacement {
 			logger.Info("Requeuing reconciliation to replace pods")
-			return &requeue{message: "Requeueing reconciliation to replace pods"}
+			return &requeue{message: "Requeuing reconciliation to replace pods"}
 		}
 
 		if r.PodLifecycleManager.GetDeletionMode(cluster) == fdbv1beta2.PodUpdateModeNone {
