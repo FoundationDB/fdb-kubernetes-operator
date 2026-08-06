@@ -40,6 +40,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -575,10 +576,34 @@ func getProcessesToInclude(
 
 			exclusionDuration := unknownDurationSeconds
 			if !processGroup.ExclusionTimestamp.IsZero() {
+				// If the removal timestamp is before the exclusion timestamp, we assume that the operator triggered
+				// the exclusion. The exclusion duration is assumed to be the duration from the fdbv1beta2.ProcessIsMarkedAsExcluded
+				// condition to the ExclusionTimestamp. If fdbv1beta2.ProcessIsMarkedAsExcluded is absent the removal
+				// timestamp will be used. This is a heuristic, as the exclusion might get started at a later point or
+				// eventually will be blocked for some time.
 				if processGroup.RemovalTimestamp.Time.Before(processGroup.ExclusionTimestamp.Time) {
-					exclusionDuration = processGroup.ExclusionTimestamp.Sub(processGroup.RemovalTimestamp.Time).
-						Seconds()
+					// If the fdbv1beta2.ProcessIsMarkedAsExcluded condition is present we use this timestamp, as this
+					// timestamp is set when a process has the `excluded` flag in the cluster status.
+					markedAsExcluded := processGroup.GetConditionTime(
+						fdbv1beta2.ProcessIsMarkedAsExcluded,
+					)
+					if markedAsExcluded != nil {
+						exclusionDuration = float64(
+							processGroup.RemovalTimestamp.Time.Unix() - ptr.Deref(
+								markedAsExcluded,
+								0,
+							),
+						)
+					} else {
+						logger.V(1).Info("Missing fdbv1beta2.ProcessIsMarkedAsExcluded")
+						// If the fdbv1beta2.ProcessIsMarkedAsExcluded condition is missing we use the removal timestamp
+						// as the starting time. This is not perfect, but good enough for most cases.
+						exclusionDuration = processGroup.ExclusionTimestamp.Sub(processGroup.RemovalTimestamp.Time).
+							Seconds()
+					}
 				}
+
+				processGroup.GetConditionTime(fdbv1beta2.ProcessIsMarkedAsExcluded)
 			}
 
 			logger.Info(
