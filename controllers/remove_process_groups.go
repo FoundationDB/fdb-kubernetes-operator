@@ -574,7 +574,9 @@ func getProcessesToInclude(
 				}
 			}
 
-			exclusionDuration := unknownDurationSeconds
+			// Tracks the time from when the process was started to be excluded until the process is fully excluded, which
+			// means the process doesn't serve any roles anymore and it is safe to remove it.
+			timeToFullExclusion := unknownDurationSeconds
 			if !processGroup.ExclusionTimestamp.IsZero() {
 				// If the removal timestamp is before the exclusion timestamp, we assume that the operator triggered
 				// the exclusion. The exclusion duration is assumed to be the duration from the fdbv1beta2.ProcessIsMarkedAsExcluded
@@ -588,7 +590,7 @@ func getProcessesToInclude(
 						fdbv1beta2.ProcessIsMarkedAsExcluded,
 					)
 					if markedAsExcluded != nil {
-						exclusionDuration = float64(
+						timeToFullExclusion = float64(
 							processGroup.RemovalTimestamp.Time.Unix() - ptr.Deref(
 								markedAsExcluded,
 								0,
@@ -598,7 +600,7 @@ func getProcessesToInclude(
 						logger.V(1).Info("Missing fdbv1beta2.ProcessIsMarkedAsExcluded")
 						// If the fdbv1beta2.ProcessIsMarkedAsExcluded condition is missing we use the removal timestamp
 						// as the starting time. This is not perfect, but good enough for most cases.
-						exclusionDuration = processGroup.ExclusionTimestamp.Sub(processGroup.RemovalTimestamp.Time).
+						timeToFullExclusion = processGroup.ExclusionTimestamp.Sub(processGroup.RemovalTimestamp.Time).
 							Seconds()
 					}
 				}
@@ -612,8 +614,8 @@ func getProcessesToInclude(
 				processGroup.ProcessGroupID,
 				"removalDuration",
 				getDurationIfPresent(processGroup.RemovalTimestamp),
-				"exclusionDuration",
-				exclusionDuration,
+				"timeToFullExclusion",
+				timeToFullExclusion,
 			)
 			if !foundInExcludedServerList && !processGroup.ExclusionSkipped {
 				// This means that the process is marked for exclusion and is also removed in the previous step but is missing
