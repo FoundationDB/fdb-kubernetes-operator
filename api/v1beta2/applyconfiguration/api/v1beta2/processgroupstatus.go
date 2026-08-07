@@ -30,9 +30,9 @@ type ProcessGroupStatusApplyConfiguration struct {
 	// FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process
 	// is not running and would be missing in the cluster status.
 	FaultDomain *apiv1beta2.FaultDomain `json:"faultDomain,omitempty"`
-	// Host represents the last seen host from the cluster status. This can be used if a Pod or process
+	// Machine represents the last seen machine from the cluster status. This can be used if a Pod or process
 	// is not running and would be missing in the cluster status. The information is gathered from the locality information.
-	Host *apiv1beta2.Host `json:"host,omitempty"`
+	Machine *apiv1beta2.Machine `json:"machine,omitempty"`
 }
 
 // ProcessGroupStatusApplyConfiguration constructs a declarative configuration of the ProcessGroupStatus type for use with
@@ -112,10 +112,10 @@ func (b *ProcessGroupStatusApplyConfiguration) WithFaultDomain(value apiv1beta2.
 	return b
 }
 
-// WithHost sets the Host field in the declarative configuration to the given value
+// WithMachine sets the Machine field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Host field is set to the value of the last call.
-func (b *ProcessGroupStatusApplyConfiguration) WithHost(value apiv1beta2.Host) *ProcessGroupStatusApplyConfiguration {
-	b.Host = &value
+// If called multiple times, the Machine field is set to the value of the last call.
+func (b *ProcessGroupStatusApplyConfiguration) WithMachine(value apiv1beta2.Machine) *ProcessGroupStatusApplyConfiguration {
+	b.Machine = &value
 	return b
 }

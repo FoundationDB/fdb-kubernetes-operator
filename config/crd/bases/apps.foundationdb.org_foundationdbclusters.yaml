@@ -4898,7 +4898,7 @@ spec:
                     faultDomain:
                       maxLength: 512
                       type: string
-                    host:
+                    machine:
                       maxLength: 512
                       type: string
                     processClass:

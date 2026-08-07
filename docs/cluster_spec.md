@@ -163,7 +163,7 @@ DatabaseInteractionMode defines how the operator should interact with the FDB cl
 
 ## FaultDomain
 
-FaultDomain represents the FaultDomain of a process group
+FaultDomain represents the FaultDomain of a process group. This value is read from the zoneid locality.
 
 [Back to TOC](#table-of-contents)
 
@@ -303,12 +303,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 
 [Back to TOC](#table-of-contents)
 
-## Host
-
-Host represents the host of a process group
-
-[Back to TOC](#table-of-contents)
-
 ## ImageType
 
 ImageType defines a single kind of images used in the cluster.
@@ -366,6 +360,12 @@ LockSystemStatus provides a summary of the status of the locking system.
 ## LogGroup
 
 LogGroup represents a LogGroup used by a FoundationDB process to log trace events. The LogGroup can be used to filter clients during an upgrade.
+
+[Back to TOC](#table-of-contents)
+
+## Machine
+
+Machine represents the node (machine) of a process group. This value is read from the machineid locality.
 
 [Back to TOC](#table-of-contents)
 
@@ -442,7 +442,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
 | faultDomain | FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. | [FaultDomain](#faultdomain) | false |
-| host | Host represents the last seen host from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. The information is gathered from the locality information. | [Host](#host) | false |
+| machine | Machine represents the last seen machine from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. The information is gathered from the locality information. | [Machine](#machine) | false |
 
 [Back to TOC](#table-of-contents)
 

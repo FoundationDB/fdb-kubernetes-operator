@@ -1314,7 +1314,7 @@ func updateFaultDomains(
 				processGroup.ProcessGroupID,
 			)
 		} else {
-			status.ProcessGroups[idx].Host = fdbv1beta2.Host(host)
+			status.ProcessGroups[idx].Machine = fdbv1beta2.Machine(host)
 		}
 	}
 }

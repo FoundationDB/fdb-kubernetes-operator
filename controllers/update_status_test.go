@@ -1497,10 +1497,10 @@ var _ = Describe("update_status", func() {
 			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
 		})
 
-		It("should set the fault domain and host for all process groups", func() {
+		It("should set the fault domain and machine for all process groups", func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				Expect(processGroup.FaultDomain).NotTo(BeEmpty())
-				Expect(processGroup.Host).NotTo(BeEmpty())
+				Expect(processGroup.Machine).NotTo(BeEmpty())
 			}
 		})
 
@@ -1533,10 +1533,10 @@ var _ = Describe("update_status", func() {
 				Expect(generation).To(Equal(int64(2)))
 			})
 
-			It("should set the fault domain and host for all process groups", func() {
+			It("should set the fault domain and machine for all process groups", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					Expect(processGroup.FaultDomain).NotTo(BeEmpty())
-					Expect(processGroup.Host).NotTo(BeEmpty())
+					Expect(processGroup.Machine).NotTo(BeEmpty())
 				}
 			})
 		})
@@ -1677,7 +1677,7 @@ var _ = Describe("update_status", func() {
 				for _, processGroup := range status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-3" {
 						Expect(processGroup.FaultDomain).To(BeEmpty())
-						Expect(processGroup.Host).To(BeEmpty())
+						Expect(processGroup.Machine).To(BeEmpty())
 						continue
 					}
 
@@ -1685,7 +1685,7 @@ var _ = Describe("update_status", func() {
 						string(processGroup.FaultDomain),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
 					Expect(
-						string(processGroup.Host),
+						string(processGroup.Machine),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("host")))
 				}
 			})
@@ -1724,7 +1724,7 @@ var _ = Describe("update_status", func() {
 				for _, processGroup := range status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-3" {
 						Expect(processGroup.FaultDomain).To(BeEmpty())
-						Expect(processGroup.Host).To(BeEmpty())
+						Expect(processGroup.Machine).To(BeEmpty())
 						continue
 					}
 
@@ -1732,7 +1732,7 @@ var _ = Describe("update_status", func() {
 						string(processGroup.FaultDomain),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
 					Expect(
-						string(processGroup.Host),
+						string(processGroup.Machine),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("host")))
 				}
 			})
@@ -1765,7 +1765,7 @@ var _ = Describe("update_status", func() {
 				for _, processGroup := range status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-3" {
 						Expect(processGroup.FaultDomain).To(BeEmpty())
-						Expect(processGroup.Host).To(BeEmpty())
+						Expect(processGroup.Machine).To(BeEmpty())
 						continue
 					}
 
@@ -1776,11 +1776,11 @@ var _ = Describe("update_status", func() {
 
 				for _, processGroup := range status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-1" {
-						Expect(string(processGroup.Host)).To(Equal("storage-1-host"))
+						Expect(string(processGroup.Machine)).To(Equal("storage-1-host"))
 						continue
 					}
 
-					Expect(processGroup.Host).To(BeEmpty())
+					Expect(processGroup.Machine).To(BeEmpty())
 				}
 			})
 		})
@@ -1829,7 +1829,7 @@ var _ = Describe("update_status", func() {
 				for _, processGroup := range status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-3" {
 						Expect(processGroup.FaultDomain).To(BeEmpty())
-						Expect(processGroup.Host).To(BeEmpty())
+						Expect(processGroup.Machine).To(BeEmpty())
 						continue
 					}
 
@@ -1837,7 +1837,7 @@ var _ = Describe("update_status", func() {
 						string(processGroup.FaultDomain),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
 					Expect(
-						string(processGroup.Host),
+						string(processGroup.Machine),
 					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("host")))
 				}
 			})
@@ -1848,12 +1848,12 @@ var _ = Describe("update_status", func() {
 				processes = map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 			})
 
-			It("should skip the process group fault domains and hosts", func() {
+			It("should skip the process group fault domains and machines", func() {
 				Expect(status.ProcessGroups).To(HaveLen(3))
 
 				for _, processGroup := range status.ProcessGroups {
 					Expect(processGroup.FaultDomain).To(BeEmpty())
-					Expect(processGroup.Host).To(BeEmpty())
+					Expect(processGroup.Machine).To(BeEmpty())
 				}
 			})
 		})

@@ -400,9 +400,9 @@ type ProcessGroupStatus struct {
 	// FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process
 	// is not running and would be missing in the cluster status.
 	FaultDomain FaultDomain `json:"faultDomain,omitempty"`
-	// Host represents the last seen host from the cluster status. This can be used if a Pod or process
+	// Machine represents the last seen machine from the cluster status. This can be used if a Pod or process
 	// is not running and would be missing in the cluster status. The information is gathered from the locality information.
-	Host Host `json:"host,omitempty"`
+	Machine Machine `json:"machine,omitempty"`
 }
 
 // String returns string representation.
@@ -444,13 +444,13 @@ func (processGroupStatus *ProcessGroupStatus) String() string {
 	return sb.String()
 }
 
-// FaultDomain represents the FaultDomain of a process group
+// FaultDomain represents the FaultDomain of a process group. This value is read from the zoneid locality.
 // +kubebuilder:validation:MaxLength=512
 type FaultDomain string
 
-// Host represents the host of a process group
+// Machine represents the node (machine) of a process group. This value is read from the machineid locality.
 // +kubebuilder:validation:MaxLength=512
-type Host string
+type Machine string
 
 // ProcessGroupID represents the ID of the process group
 // +kubebuilder:validation:MaxLength=63
