@@ -344,6 +344,21 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 	var delayedRequeueDuration time.Duration
 	var delayedRequeue bool
 
+	defer func() {
+		// After each full run of all sub-reconcilers release the lock if this operator instance was holding a lock.
+		// This gives other operator instances the chance to perform operations without stalling them.
+		if cluster.ShouldUseLocks() {
+			lockErr := r.releaseLock(clusterLog, cluster)
+			if lockErr != nil {
+				clusterLog.Info(
+					"could not release lock after sub-reconcilers have run",
+					"err",
+					lockErr,
+				)
+			}
+		}
+	}()
+
 	for _, subReconciler := range subReconcilers {
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
 		// will reset all normalized fields...
