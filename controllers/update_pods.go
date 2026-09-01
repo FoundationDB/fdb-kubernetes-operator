@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -380,6 +381,7 @@ func getPodsToUpdate(
 			processGroup,
 			reconciler.ReplaceOnSecurityContextChange,
 		)
+
 		// Do not update the Pod if unable to determine if it needs to be removed.
 		if err != nil {
 			logger.V(1).Info("Skip process group, error checking if it requires a replacement",
@@ -453,6 +455,35 @@ func shouldRequeueDueToTerminatingPod(
 		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
+// sortedZoneKeys returns the zones in updates in a deterministic order, with currentMaintenanceZone
+// placed first (if present) so an in-progress rollout continues in the same zone rather than
+// jumping to a different one on the next reconciliation.
+func sortedZoneKeys(updates map[string][]*corev1.Pod, currentMaintenanceZone string) []string {
+	zones := make([]string, 0, len(updates))
+	for zone := range updates {
+		zones = append(zones, zone)
+	}
+	sort.Strings(zones)
+
+	if currentMaintenanceZone == "" {
+		return zones
+	}
+
+	for idx, zone := range zones {
+		if zone != currentMaintenanceZone {
+			continue
+		}
+
+		reordered := make([]string, 0, len(zones))
+		reordered = append(reordered, zone)
+		reordered = append(reordered, zones[:idx]...)
+		reordered = append(reordered, zones[idx+1:]...)
+		return reordered
+	}
+
+	return zones
+}
+
 func getPodsToDelete(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	deletionMode fdbv1beta2.PodUpdateMode,
@@ -470,7 +501,8 @@ func getPodsToDelete(
 	}
 
 	if deletionMode == fdbv1beta2.PodUpdateModeProcessGroup {
-		for zone, zoneProcesses := range updates {
+		for _, zone := range sortedZoneKeys(updates, currentMaintenanceZone) {
+			zoneProcesses := updates[zone]
 			if len(zoneProcesses) < 1 {
 				continue
 			}
@@ -482,7 +514,8 @@ func getPodsToDelete(
 
 	if deletionMode == fdbv1beta2.PodUpdateModeZone {
 		// Default case is zone
-		for zone, zoneProcesses := range updates {
+		for _, zone := range sortedZoneKeys(updates, currentMaintenanceZone) {
+			zoneProcesses := updates[zone]
 			// If there is currently an active maintenance zone and the zones are not matching check if at least one
 			// storage process is part of the zone.
 			if currentMaintenanceZone != "" && zone != currentMaintenanceZone {
