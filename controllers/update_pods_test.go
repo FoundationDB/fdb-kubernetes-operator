@@ -48,6 +48,7 @@ var _ = Describe("update_pods", func() {
 			deletionMode         fdbv1beta2.PodUpdateMode
 			expectedDeletionsCnt int
 			maintenanceZone      string
+			expectedZone         string
 			expectedErr          error
 		}
 
@@ -109,9 +110,10 @@ var _ = Describe("update_pods", func() {
 			}
 		})
 
-		DescribeTable("should delete the Pods based on the deletion mode",
+		DescribeTable(
+			"should delete the Pods based on the deletion mode",
 			func(input testCase) {
-				_, deletion, err := getPodsToDelete(
+				zone, deletion, err := getPodsToDelete(
 					&fdbv1beta2.FoundationDBCluster{},
 					input.deletionMode,
 					updates,
@@ -120,6 +122,7 @@ var _ = Describe("update_pods", func() {
 				if input.expectedErr != nil {
 					Expect(err).To(Equal(input.expectedErr))
 				}
+				Expect(zone).To(Equal(input.expectedZone))
 				Expect(deletion).To(HaveLen(input.expectedDeletionsCnt))
 			},
 			Entry("With the deletion mode Zone",
@@ -127,44 +130,100 @@ var _ = Describe("update_pods", func() {
 					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 2,
 					maintenanceZone:      "",
+					expectedZone:         "zone1",
 				}),
 			Entry("With the deletion mode Zone and an active maintenance zone",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 2,
 					maintenanceZone:      "zone1",
+					expectedZone:         "zone1",
 				}),
+			Entry(
+				"With the deletion mode Zone and an active maintenance zone that doesn't sort first",
+				testCase{
+					deletionMode:         fdbv1beta2.PodUpdateModeZone,
+					expectedDeletionsCnt: 2,
+					maintenanceZone:      "zone2",
+					expectedZone:         "zone2",
+				},
+			),
 			Entry("With the deletion mode Zone and an active maintenance zone that doesn't match",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 0,
 					maintenanceZone:      "zone3",
+					expectedZone:         "",
 				}),
 			Entry("With the deletion mode Process Group",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeProcessGroup,
 					expectedDeletionsCnt: 1,
 					maintenanceZone:      "",
+					expectedZone:         "zone1",
 				}),
+			Entry(
+				"With the deletion mode Process Group and an active maintenance zone that doesn't sort first",
+				testCase{
+					deletionMode:         fdbv1beta2.PodUpdateModeProcessGroup,
+					expectedDeletionsCnt: 1,
+					maintenanceZone:      "zone2",
+					expectedZone:         "zone2",
+				},
+			),
 			Entry("With the deletion mode All",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeAll,
 					expectedDeletionsCnt: 4,
 					maintenanceZone:      "",
+					expectedZone:         "cluster",
 				}),
 			Entry("With the deletion mode None",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeNone,
 					expectedDeletionsCnt: 0,
 					maintenanceZone:      "",
+					expectedZone:         "None",
 				}),
 			Entry("With the deletion mode All",
 				testCase{
 					deletionMode:         "banana",
 					expectedDeletionsCnt: 0,
 					maintenanceZone:      "",
+					expectedZone:         "",
 					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
 				}),
+		)
+
+		DescribeTable("sortedZoneKeys should return the zones in a deterministic order",
+			func(zones []string, maintenanceZone string, expected []string) {
+				zoneUpdates := make(map[string][]*corev1.Pod, len(zones))
+				for _, zone := range zones {
+					zoneUpdates[zone] = []*corev1.Pod{}
+				}
+
+				Expect(sortedZoneKeys(zoneUpdates, maintenanceZone)).To(Equal(expected))
+			},
+			Entry("with no maintenance zone",
+				[]string{"zone3", "zone1", "zone2"},
+				"",
+				[]string{"zone1", "zone2", "zone3"}),
+			Entry("with a maintenance zone that already sorts first",
+				[]string{"zone3", "zone1", "zone2"},
+				"zone1",
+				[]string{"zone1", "zone2", "zone3"}),
+			Entry("with a maintenance zone that sorts in the middle",
+				[]string{"zone3", "zone1", "zone2"},
+				"zone2",
+				[]string{"zone2", "zone1", "zone3"}),
+			Entry("with a maintenance zone that sorts last",
+				[]string{"zone3", "zone1", "zone2"},
+				"zone3",
+				[]string{"zone3", "zone1", "zone2"}),
+			Entry("with a maintenance zone that is not part of the updates",
+				[]string{"zone3", "zone1", "zone2"},
+				"zone9",
+				[]string{"zone1", "zone2", "zone3"}),
 		)
 
 		When("a version incompatible upgrade is ongoing", func() {
