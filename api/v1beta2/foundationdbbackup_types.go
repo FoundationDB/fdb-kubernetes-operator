@@ -243,6 +243,16 @@ type FoundationDBBackupStatusBackupDetails struct {
 	SnapshotPeriodSeconds int    `json:"snapshotTime,omitempty"`
 	Restorable            bool   `json:"restorable,omitempty"`
 	Tag                   string `json:"tag,omitempty"`
+
+	// LatestRestorableVersion is the most recent FDB version that this backup
+	// can currently be restored to.
+	LatestRestorableVersion *int64 `json:"latestRestorableVersion,omitempty"`
+
+	// LastRestorableVersionUpdateTime is the last time the LatestRestorableVersion
+	// advanced, i.e. the last time a new restorable point was recorded for this
+	// backup. This can be used to estimate the recovery point objective (RPO) of
+	// the backup.
+	LastRestorableVersionUpdateTime *metav1.Time `json:"lastRestorableVersionUpdateTime,omitempty"`
 }
 
 // BackupGenerationStatus stores information on which generations have reached

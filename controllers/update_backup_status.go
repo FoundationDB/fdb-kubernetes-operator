@@ -31,6 +31,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -121,10 +122,27 @@ func (s updateBackupStatus) reconcile(
 		Restorable:            ptr.Deref(liveStatus.Restorable, false),
 	}
 
+	if liveStatus.LatestRestorablePoint != nil && liveStatus.LatestRestorablePoint.Version != nil {
+		latestRestorableVersion := int64(*liveStatus.LatestRestorablePoint.Version)
+		status.BackupDetails.LatestRestorableVersion = &latestRestorableVersion
+	}
+
 	// If the live status has a tag present we use the tag from the live status, otherwise we fall back to the
 	// previous tag. Since tags are immutable in fdbbackup both should always be the same.
 	if originalStatus.BackupDetails != nil {
 		status.BackupDetails.Tag = ptr.Deref(liveStatus.Tag, originalStatus.BackupDetails.Tag)
+
+		// Only bump the update time when the restorable version actually advanced. Otherwise carry the
+		// previous timestamp forward so it keeps reflecting the last time the backup made progress.
+		previousVersion := originalStatus.BackupDetails.LatestRestorableVersion
+		if status.BackupDetails.LatestRestorableVersion != nil &&
+			(previousVersion == nil || *previousVersion != *status.BackupDetails.LatestRestorableVersion) {
+			status.BackupDetails.LastRestorableVersionUpdateTime = ptr.To(metav1.Now())
+		} else {
+			status.BackupDetails.LastRestorableVersionUpdateTime = originalStatus.BackupDetails.LastRestorableVersionUpdateTime
+		}
+	} else if status.BackupDetails.LatestRestorableVersion != nil {
+		status.BackupDetails.LastRestorableVersionUpdateTime = ptr.To(metav1.Now())
 	}
 
 	// Ensure that the tag was not changed, e.g. in a case where someone creates a new backup with the same name

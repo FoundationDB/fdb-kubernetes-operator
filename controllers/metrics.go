@@ -62,3 +62,41 @@ func InitCustomMetrics(reconciler *FoundationDBClusterReconciler) {
 		internalMetrics.CoordinatorChangesCounter,
 	)
 }
+
+type fdbBackupCollector struct {
+	reconciler *FoundationDBBackupReconciler
+}
+
+func newFDBBackupCollector(reconciler *FoundationDBBackupReconciler) *fdbBackupCollector {
+	return &fdbBackupCollector{reconciler: reconciler}
+}
+
+// Describe implements the prometheus.Collector interface
+func (c *fdbBackupCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- internalMetrics.DescBackupRunning
+	ch <- internalMetrics.DescBackupPaused
+	ch <- internalMetrics.DescBackupRestorable
+	ch <- internalMetrics.DescBackupSecondsSinceLastRestorablePoint
+	ch <- internalMetrics.DescBackupAgentCount
+	ch <- internalMetrics.DescBackupDesiredAgentCount
+}
+
+// Collect implements the prometheus.Collector interface
+func (c *fdbBackupCollector) Collect(ch chan<- prometheus.Metric) {
+	backups := &fdbv1beta2.FoundationDBBackupList{}
+	err := c.reconciler.List(context.Background(), backups)
+	if err != nil {
+		return
+	}
+	for _, backup := range backups.Items {
+		internalMetrics.CollectBackupMetrics(ch, &backup)
+	}
+}
+
+// InitCustomBackupMetrics initializes the metrics collectors for the backup reconciler.
+func InitCustomBackupMetrics(reconciler *FoundationDBBackupReconciler) {
+	metrics.Registry.MustRegister(
+		newFDBBackupCollector(reconciler),
+		internalMetrics.BackupReconcileErrorsCounter,
+	)
+}
