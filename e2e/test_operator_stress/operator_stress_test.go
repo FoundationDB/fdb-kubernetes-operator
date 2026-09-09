@@ -58,7 +58,7 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 					fixtures.DefaultClusterConfig(false),
 				)
 				Expect(fdbCluster.IsAvailable(ctx)).To(BeTrue())
-				Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
+				Expect(fdbCluster.Delete(ctx)).NotTo(HaveOccurred())
 			}
 		})
 	})
@@ -74,7 +74,7 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 		})
 
 		AfterEach(func(ctx SpecContext) {
-			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
+			Expect(fdbCluster.Delete(ctx)).NotTo(HaveOccurred())
 		})
 
 		It("should replace the targeted Pod", func(ctx SpecContext) {

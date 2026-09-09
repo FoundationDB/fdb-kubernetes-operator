@@ -42,7 +42,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -829,6 +829,59 @@ func (fdbCluster *FdbCluster) SetPodAsUnschedulable(ctx context.Context, pod cor
 	}).WithTimeout(5*time.Minute).WithPolling(2*time.Second).MustPassRepeatedly(5).Should(gomega.BeEmpty(), "Not able to set pod as unschedulable")
 }
 
+// SetPodsAsUnschedulable sets the provided slice of Pods on the NoSchedule list of the current FoundationDBCluster. This will make
+// sure that the Pods are stuck in Pending.
+func (fdbCluster *FdbCluster) SetPodsAsUnschedulable(ctx context.Context, pods []corev1.Pod) {
+	unschedulableProcessGroups := make([]fdbv1beta2.ProcessGroupID, 0, len(pods))
+
+	for _, pod := range pods {
+		unschedulableProcessGroups = append(unschedulableProcessGroups, GetProcessGroupID(pod))
+	}
+
+	fdbCluster.SetProcessGroupsAsUnschedulable(
+		ctx,
+		unschedulableProcessGroups,
+	)
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(5 * time.Second):
+	}
+
+	for _, pod := range pods {
+		fetchedPod := &corev1.Pod{}
+		err := fdbCluster.getClient().
+			Get(ctx, client.ObjectKeyFromObject(&pod), fetchedPod)
+		if err != nil {
+			continue
+		}
+
+		// Try deleting the Pod as a workaround until the operator handles all cases.
+		if fetchedPod.Spec.NodeName != "" && fetchedPod.DeletionTimestamp.IsZero() {
+			gomega.Expect(fdbCluster.getClient().Delete(ctx, &pod)).
+				NotTo(gomega.HaveOccurred())
+		}
+	}
+
+	gomega.Eventually(func(g gomega.Gomega) {
+		for _, pod := range pods {
+			fetchedPod := &corev1.Pod{}
+			err := fdbCluster.getClient().
+				Get(ctx, client.ObjectKeyFromObject(&pod), fetchedPod)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+
+			// Try deleting the Pod as a workaround until the operator handles all cases.
+			if fetchedPod.Spec.NodeName != "" && fetchedPod.DeletionTimestamp.IsZero() {
+				g.Expect(fdbCluster.getClient().Delete(ctx, &pod)).
+					NotTo(gomega.HaveOccurred())
+			}
+
+			g.Expect(fetchedPod.Spec.NodeName).To(gomega.BeEmpty())
+		}
+	}).WithTimeout(5*time.Minute).WithPolling(2*time.Second).MustPassRepeatedly(5).Should(gomega.Succeed(), "Not able to set pods as unschedulable")
+}
+
 // SetProcessGroupsAsUnschedulable sets the provided process groups on the NoSchedule list of the current FoundationDBCluster. This will make
 // sure that the Pod is stuck in Pending.
 func (fdbCluster *FdbCluster) SetProcessGroupsAsUnschedulable(
@@ -980,7 +1033,7 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(ctx context.Context, pod *corev1
 	gomega.Eventually(func() bool {
 		err := fdbCluster.getClient().
 			Get(ctx, client.ObjectKeyFromObject(pod), fetchedPod)
-		if err != nil && kubeErrors.IsNotFound(err) {
+		if err != nil && k8serrors.IsNotFound(err) {
 			return true
 		}
 
@@ -1216,7 +1269,7 @@ func (fdbCluster *FdbCluster) CheckPodIsDeleted(ctx context.Context, podName str
 		Get(ctx, client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
 
 	if err != nil {
-		if kubeErrors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return true
 		}
 	}
@@ -1260,13 +1313,13 @@ func (fdbCluster *FdbCluster) SetUseDNSInClusterFile(
 	return fdbCluster.WaitForReconciliation(ctx)
 }
 
-// Destroy will remove the underlying cluster.
-func (fdbCluster *FdbCluster) Destroy(ctx context.Context) error {
-	return fdbCluster.DestroyWithWaitForTearDown(ctx, false)
+// Delete will remove the underlying cluster.
+func (fdbCluster *FdbCluster) Delete(ctx context.Context) error {
+	return fdbCluster.DeleteWithWaitForTearDown(ctx, false)
 }
 
-// DestroyWithWaitForTearDown will remove the underlying cluster and wait for the resources to be removed.
-func (fdbCluster *FdbCluster) DestroyWithWaitForTearDown(
+// DeleteWithWaitForTearDown will remove the underlying cluster and wait for the resources to be removed.
+func (fdbCluster *FdbCluster) DeleteWithWaitForTearDown(
 	ctx context.Context,
 	waitForTearDown bool,
 ) error {

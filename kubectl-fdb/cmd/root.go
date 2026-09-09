@@ -100,7 +100,7 @@ func NewRootCmd(
 		newFixCoordinatorIPsCmd(streams),
 		newGetCmd(streams),
 		newBuggifyCmd(streams),
-		newRecoverMultiRegionClusterCmd(streams),
+		newRecoverCmd(streams),
 		newUpdateCmd(streams),
 	)
 

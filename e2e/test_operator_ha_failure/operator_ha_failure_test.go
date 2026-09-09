@@ -134,7 +134,7 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 
 			keyValues = primary.GenerateRandomValues(10, prefix)
 			primary.WriteKeyValuesWithTimeout(ctx, keyValues, 120)
-			// Destroy primary and primary satellite (should have mutations that are not present in the remote side).
+			// Delete primary and primary satellite (should have mutations that are not present in the remote side).
 			primary.SetSkipReconciliation(ctx, true)
 			primarySatellite.SetSkipReconciliation(ctx, true)
 			// We also destroy the remote satellite, it shouldn't matter in this case as the remote satellite
@@ -199,7 +199,7 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 				&operatorPod,
 				"manager",
 				fmt.Sprintf(
-					"kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s",
+					"kubectl-fdb -n %s recover multi-region --version-check=false --wait=false %s",
 					remote.Namespace(),
 					remote.Name(),
 				),
