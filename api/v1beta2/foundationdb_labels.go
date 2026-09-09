@@ -25,6 +25,27 @@ const (
 	// pod spec.
 	LastSpecKey = "foundationdb.org/last-applied-spec"
 
+	// PodTemplateGenerationLabel is the label name carrying a content hash
+	// that identifies a Pod's "generation" — the cohort of pods of the same
+	// process class that render to the same desired PodSpec. Its value is the
+	// first 16 hex characters of a SHA-256 over the canonical rendered
+	// PodSpec for the class, computed from the same source LastSpecKey uses
+	// to drive pod replacement, so the label rotates exactly when the
+	// rendered PodSpec for the class changes.
+	//
+	// Suitable for use with TopologySpreadConstraints.matchLabelKeys to scope
+	// spread to the cohort of pods sharing the same generation. Emission is
+	// opt-in via LabelConfig.IncludePodTemplateGenerationLabel.
+	PodTemplateGenerationLabel = "foundationdb.org/pod-template-generation"
+
+	// PodTemplateGenerationRemovalValue is the PodTemplateGenerationLabel value
+	// stamped on pods whose process group is marked for removal. It buckets
+	// these doomed pods away from any live generation so they do not participate
+	// in — and therefore cannot skew — the surviving cohort's topology spread.
+	// It is not a 16-hex SHA-256 prefix, so it can never collide with a real
+	// generation value.
+	PodTemplateGenerationRemovalValue = "marked-for-removal"
+
 	// LastConfigMapKey provides the annotation name we use to store the hash of the
 	// config map.
 	LastConfigMapKey = "foundationdb.org/last-applied-config-map"

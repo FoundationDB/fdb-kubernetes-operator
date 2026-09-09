@@ -406,6 +406,93 @@ In particular (to quote the Kubernetes documentation):
 > - only `.spec.minAvailable` can be used, not `.spec.maxUnavailable`.
 > - only an integer value can be used with `.spec.minAvailable`, not a percentage.
 
+## Spreading Pods Across Pod Template Generations
+
+`topologySpreadConstraints` keep pods of a process class spread across fault
+domains. During a rolling update, though, a plain `labelSelector` counts the
+old pods and the new pods as the same group: while the operator recreates pods
+one fault domain at a time, the new pods and the surviving old pods are weighed
+together, which can let the scheduler place several new pods into the same fault
+domain. Because topology spread constraints are only evaluated when a pod is
+scheduled — the scheduler never moves a pod that is already running — that
+imbalance in the new generation is not corrected once the update finishes; it
+persists until those pods happen to be recreated again.
+
+To avoid this you can scope a spread constraint to a single *pod template
+generation* — the cohort of pods of the same process class that render to the
+same `PodSpec`. When you enable it, the operator stamps every pod at creation
+time with the `foundationdb.org/pod-template-generation` label, whose value is a
+hash of the rendered `PodSpec` for that process class. The hash rotates exactly
+when the rendered `PodSpec` for the class changes, so a spec change that triggers
+a rolling update also starts a new generation.
+
+Enable the label in the cluster spec:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  labels:
+    includePodTemplateGenerationLabel: true
+```
+
+Then reference the label from a spread constraint with `matchLabelKeys`. The
+scheduler reads the label's value from the pod being scheduled and only counts
+existing pods that share the same value, so each generation is spread
+independently:
+
+```yaml
+        podTemplate:
+          spec:
+            topologySpreadConstraints:
+              - maxSkew: 1
+                topologyKey: topology.kubernetes.io/zone
+                whenUnsatisfiable: DoNotSchedule
+                # Only consider pods of this cluster and process class ...
+                labelSelector:
+                  matchLabels:
+                    foundationdb.org/fdb-cluster-name: sample-cluster
+                    foundationdb.org/fdb-process-class: storage
+                # ... that also belong to the same pod template generation.
+                matchLabelKeys:
+                  - foundationdb.org/pod-template-generation
+```
+
+`matchLabelKeys` for topology spread requires the
+`MatchLabelKeysInPodTopologySpread` feature to be enabled in your cluster. Do
+not add the generation label to `labelSelector.matchLabels` yourself — the
+scheduler derives its value from the incoming pod automatically.
+
+### Rollout behavior
+
+The label is applied only when a pod is **created**; the operator never patches
+it onto a running pod. This is deliberate: rewriting the value in place on a
+surviving pod would make the scheduler treat the old and new generations as one
+during the update, which is exactly what this label prevents.
+
+As a consequence, enabling `includePodTemplateGenerationLabel` on an existing
+cluster does not label the current pods immediately. The label is populated
+gradually, as pods are recreated for unrelated reasons (upgrades, replacements,
+or spec changes). Until every pod is recreated there will be a mix of labeled
+and unlabeled pods; Kubernetes ignores a `matchLabelKeys` entry for pods that do
+not carry the key, so the constraint degrades gracefully to the broader
+`labelSelector` spread rather than failing to schedule. To have every pod carry
+the label from the start, enable the setting when the cluster is first created.
+
+### Pods marked for removal
+
+When a process group is marked for removal (for example during a replacement),
+any pod the operator creates for it is stamped with the fixed value
+`marked-for-removal` instead of a generation hash. This buckets the doomed pod
+away from every live generation, so it is never counted toward — and therefore
+cannot skew — the spread of the pods that will survive. The sentinel is applied
+only to pods created while the group is already being removed; pods that were
+created earlier keep whatever value they had (the operator never rewrites the
+label in place, per the rule above). Because `marked-for-removal` is not a
+16-character hash, it can never collide with a real generation value.
+
 ## Coordinators
 
 Per default the FDB operator will try to select the best fitting processes to be coordinators.
