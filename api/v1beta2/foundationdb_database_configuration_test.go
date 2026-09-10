@@ -209,6 +209,42 @@ var _ = Describe("DatabaseConfiguration", func() {
 		})
 	})
 
+	When("a three_data_hall_fallback cluster with the default values is provided", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version:  "7.1.33",
+					DataHall: "az1",
+					ProcessCounts: ProcessCounts{
+						Stateless: -1,
+					},
+					DatabaseConfiguration: DatabaseConfiguration{
+						StorageEngine:  StorageEngineSSD,
+						RedundancyMode: RedundancyModeThreeDataHallFallback,
+						UsableRegions:  1,
+					},
+				},
+			}
+		})
+
+		When("getting the default process counts", func() {
+			var err error
+			var counts ProcessCounts
+
+			BeforeEach(func() {
+				counts, err = cluster.GetProcessCountsWithDefaults()
+			})
+
+			It("It should calculate the default process counts", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(counts.Log).To(BeNumerically("==", 5)) // 4 required + 1 additional
+				Expect(counts.Storage).To(BeNumerically("==", 3)) // 2*FaultTolerance+1
+			})
+		})
+	})
+
 	When("using ProcessCounts", func() {
 		When("calculating the total number of processes", func() {
 			var counts ProcessCounts

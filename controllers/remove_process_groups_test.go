@@ -339,6 +339,43 @@ var _ = Describe("remove_process_groups", func() {
 				})
 			})
 
+			When("the cluster has three_data_hall_fallback redundancy", func() {
+				BeforeEach(func() {
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHallFallback
+
+				})
+				When("storage have 2 replicas", func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.TeamTracker = []fdbv1beta2.FoundationDBStatusTeamTracker{
+							{
+								Primary: true,
+								State: fdbv1beta2.FoundationDBStatusDataState{
+									Healthy:              true,
+									MinReplicasRemaining: 2,
+								},
+							},
+						}
+					})
+					It("should successfully remove that process group", func() {
+						Expect(result).To(BeNil())
+						// Ensure resources are deleted
+						include, err := confirmRemoval(
+							context.Background(),
+							globalControllerLogger,
+							clusterReconciler,
+							cluster,
+							removedProcessGroup,
+						)
+						Expect(err).To(BeNil())
+						Expect(include).To(BeTrue())
+					})
+				})
+			})
+
 			When("removing multiple process groups", func() {
 				var initialCnt int
 				var secondRemovedProcessGroup *fdbv1beta2.ProcessGroupStatus

@@ -1098,6 +1098,19 @@ var _ = Describe("Localities", func() {
 				fdbv1beta2.FDBLocalityZoneIDKey:   1,
 			},
 		),
+		Entry("default cluster with one usable region and three data hall fallback",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+						RedundancyMode: fdbv1beta2.RedundancyModeThreeDataHallFallback,
+					},
+				},
+			},
+			map[string]int{
+				fdbv1beta2.FDBLocalityDataHallKey: 5,
+				fdbv1beta2.FDBLocalityZoneIDKey:   1,
+			},
+		),
 	)
 
 	DescribeTable(
