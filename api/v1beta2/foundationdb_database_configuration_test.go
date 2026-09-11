@@ -239,7 +239,7 @@ var _ = Describe("DatabaseConfiguration", func() {
 
 			It("It should calculate the default process counts", func() {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(counts.Log).To(BeNumerically("==", 5)) // 4 required + 1 additional
+				Expect(counts.Log).To(BeNumerically("==", 5))     // 4 required + 1 additional
 				Expect(counts.Storage).To(BeNumerically("==", 3)) // 2*FaultTolerance+1
 			})
 		})
