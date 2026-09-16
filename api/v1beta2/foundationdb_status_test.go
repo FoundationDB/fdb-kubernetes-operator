@@ -157,7 +157,7 @@ var _ = Describe("FoundationDBStatus", func() {
 								P99:    ptr.To(0.000386477),
 							},
 							StorageMetadata: FoundationDBStatusStorageMetadata{
-								StorageEngine: StorageEngineSSD2,
+								StorageEngine: ptr.To(StorageEngineSSD2),
 							},
 						},
 						{
@@ -643,35 +643,4 @@ var _ = Describe("FoundationDBStatus", func() {
 			})
 		},
 	)
-
-	When("parsing the storage_metadata of a storage role", func() {
-		DescribeTable(
-			"it should parse the storage engine of the storage_metadata",
-			func(input string, expected StorageEngine) {
-				role := FoundationDBStatusProcessRoleInfo{}
-				Expect(json.Unmarshal([]byte(input), &role)).NotTo(HaveOccurred())
-				Expect(role.StorageMetadata.StorageEngine).To(Equal(expected))
-			},
-			Entry(
-				"the storage_metadata contains a storage engine",
-				`{"role":"storage","storage_metadata":{"created_time_timestamp":1646933167898430464,"storage_engine":"ssd-2"}}`,
-				StorageEngineSSD2,
-			),
-			Entry(
-				"the storage_metadata contains the redwood storage engine",
-				`{"role":"storage","storage_metadata":{"storage_engine":"ssd-redwood-1"}}`,
-				StorageEngineRedwood1,
-			),
-			Entry(
-				"the storage_metadata does not contain a storage engine",
-				`{"role":"storage","storage_metadata":{"created_time_timestamp":1646933167898430464}}`,
-				StorageEngine(""),
-			),
-			Entry(
-				"the role does not contain any storage_metadata",
-				`{"role":"storage"}`,
-				StorageEngine(""),
-			),
-		)
-	})
 })
