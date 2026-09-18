@@ -156,6 +156,9 @@ var _ = Describe("FoundationDBStatus", func() {
 								Median: ptr.To(0.000102282),
 								P99:    ptr.To(0.000386477),
 							},
+							StorageMetadata: FoundationDBStatusStorageMetadata{
+								StorageEngine: ptr.To(StorageEngineSSD2),
+							},
 						},
 						{
 							Role: string(ProcessRoleResolver),

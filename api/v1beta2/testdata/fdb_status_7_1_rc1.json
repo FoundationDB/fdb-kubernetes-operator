@@ -959,7 +959,8 @@
                         "role" : "storage",
                         "storage_metadata" : {
                             "created_time_datetime" : "Thu Mar 10 17:26:07 2022 +0000",
-                            "created_time_timestamp" : 1646933167898430464
+                            "created_time_timestamp" : 1646933167898430464,
+                            "storage_engine" : "ssd-2"
                         },
                         "stored_bytes" : 0,
                         "total_queries" : {
