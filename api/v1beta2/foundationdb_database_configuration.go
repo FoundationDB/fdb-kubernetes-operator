@@ -35,7 +35,7 @@ import (
 type DatabaseConfiguration struct {
 	// RedundancyMode defines the core replication factor for the database.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=single;double;triple;three_data_hall
+	// +kubebuilder:validation:Enum=single;double;triple;three_data_hall;three_data_hall_fallback
 	// +kubebuilder:default:double
 	RedundancyMode RedundancyMode `json:"redundancy_mode,omitempty"`
 
@@ -802,7 +802,7 @@ func DesiredFaultTolerance(redundancyMode RedundancyMode) int {
 	switch redundancyMode {
 	case RedundancyModeSingle:
 		return 0
-	case RedundancyModeDouble, RedundancyModeUnset:
+	case RedundancyModeDouble, RedundancyModeUnset, RedundancyModeThreeDataHallFallback:
 		return 1
 	case RedundancyModeTriple, RedundancyModeThreeDataHall:
 		return 2
@@ -816,7 +816,7 @@ func MinimumFaultDomains(redundancyMode RedundancyMode) int {
 	switch redundancyMode {
 	case RedundancyModeSingle:
 		return 1
-	case RedundancyModeDouble, RedundancyModeUnset:
+	case RedundancyModeDouble, RedundancyModeUnset, RedundancyModeThreeDataHallFallback:
 		return 2
 	case RedundancyModeTriple, RedundancyModeThreeDataHall:
 		return 3
@@ -838,6 +838,8 @@ const (
 	RedundancyModeTriple RedundancyMode = "triple"
 	// RedundancyModeThreeDataHall defines the replication factor three_data_hall.
 	RedundancyModeThreeDataHall RedundancyMode = "three_data_hall"
+	// RedundancyModeThreeDataHallFallback defines the replication factor three_data_hall_fallback.
+	RedundancyModeThreeDataHallFallback RedundancyMode = "three_data_hall_fallback"
 	// RedundancyModeOneSatelliteSingle defines the replication factor one_satellite_single.
 	RedundancyModeOneSatelliteSingle RedundancyMode = "one_satellite_single"
 	// RedundancyModeOneSatelliteDouble  defines the replication factor one_satellite_double.
@@ -848,7 +850,8 @@ const (
 
 // getDefaultLogCount returns the default log count for the provided redundancy mode
 func (redundancyMode RedundancyMode) getDefaultLogCount() int {
-	if redundancyMode == RedundancyModeThreeDataHall {
+	if (redundancyMode == RedundancyModeThreeDataHall) ||
+		(redundancyMode == RedundancyModeThreeDataHallFallback) {
 		return 4
 	}
 

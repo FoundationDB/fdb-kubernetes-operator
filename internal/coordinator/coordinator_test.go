@@ -789,6 +789,79 @@ var _ = Describe("Change coordinators", func() {
 				})
 			})
 		})
+
+		When("using a FDB cluster with three_data_hall_fallback and missing data hall", func() {
+			var status *fdbv1beta2.FoundationDBStatus
+			var candidates []locality.Info
+
+			JustBeforeEach(func() {
+				cluster.Spec.DataHall = "az1"
+				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHallFallback
+
+				var err error
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				status.Cluster.Processes = generateProcessInfoForThreeDataHall(
+					2, // One data hall is missing
+					nil,
+					cluster.GetRunningVersion(),
+				)
+
+				candidates, err = selectCoordinatorsLocalities(logr.Discard(), cluster, status, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("all processes are healthy", func() {
+				It("should only select storage processes", func() {
+					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
+					Expect(
+						len(candidates),
+					).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+
+					dataHallCounts := map[string]int{}
+					for _, candidate := range candidates {
+						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+						dataHallCounts[candidate.LocalityData[fdbv1beta2.FDBLocalityDataHallKey]]++
+					}
+
+					for _, dataHallCount := range dataHallCounts {
+						Expect(dataHallCount).To(BeNumerically("<=", 5))
+						Expect(dataHallCount).To(BeNumerically(">=", 4))
+					}
+				})
+			})
+
+			When("when one storage process is marked for removal", func() {
+				removedProcess := fdbv1beta2.ProcessGroupID("storage-2")
+
+				BeforeEach(func() {
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
+						removedProcess,
+					}
+					Expect(cluster.ProcessGroupIsBeingRemoved(removedProcess)).To(BeTrue())
+				})
+
+				It("should only select storage processes and exclude the removed process", func() {
+					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
+					Expect(
+						len(candidates),
+					).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+
+					dataHallCounts := map[string]int{}
+					for _, candidate := range candidates {
+						Expect(candidate.ID).NotTo(Equal(removedProcess))
+						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+						dataHallCounts[candidate.LocalityData[fdbv1beta2.FDBLocalityDataHallKey]]++
+					}
+
+					for _, dataHallCount := range dataHallCounts {
+						Expect(dataHallCount).To(BeNumerically("<=", 5))
+						Expect(dataHallCount).To(BeNumerically(">=", 4))
+					}
+				})
+			})
+		})
 	})
 
 	DescribeTable(

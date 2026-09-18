@@ -213,7 +213,8 @@ func ChooseDistributedProcesses(
 	fields := constraint.Fields
 	if len(fields) == 0 {
 		fields = []string{fdbv1beta2.FDBLocalityZoneIDKey, fdbv1beta2.FDBLocalityDCIDKey}
-		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		if (cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall) ||
+			(cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback) {
 			fields = append(fields, fdbv1beta2.FDBLocalityDataHallKey)
 		}
 	}
@@ -318,7 +319,14 @@ func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 				fdbv1beta2.FDBLocalityZoneIDKey:   1,
 			}
 		}
-
+		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback {
+			return map[string]int{
+				// A three_data_hall_fallback cluster also has 9 coordinators, but to tolerate a whole data hall
+				// to be offline, we may need to have up to 5 coordinators in one of the two remaining data halls.
+				fdbv1beta2.FDBLocalityDataHallKey: 5,
+				fdbv1beta2.FDBLocalityZoneIDKey:   1,
+			}
+		}
 		return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1}
 	}
 
