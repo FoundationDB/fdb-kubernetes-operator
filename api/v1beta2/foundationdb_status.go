@@ -261,7 +261,6 @@ type FoundationDBStatusProcessRoleInfo struct {
 // reported in the "storage_metadata" section of a storage role.
 type FoundationDBStatusStorageMetadata struct {
 	// StorageEngine defines the storage engine this storage process is currently using.
-	// This is a pointer so that an absent value can be distinguished from an empty one.
 	StorageEngine *StorageEngine `json:"storage_engine,omitempty"`
 }
 
