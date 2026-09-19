@@ -3714,9 +3714,12 @@ var _ = Describe("pod_models", func() {
 				).To(Equal(cluster.ObjectMeta.UID))
 				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
 					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
+					fdbv1beta2.FDBClusterLabel:       cluster.Name,
 				}))
+				hash, err := GetJSONHash(deployment.Spec)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "5250c19ca170acf598f0e1437383ac279876e5d08db4d9dfd2b8121dac05e419",
+					"foundationdb.org/last-applied-spec": hash,
 				}))
 			})
 
@@ -3733,6 +3736,7 @@ var _ = Describe("pod_models", func() {
 				}}))
 				Expect(deployment.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
 					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
+					fdbv1beta2.FDBClusterLabel:          cluster.Name,
 				}))
 			})
 
@@ -3993,8 +3997,9 @@ var _ = Describe("pod_models", func() {
 
 			It("should add the labels", func() {
 				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
-					"foundationdb.org/backup-for": "",
-					"fdb-test":                    "test-value",
+					"foundationdb.org/backup-for":       "",
+					"foundationdb.org/fdb-cluster-name": cluster.Name,
+					"fdb-test":                          "test-value",
 				}))
 			})
 		})
@@ -4086,10 +4091,13 @@ var _ = Describe("pod_models", func() {
 					deployment.ObjectMeta.OwnerReferences[0].UID,
 				).To(Equal(cluster.ObjectMeta.UID))
 				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
-					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
+					"foundationdb.org/backup-for":       string(cluster.ObjectMeta.UID),
+					"foundationdb.org/fdb-cluster-name": cluster.Name,
 				}))
+				hash, err := GetJSONHash(deployment.Spec)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "a8b98f7f18dc54eda28869efedf2718393b73fb8b0980cd2e88fb5153fbcd33b",
+					"foundationdb.org/last-applied-spec": hash,
 				}))
 
 				Expect(
