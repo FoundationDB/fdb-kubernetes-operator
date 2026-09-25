@@ -2174,7 +2174,8 @@ func (cluster *FoundationDBCluster) GetFullAddressList(
 		primaryOnly,
 		processNumber,
 		cluster.Status.RequiredAddresses.TLS,
-		cluster.Status.RequiredAddresses.NonTLS)
+		cluster.Status.RequiredAddresses.NonTLS,
+	)
 }
 
 // HasCoordinators checks whether this connection string matches a set of
@@ -2423,6 +2424,16 @@ func (cluster *FoundationDBCluster) GetPublicIPSource() PublicIPSource {
 	return ptr.Deref(cluster.Spec.Routing.PublicIPSource, PublicIPSourcePod)
 }
 
+// ShouldEnableGRPC determines whether the operator will enable GRPC listeners and Service configuration.
+func (cluster *FoundationDBCluster) ShouldEnableGRPC() bool {
+	return ptr.Deref(cluster.Spec.Routing.EnableGRPC, false)
+}
+
+// GetGRPCPort returns the port GRPC listeners will run on.
+func (cluster *FoundationDBCluster) GetGRPCPort() int32 {
+	return ptr.Deref(cluster.Spec.Routing.GRPCPort, 8080)
+}
+
 // LockOptions provides customization for locking global operations.
 type LockOptions struct {
 	// DisableLocks determines whether we should disable locking entirely.
@@ -2485,6 +2496,17 @@ type RoutingConfig struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	DNSDomain *string `json:"dnsDomain,omitempty"`
+
+	// EnableGRPC controls whether the operator will add GRPC listeners and Service configuration for this cluster.
+	// GRPC support is experimental, and is only available in FDB 8.0 and later.
+	EnableGRPC *bool `json:"enableGRPC,omitempty"`
+
+	// GRPCPort controls the port that GRPC listeners listen on.
+	GRPCPort *int32 `json:"grpcPort,omitempty"`
+
+	// GRPCService allows customizing arbitrary aspects of the service that we put in front of the GRPC listeners.
+	// This is entirely optional, and any required fields that you do not provide will be filled in by the operator.
+	GRPCService *corev1.Service `json:"grpcService,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen

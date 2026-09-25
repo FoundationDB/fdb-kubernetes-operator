@@ -263,7 +263,9 @@ func GetMonitorProcessConfiguration(
 	// currentPodIPFamily will reflect the current IP family of the Pod. If the Pod doesn't exist, we fall back
 	// to the default IP family defined on the cluster level.
 	currentPodIPFamily := ptr.Deref(podIPFamily, cluster.GetPodIPFamily())
-	sampleAddresses := cluster.GetFullAddressList(fdbv1beta2.EnvNamePublicIP, false, 1)
+	publicAddresses := cluster.GetFullAddressList(fdbv1beta2.EnvNamePublicIP, false, 1)
+	listenAddresses := cluster.GetFullAddressList(fdbv1beta2.EnvNamePodIP, false, 1)
+
 	configuration.Arguments = append(
 		configuration.Arguments,
 		monitorapi.Argument{Value: "--cluster_file=/var/fdb/data/fdb.cluster"},
@@ -274,10 +276,28 @@ func GetMonitorProcessConfiguration(
 				"public_address",
 				fdbv1beta2.EnvNamePublicIP,
 				imageType,
-				sampleAddresses,
+				publicAddresses,
 				currentPodIPFamily,
 			),
 		},
+	)
+
+	if cluster.ShouldEnableGRPC() {
+		publicAddressArgument := configuration.Arguments[len(configuration.Arguments)-1]
+		grpcAddresses := buildIPArgument("", fdbv1beta2.EnvNamePodIP, imageType,
+			[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(
+				nil,
+				fdbv1beta2.EnvNamePodIP,
+				int(cluster.GetGRPCPort()),
+				map[string]bool{"grpc": true},
+			)},
+			currentPodIPFamily,
+		)
+		publicAddressArgument.Values = append(publicAddressArgument.Values, grpcAddresses...)
+		configuration.Arguments[len(configuration.Arguments)-1] = publicAddressArgument
+	}
+
+	configuration.Arguments = append(configuration.Arguments,
 		monitorapi.Argument{Value: fmt.Sprintf("--class=%s", processClass)},
 		monitorapi.Argument{Value: "--logdir=/var/log/fdb-trace-logs"},
 		monitorapi.Argument{Value: fmt.Sprintf("--loggroup=%s", logGroup)},
@@ -346,6 +366,7 @@ func GetMonitorProcessConfiguration(
 	)
 
 	if cluster.NeedsExplicitListenAddress() && cluster.Status.HasListenIPsForAllPods {
+		// We need to ensure the GRPC addresses are not included in the listen addresses.
 		configuration.Arguments = append(
 			configuration.Arguments,
 			monitorapi.Argument{
@@ -354,7 +375,7 @@ func GetMonitorProcessConfiguration(
 					"listen_address",
 					fdbv1beta2.EnvNamePodIP,
 					imageType,
-					sampleAddresses,
+					listenAddresses,
 					currentPodIPFamily,
 				),
 			},
@@ -519,10 +540,16 @@ func buildIPArgument(
 		leftIPWrap = ""
 		rightIPWrap = ""
 	}
-	arguments := []monitorapi.Argument{{Value: fmt.Sprintf("--%s=%s", parameter, leftIPWrap)}}
+	arguments := make([]monitorapi.Argument, 0)
+	if parameter != "" {
+		arguments = append(
+			arguments,
+			monitorapi.Argument{Value: fmt.Sprintf("--%s=%s", parameter, leftIPWrap)},
+		)
+	}
 
 	for indexOfAddress, address := range sampleAddresses {
-		if indexOfAddress != 0 {
+		if indexOfAddress != 0 || parameter == "" {
 			arguments = append(
 				arguments,
 				monitorapi.Argument{Value: fmt.Sprintf(",%s", leftIPWrap)},

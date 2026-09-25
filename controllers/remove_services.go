@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 
@@ -43,27 +44,34 @@ func (u removeServices) reconcile(
 	_ *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
-	if cluster.NeedsHeadlessService() {
-		return nil
+	serviceNamesToRemove := make([]string, 0, 2)
+
+	if !cluster.NeedsHeadlessService() {
+		serviceNamesToRemove = append(serviceNamesToRemove, cluster.Name)
+	}
+	if !cluster.ShouldEnableGRPC() {
+		serviceNamesToRemove = append(serviceNamesToRemove, fmt.Sprintf("%s-grpc", cluster.Name))
 	}
 
-	existingService := &corev1.Service{}
-	err := r.Get(
-		ctx,
-		client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name},
-		existingService,
-	)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
+	for _, serviceName := range serviceNamesToRemove {
+		existingService := &corev1.Service{}
+		err := r.Get(
+			ctx,
+			client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName},
+			existingService,
+		)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			return &requeue{curError: err}
 		}
-		return &requeue{curError: err}
-	}
 
-	logger.V(1).Info("Deleting service", "name", existingService.Name)
-	err = r.Delete(ctx, existingService)
-	if err != nil {
-		return &requeue{curError: err}
+		logger.V(1).Info("Deleting service", "name", existingService.Name)
+		err = r.Delete(ctx, existingService)
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
 
 	return nil
