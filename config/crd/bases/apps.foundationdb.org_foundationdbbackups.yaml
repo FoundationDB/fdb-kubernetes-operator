@@ -136,6 +136,14 @@ spec:
               encryptionKeyPath:
                 maxLength: 4096
                 type: string
+              expiration:
+                properties:
+                  beforeTimestamp:
+                    format: date-time
+                    type: string
+                required:
+                - beforeTimestamp
+                type: object
               imageType:
                 default: split
                 enum:
@@ -4042,6 +4050,10 @@ spec:
             - clusterName
             - version
             type: object
+            x-kubernetes-validations:
+            - message: expiration is not supported for unmanaged backups
+              rule: '!has(self.expiration) || !has(self.backupType) || self.backupType
+                != ''unmanaged'''
           status:
             properties:
               agentCount:
@@ -4063,9 +4075,41 @@ spec:
                 type: object
               deploymentConfigured:
                 type: boolean
+              expiration:
+                properties:
+                  beforeTimestamp:
+                    format: date-time
+                    type: string
+                  clusterName:
+                    type: string
+                  completionTime:
+                    format: date-time
+                    type: string
+                  destinationURL:
+                    type: string
+                  jobName:
+                    type: string
+                  message:
+                    type: string
+                  phase:
+                    enum:
+                    - Running
+                    - Succeeded
+                    - Failed
+                    type: string
+                required:
+                - beforeTimestamp
+                - clusterName
+                - destinationURL
+                - jobName
+                - phase
+                type: object
               generations:
                 properties:
                   needsBackupAgentUpdate:
+                    format: int64
+                    type: integer
+                  needsBackupExpiration:
                     format: int64
                     type: integer
                   needsBackupModification:

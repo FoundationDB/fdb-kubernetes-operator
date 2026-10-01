@@ -8,6 +8,8 @@ package v1beta2
 // BackupGenerationStatus stores information on which generations have reached
 // different stages in reconciliation for the backup.
 type BackupGenerationStatusApplyConfiguration struct {
+	// NeedsBackupExpiration records the generation waiting for its expiration request to succeed
+	NeedsBackupExpiration *int64 `json:"needsBackupExpiration,omitempty"`
 	// Reconciled provides the last generation that was fully reconciled.
 	Reconciled *int64 `json:"reconciled,omitempty"`
 	// NeedsBackupAgentUpdate provides the last generation that could not
@@ -32,6 +34,14 @@ type BackupGenerationStatusApplyConfiguration struct {
 // apply.
 func BackupGenerationStatus() *BackupGenerationStatusApplyConfiguration {
 	return &BackupGenerationStatusApplyConfiguration{}
+}
+
+// WithNeedsBackupExpiration sets the NeedsBackupExpiration field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NeedsBackupExpiration field is set to the value of the last call.
+func (b *BackupGenerationStatusApplyConfiguration) WithNeedsBackupExpiration(value int64) *BackupGenerationStatusApplyConfiguration {
+	b.NeedsBackupExpiration = &value
+	return b
 }
 
 // WithReconciled sets the Reconciled field in the declarative configuration to the given value

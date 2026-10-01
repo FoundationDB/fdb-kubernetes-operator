@@ -206,6 +206,55 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					}
 				})
 
+				When("expiration is requested through the backup resource", func() {
+					var cutoff metav1.Time
+
+					BeforeEach(func() {
+						skipRestore = true
+						cutoff = metav1.NewTime(time.Now().Add(-time.Minute))
+					})
+
+					It(
+						"completes safe expiration and preserves restoration",
+						func(ctx SpecContext) {
+							spec := backup.GetBackup(ctx).Spec.DeepCopy()
+							spec.Expiration = &fdbv1beta2.BackupExpiration{BeforeTimestamp: cutoff}
+							backup.UpdateBackupSpecWithSpec(spec)
+							backup.WaitForReconciliation(ctx)
+							Expect(
+								backup.GetBackup(ctx).Status.Expiration.Phase,
+							).To(Equal("Succeeded"))
+							Expect(
+								ptr.Deref(backup.RunDescribeCommand(ctx).Restorable, false),
+							).To(BeTrue())
+							restore = factory.CreateRestoreForCluster(ctx, backup, nil)
+							Expect(
+								fdbCluster.GetRange(ctx, []byte{prefix}, 25, 60),
+							).To(Equal(keyValues))
+						},
+					)
+
+					It("refuses to expire the only restorable snapshot", func(ctx SpecContext) {
+						spec := backup.GetBackup(ctx).Spec.DeepCopy()
+						spec.Expiration = &fdbv1beta2.BackupExpiration{
+							BeforeTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
+						}
+						backup.UpdateBackupSpecWithSpec(spec)
+						Eventually(func(g Gomega) {
+							status := backup.GetBackup(ctx).Status.Expiration
+							g.Expect(status).NotTo(BeNil())
+							g.Expect(status.Phase).To(Equal("Failed"))
+						}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+						Expect(
+							ptr.Deref(backup.RunDescribeCommand(ctx).Restorable, false),
+						).To(BeTrue())
+						restore = factory.CreateRestoreForCluster(ctx, backup, nil)
+						Expect(
+							fdbCluster.GetRange(ctx, []byte{prefix}, 25, 60),
+						).To(Equal(keyValues))
+					})
+				})
+
 				When("no restorable version is specified", func() {
 					JustBeforeEach(func(ctx SpecContext) {
 						// running describe command

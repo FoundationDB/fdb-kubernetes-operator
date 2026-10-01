@@ -18,6 +18,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	// Group=apps.foundationdb.org, Version=v1beta2
 	case v1beta2.SchemeGroupVersion.WithKind("AutomaticReplacementOptions"):
 		return &apiv1beta2.AutomaticReplacementOptionsApplyConfiguration{}
+	case v1beta2.SchemeGroupVersion.WithKind("BackupExpiration"):
+		return &apiv1beta2.BackupExpirationApplyConfiguration{}
+	case v1beta2.SchemeGroupVersion.WithKind("BackupExpirationStatus"):
+		return &apiv1beta2.BackupExpirationStatusApplyConfiguration{}
 	case v1beta2.SchemeGroupVersion.WithKind("BackupGenerationStatus"):
 		return &apiv1beta2.BackupGenerationStatusApplyConfiguration{}
 	case v1beta2.SchemeGroupVersion.WithKind("BlobStoreConfiguration"):

@@ -76,6 +76,9 @@ type FoundationDBBackupSpecApplyConfiguration struct {
 	// for the same cluster.
 	// Default: "default".
 	Tag *apiv1beta2.BackupTag `json:"tag,omitempty"`
+	// Expiration requests removal of old backup data while preserving FDB's restorability checks
+	// Updating the cutoff submits a new request. Omitting this field disables new requests
+	Expiration *BackupExpirationApplyConfiguration `json:"expiration,omitempty"`
 }
 
 // FoundationDBBackupSpecApplyConfiguration constructs a declarative configuration of the FoundationDBBackupSpec type for use with
@@ -233,5 +236,13 @@ func (b *FoundationDBBackupSpecApplyConfiguration) WithBackupMode(value apiv1bet
 // If called multiple times, the Tag field is set to the value of the last call.
 func (b *FoundationDBBackupSpecApplyConfiguration) WithTag(value apiv1beta2.BackupTag) *FoundationDBBackupSpecApplyConfiguration {
 	b.Tag = &value
+	return b
+}
+
+// WithExpiration sets the Expiration field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Expiration field is set to the value of the last call.
+func (b *FoundationDBBackupSpecApplyConfiguration) WithExpiration(value *BackupExpirationApplyConfiguration) *FoundationDBBackupSpecApplyConfiguration {
+	b.Expiration = value
 	return b
 }
