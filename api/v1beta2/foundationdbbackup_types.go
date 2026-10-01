@@ -63,6 +63,7 @@ type FoundationDBBackupList struct {
 }
 
 // FoundationDBBackupSpec describes the desired state of the backup for a cluster.
+// +kubebuilder:validation:XValidation:rule="!has(self.expiration) || !has(self.backupType) || self.backupType != 'unmanaged'",message="expiration is not supported for unmanaged backups"
 type FoundationDBBackupSpec struct {
 	// The version of FoundationDB that the backup agents should run.
 	Version string `json:"version"`
@@ -161,6 +162,36 @@ type FoundationDBBackupSpec struct {
 	// Default: "default".
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="BackupTag is immutable"
 	Tag *BackupTag `json:"tag,omitempty"`
+
+	// Expiration requests removal of old backup data while preserving FDB's restorability checks
+	// Updating the cutoff submits a new request. Omitting this field disables new requests
+	Expiration *BackupExpiration `json:"expiration,omitempty"`
+}
+
+// BackupExpiration requests expiration of data before a fixed timestamp
+type BackupExpiration struct {
+	// BeforeTimestamp is the expiration cutoff, in RFC3339 format
+	// The source cluster must be available to convert this timestamp to an FDB version
+	BeforeTimestamp metav1.Time `json:"beforeTimestamp"`
+}
+
+// BackupExpirationStatus records the most recent expiration request and its execution
+type BackupExpirationStatus struct {
+	// BeforeTimestamp is the requested cutoff, not a guarantee that every older file was removed
+	BeforeTimestamp metav1.Time `json:"beforeTimestamp"`
+	// DestinationURL is the backup container pinned when the request was accepted
+	DestinationURL string `json:"destinationURL"`
+	// ClusterName identifies the source cluster used to resolve the timestamp
+	ClusterName string `json:"clusterName"`
+	// JobName identifies the Job executing this request
+	JobName string `json:"jobName"`
+	// Phase reports whether the request is running, succeeded, or failed
+	// +kubebuilder:validation:Enum=Running;Succeeded;Failed
+	Phase string `json:"phase"`
+	// Message provides the Job's failure reason, if any
+	Message string `json:"message,omitempty"`
+	// CompletionTime records when the operator observed a terminal Job
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
 // BackupTag defines the backup tag that should be used for the backup.
@@ -217,6 +248,9 @@ const (
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
 type FoundationDBBackupStatus struct {
+	// Expiration records the most recent expiration request, including completed requests
+	Expiration *BackupExpirationStatus `json:"expiration,omitempty"`
+
 	// AgentCount provides the number of agents that are up-to-date, ready,
 	// and not terminated.
 	AgentCount int `json:"agentCount,omitempty"`
@@ -248,6 +282,9 @@ type FoundationDBBackupStatusBackupDetails struct {
 // BackupGenerationStatus stores information on which generations have reached
 // different stages in reconciliation for the backup.
 type BackupGenerationStatus struct {
+	// NeedsBackupExpiration records the generation waiting for its expiration request to succeed
+	NeedsBackupExpiration int64 `json:"needsBackupExpiration,omitempty"`
+
 	// Reconciled provides the last generation that was fully reconciled.
 	Reconciled int64 `json:"reconciled,omitempty"`
 
@@ -484,6 +521,12 @@ func (backup *FoundationDBBackup) NeedsBackupReconfiguration() bool {
 // reconciliation is complete.
 func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 	var reconciled = true
+	if backup.Spec.Expiration != nil && (backup.Status.Expiration == nil ||
+		!backup.Spec.Expiration.BeforeTimestamp.Equal(&backup.Status.Expiration.BeforeTimestamp) ||
+		backup.Status.Expiration.Phase != "Succeeded") {
+		backup.Status.Generations.NeedsBackupExpiration = backup.Generation
+		reconciled = false
+	}
 
 	desiredAgentCount := backup.GetDesiredAgentCount()
 	if backup.Status.AgentCount != desiredAgentCount || !backup.Status.DeploymentConfigured {
@@ -574,6 +617,14 @@ func (backup *FoundationDBBackup) GetBackupTag() BackupTag {
 // If multiple issues are found all of them will be returned in a single error.
 func (backup *FoundationDBBackup) Validate(allowedPodModifications *AllowedPodModifications) error {
 	var validations []string
+	if backup.Spec.Expiration != nil {
+		if backup.Spec.Expiration.BeforeTimestamp.IsZero() {
+			validations = append(validations, "expiration.beforeTimestamp is required")
+		}
+		if backup.GetBackupType() == BackupTypeUnmanaged {
+			validations = append(validations, "expiration is not supported for unmanaged backups")
+		}
+	}
 
 	if backup.Spec.PodTemplateSpec != nil {
 		err := PodSpecIsSanitized(&backup.Spec.PodTemplateSpec.Spec, allowedPodModifications)

@@ -21,6 +21,8 @@
 package v1beta2
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +41,31 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			Spec: FoundationDBBackupSpec{},
 		}
 	})
+
+	DescribeTable(
+		"validating expiration requests",
+		func(spec string, valid bool) {
+			Expect(json.Unmarshal([]byte(spec), &backup.Spec)).To(Succeed())
+			err := backup.Validate(nil)
+			if valid {
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+		},
+		Entry("disabled", `{}`, true),
+		Entry(
+			"timestamp cutoff",
+			`{"expiration":{"beforeTimestamp":"2026-09-01T00:00:00Z"}}`,
+			true,
+		),
+		Entry("missing cutoff", `{"expiration":{}}`, false),
+		Entry(
+			"unmanaged backup",
+			`{"backupType":"unmanaged","expiration":{"beforeTimestamp":"2026-09-01T00:00:00Z"}}`,
+			false,
+		),
+	)
 
 	When("checking reconciliation for backup", func() {
 		It("should reconcile successfully", func() {

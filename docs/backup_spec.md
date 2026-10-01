@@ -5,6 +5,8 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 
 ## Table of Contents
 
+* [BackupExpiration](#backupexpiration)
+* [BackupExpirationStatus](#backupexpirationstatus)
 * [BackupGenerationStatus](#backupgenerationstatus)
 * [BlobStoreConfiguration](#blobstoreconfiguration)
 * [FoundationDBBackup](#foundationdbbackup)
@@ -25,12 +27,39 @@ BackupDeletionPolicy defines the deletion policy when the backup is deleted.
 
 [Back to TOC](#table-of-contents)
 
+## BackupExpiration
+
+BackupExpiration requests expiration of data before a fixed timestamp
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| beforeTimestamp | BeforeTimestamp is the expiration cutoff, in RFC3339 format The source cluster must be available to convert this timestamp to an FDB version | metav1.Time | true |
+
+[Back to TOC](#table-of-contents)
+
+## BackupExpirationStatus
+
+BackupExpirationStatus records the most recent expiration request and its execution
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| beforeTimestamp | BeforeTimestamp is the requested cutoff, not a guarantee that every older file was removed | metav1.Time | true |
+| destinationURL | DestinationURL is the backup container pinned when the request was accepted | string | true |
+| clusterName | ClusterName identifies the source cluster used to resolve the timestamp | string | true |
+| jobName | JobName identifies the Job executing this request | string | true |
+| phase | Phase reports whether the request is running, succeeded, or failed | string | true |
+| message | Message provides the Job's failure reason, if any | string | false |
+| completionTime | CompletionTime records when the operator observed a terminal Job | *metav1.Time | false |
+
+[Back to TOC](#table-of-contents)
+
 ## BackupGenerationStatus
 
 BackupGenerationStatus stores information on which generations have reached different stages in reconciliation for the backup.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
+| needsBackupExpiration | NeedsBackupExpiration records the generation waiting for its expiration request to succeed | int64 | false |
 | reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. | int64 | false |
 | needsBackupStart | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to start a backup. | int64 | false |
@@ -153,6 +182,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
 | backupMode | BackupMode defines the backup mode that should be used for the backup. When the BackupMode is set to BackupModeOneTime, the backup will create a single snapshot and then stop. When set to BackupModeContinuous, the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds. Default: \"Continuous\". | *[BackupMode](#backupmode) | false |
 | tag | Tag defines the backup tag that should be used. Using different tags allows to have multiple backups for the same cluster. Default: \"default\". | *[BackupTag](#backuptag) | false |
+| expiration | Expiration requests removal of old backup data while preserving FDB's restorability checks Updating the cutoff submits a new request. Omitting this field disables new requests | *[BackupExpiration](#backupexpiration) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -162,6 +192,7 @@ FoundationDBBackupStatus describes the current status of the backup for a cluste
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
+| expiration | Expiration records the most recent expiration request, including completed requests | *[BackupExpirationStatus](#backupexpirationstatus) | false |
 | agentCount | AgentCount provides the number of agents that are up-to-date, ready, and not terminated. | int | false |
 | deploymentConfigured | DeploymentConfigured indicates whether the deployment is correctly configured. | bool | false |
 | backupDetails | BackupDetails provides information about the state of the backup in the cluster. | *[FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails) | false |
