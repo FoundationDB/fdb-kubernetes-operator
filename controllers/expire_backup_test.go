@@ -188,7 +188,8 @@ var _ = Describe("backup expiration", func() {
 		Expect(jobs()).To(BeEmpty())
 	})
 
-	DescribeTable("defers deletion cleanup until the expiration Job is gone",
+	DescribeTable(
+		"defers deletion cleanup until the expiration Job is gone",
 		func(condition batchv1.JobConditionType, policy fdbv1beta2.BackupDeletionPolicy) {
 			reconcile()
 			backup.Spec.DeletionPolicy = ptr.To(policy)
@@ -212,7 +213,11 @@ var _ = Describe("backup expiration", func() {
 				backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup),
 			).To(MatchError("cleanup reached admin client"))
 		},
-		Entry("completed Job with cleanup", batchv1.JobComplete, fdbv1beta2.BackupDeletionPolicyCleanup),
+		Entry(
+			"completed Job with cleanup",
+			batchv1.JobComplete,
+			fdbv1beta2.BackupDeletionPolicyCleanup,
+		),
 		Entry("failed Job with cleanup", batchv1.JobFailed, fdbv1beta2.BackupDeletionPolicyCleanup),
 		Entry("completed Job with stop", batchv1.JobComplete, fdbv1beta2.BackupDeletionPolicyStop),
 		Entry("failed Job with stop", batchv1.JobFailed, fdbv1beta2.BackupDeletionPolicyStop),
