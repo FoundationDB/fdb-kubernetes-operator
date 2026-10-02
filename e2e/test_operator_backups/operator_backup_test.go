@@ -230,8 +230,13 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 								var description struct{ Snapshots []snapshot }
 								url, err := backup.GetBackup(ctx).BackupURL()
 								Expect(err).NotTo(HaveOccurred())
-								output := backup.RunCommandOnBackupPod(ctx,
-									fmt.Sprintf("fdbbackup describe -d %q --json --version-timestamps", url))
+								output := backup.RunCommandOnBackupPod(
+									ctx,
+									fmt.Sprintf(
+										"fdbbackup describe -d %q --json --version-timestamps",
+										url,
+									),
+								)
 								Expect(json.Unmarshal([]byte(output), &description)).To(Succeed())
 								return description.Snapshots
 							}
@@ -240,7 +245,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							oldSnapshot := snapshots[0]
 							Expect(oldSnapshot.Restorable).To(BeTrue())
 							Expect(oldSnapshot.End.EpochSeconds).To(BeNumerically(">", 0))
-							cutoff := metav1.NewTime(time.Unix(oldSnapshot.End.EpochSeconds, 0).Add(time.Minute))
+							cutoff := metav1.NewTime(
+								time.Unix(oldSnapshot.End.EpochSeconds, 0).Add(time.Minute),
+							)
 
 							// Restore the test data cleared by setup before resuming the paused backup
 							fdbCluster.WriteKeyValues(ctx, keyValues)
@@ -249,7 +256,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							var retainedSnapshot snapshot
 							Eventually(func() bool {
 								for _, candidate := range describeSnapshots() {
-									if candidate.Restorable && candidate.Start.EpochSeconds > cutoff.Add(time.Minute).Unix() {
+									if candidate.Restorable &&
+										candidate.Start.EpochSeconds > cutoff.Add(time.Minute).
+											Unix() {
 										retainedSnapshot = candidate
 										return true
 									}
@@ -270,9 +279,13 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							after := backup.RunDescribeCommand(ctx)
 							Expect(ptr.Deref(after.Restorable, false)).To(BeTrue())
 							Expect(after.TotalSnapshotBytes).NotTo(BeNil())
-							Expect(*after.TotalSnapshotBytes).To(BeNumerically("<", *before.TotalSnapshotBytes))
+							Expect(
+								*after.TotalSnapshotBytes,
+							).To(BeNumerically("<", *before.TotalSnapshotBytes))
 							snapshots = describeSnapshots()
-							Expect(snapshots).NotTo(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
+							Expect(
+								snapshots,
+							).NotTo(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
 							Expect(snapshots).To(ContainElement(And(
 								HaveField("Start.Version", retainedSnapshot.Start.Version),
 								HaveField("Restorable", true),
@@ -299,12 +312,24 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						pods := &corev1.PodList{}
 						Expect(factory.GetControllerRuntimeClient().List(ctx, pods,
 							ctrlClient.InNamespace(fdbCluster.Namespace()),
-							ctrlClient.MatchingLabels{"job-name": backup.GetBackup(ctx).Status.Expiration.JobName},
-						)).To(Succeed())
+							ctrlClient.MatchingLabels{
+								"job-name": backup.GetBackup(ctx).Status.Expiration.JobName,
+							},
+						),
+						).To(Succeed())
 						Expect(pods.Items).NotTo(BeEmpty())
 						for idx := range pods.Items {
-							Expect(factory.GetLogsForPod(ctx, &pods.Items[idx], fdbv1beta2.MainContainerName, nil)).To(
-								ContainSubstring("Requested expiration would be unsafe.  Backup would not meet minimum restorability."))
+							Expect(
+								factory.GetLogsForPod(
+									ctx,
+									&pods.Items[idx],
+									fdbv1beta2.MainContainerName,
+									nil,
+								),
+							).To(
+								ContainSubstring(
+									"Requested expiration would be unsafe.  Backup would not meet minimum restorability.",
+								))
 						}
 						Expect(
 							ptr.Deref(backup.RunDescribeCommand(ctx).Restorable, false),
