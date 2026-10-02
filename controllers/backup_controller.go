@@ -347,6 +347,14 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 			if phase == "Running" {
 				return nil
 			}
+			// Kubernetes 1.30 can report a terminal Job while its Pods are still terminating
+			if job.DeletionTimestamp == nil {
+				err = r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationForeground))
+				if err != nil && !k8serrors.IsNotFound(err) {
+					return err
+				}
+			}
+			return nil
 		}
 
 		// This part of the code will be executed when the backup resource has a deletion timestamp and is waiting
