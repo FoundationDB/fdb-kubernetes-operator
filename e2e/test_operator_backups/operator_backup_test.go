@@ -25,6 +25,8 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -207,16 +209,57 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 				})
 
 				When("expiration is requested through the backup resource", func() {
-					var cutoff metav1.Time
-
 					BeforeEach(func() {
 						skipRestore = true
-						cutoff = metav1.NewTime(time.Now().Add(-time.Minute))
+						shouldPauseBackup = true
 					})
 
 					It(
 						"completes safe expiration and preserves restoration",
 						func(ctx SpecContext) {
+							type snapshotVersion struct {
+								Version      uint64
+								EpochSeconds int64
+							}
+							type snapshot struct {
+								Start      snapshotVersion
+								End        snapshotVersion
+								Restorable bool
+							}
+							describeSnapshots := func() []snapshot {
+								var description struct{ Snapshots []snapshot }
+								url, err := backup.GetBackup(ctx).BackupURL()
+								Expect(err).NotTo(HaveOccurred())
+								output := backup.RunCommandOnBackupPod(ctx,
+									fmt.Sprintf("fdbbackup describe -d %q --json --version-timestamps", url))
+								Expect(json.Unmarshal([]byte(output), &description)).To(Succeed())
+								return description.Snapshots
+							}
+							snapshots := describeSnapshots()
+							Expect(snapshots).NotTo(BeEmpty())
+							oldSnapshot := snapshots[0]
+							Expect(oldSnapshot.Restorable).To(BeTrue())
+							Expect(oldSnapshot.End.EpochSeconds).To(BeNumerically(">", 0))
+							cutoff := metav1.NewTime(time.Unix(oldSnapshot.End.EpochSeconds, 0).Add(time.Minute))
+
+							// Restore the test data cleared by setup before resuming the paused backup
+							fdbCluster.WriteKeyValues(ctx, keyValues)
+							backup.Start(ctx)
+							backup.SetSnapshotInterval(ctx, 30)
+							var retainedSnapshot snapshot
+							Eventually(func() bool {
+								for _, candidate := range describeSnapshots() {
+									if candidate.Restorable && candidate.Start.EpochSeconds > cutoff.Add(time.Minute).Unix() {
+										retainedSnapshot = candidate
+										return true
+									}
+								}
+								return false
+							}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+							backup.Stop(ctx)
+							before := backup.RunDescribeCommand(ctx)
+							Expect(before.TotalSnapshotBytes).NotTo(BeNil())
+							Expect(*before.TotalSnapshotBytes).To(BeNumerically(">", 0))
 							spec := backup.GetBackup(ctx).Spec.DeepCopy()
 							spec.Expiration = &fdbv1beta2.BackupExpiration{BeforeTimestamp: cutoff}
 							backup.UpdateBackupSpecWithSpec(spec)
@@ -224,9 +267,17 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							Expect(
 								backup.GetBackup(ctx).Status.Expiration.Phase,
 							).To(Equal("Succeeded"))
-							Expect(
-								ptr.Deref(backup.RunDescribeCommand(ctx).Restorable, false),
-							).To(BeTrue())
+							after := backup.RunDescribeCommand(ctx)
+							Expect(ptr.Deref(after.Restorable, false)).To(BeTrue())
+							Expect(after.TotalSnapshotBytes).NotTo(BeNil())
+							Expect(*after.TotalSnapshotBytes).To(BeNumerically("<", *before.TotalSnapshotBytes))
+							snapshots = describeSnapshots()
+							Expect(snapshots).NotTo(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
+							Expect(snapshots).To(ContainElement(And(
+								HaveField("Start.Version", retainedSnapshot.Start.Version),
+								HaveField("Restorable", true),
+							)))
+							fdbCluster.ClearRange(ctx, []byte{prefix}, 60)
 							restore = factory.CreateRestoreForCluster(ctx, backup, nil)
 							Expect(
 								fdbCluster.GetRange(ctx, []byte{prefix}, 25, 60),
@@ -245,6 +296,16 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							g.Expect(status).NotTo(BeNil())
 							g.Expect(status.Phase).To(Equal("Failed"))
 						}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+						pods := &corev1.PodList{}
+						Expect(factory.GetControllerRuntimeClient().List(ctx, pods,
+							ctrlClient.InNamespace(fdbCluster.Namespace()),
+							ctrlClient.MatchingLabels{"job-name": backup.GetBackup(ctx).Status.Expiration.JobName},
+						)).To(Succeed())
+						Expect(pods.Items).NotTo(BeEmpty())
+						for idx := range pods.Items {
+							Expect(factory.GetLogsForPod(ctx, &pods.Items[idx], fdbv1beta2.MainContainerName, nil)).To(
+								ContainSubstring("Requested expiration would be unsafe.  Backup would not meet minimum restorability."))
+						}
 						Expect(
 							ptr.Deref(backup.RunDescribeCommand(ctx).Restorable, false),
 						).To(BeTrue())

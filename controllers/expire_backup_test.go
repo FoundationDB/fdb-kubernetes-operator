@@ -188,16 +188,33 @@ var _ = Describe("backup expiration", func() {
 		Expect(jobs()).To(BeEmpty())
 	})
 
-	It("defers deletion cleanup while expiration is running", func() {
-		reconcile()
-		backup.Spec.DeletionPolicy = ptr.To(fdbv1beta2.BackupDeletionPolicyCleanup)
-		backup.DeletionTimestamp = ptr.To(metav1.Now())
-		adminClient.MockError(errors.New("cleanup reached admin client"))
-		Expect(backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)).To(Succeed())
-		job := jobs()[0]
-		finish(&job, batchv1.JobComplete)
-		Expect(
-			backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup),
-		).To(MatchError("cleanup reached admin client"))
-	})
+	DescribeTable("defers deletion cleanup until the expiration Job is gone",
+		func(condition batchv1.JobConditionType, policy fdbv1beta2.BackupDeletionPolicy) {
+			reconcile()
+			backup.Spec.DeletionPolicy = ptr.To(policy)
+			backup.DeletionTimestamp = ptr.To(metav1.Now())
+			adminClient.MockError(errors.New("cleanup reached admin client"))
+			Expect(backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)).To(Succeed())
+			job := jobs()[0]
+			// Hold the Job until its dependents have been removed by garbage collection
+			job.Finalizers = []string{metav1.FinalizerDeleteDependents}
+			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
+			finish(&job, condition)
+			Expect(backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)).To(Succeed())
+			Expect(jobs()).To(HaveLen(1))
+			job = jobs()[0]
+			Expect(job.DeletionTimestamp).NotTo(BeNil())
+			Expect(backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)).To(Succeed())
+			job.Finalizers = nil
+			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
+			Expect(jobs()).To(BeEmpty())
+			Expect(
+				backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup),
+			).To(MatchError("cleanup reached admin client"))
+		},
+		Entry("completed Job with cleanup", batchv1.JobComplete, fdbv1beta2.BackupDeletionPolicyCleanup),
+		Entry("failed Job with cleanup", batchv1.JobFailed, fdbv1beta2.BackupDeletionPolicyCleanup),
+		Entry("completed Job with stop", batchv1.JobComplete, fdbv1beta2.BackupDeletionPolicyStop),
+		Entry("failed Job with stop", batchv1.JobFailed, fdbv1beta2.BackupDeletionPolicyStop),
+	)
 })
