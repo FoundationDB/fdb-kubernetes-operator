@@ -43,6 +43,7 @@ var _ = Describe("backup expiration Job", func() {
 			backup.Spec.EncryptionKeyPath = "/keys/backup.key"
 			backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 				"knob_backup_concurrent_deletes=4", "force", "expire-before-version=123", "locality_custom=test",
+				"encryption-key-file=/keys/custom.key", "legacy-encryption-format",
 			}
 			backup.Spec.PodTemplateSpec = &corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"custom": "label"}},
@@ -119,7 +120,7 @@ var _ = Describe("backup expiration Job", func() {
 			Expect(container.Args).To(Equal([]string{
 				"expire", "-d", backup.Status.Expiration.DestinationURL,
 				"--expire-before-timestamp", "2026/09/01.00:00:00+0000",
-				"--knob_backup_concurrent_deletes=4", "--encryption-key-file", "/keys/backup.key",
+				"--knob_backup_concurrent_deletes=4",
 			}))
 			Expect(
 				container.Env,
