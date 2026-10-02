@@ -67,13 +67,6 @@ func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job
 				container.Args = append(container.Args, parameter)
 			}
 		}
-		key, keyErr := backup.GetEncryptionKey()
-		if keyErr != nil {
-			return nil, keyErr
-		}
-		if key != "" {
-			container.Args = append(container.Args, "--encryption-key-file", key)
-		}
 		container.LivenessProbe = nil
 		container.ReadinessProbe = nil
 		container.StartupProbe = nil
