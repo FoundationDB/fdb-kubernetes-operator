@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	internalMetrics "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
@@ -45,8 +46,11 @@ func (c *fdbClusterCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the prometheus.Collector interface
 func (c *fdbClusterCollector) Collect(ch chan<- prometheus.Metric) {
+	// An initial scrape may need to wait for the cache to sync
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	clusters := &fdbv1beta2.FoundationDBClusterList{}
-	err := c.reconciler.List(context.Background(), clusters)
+	err := c.reconciler.List(ctx, clusters)
 	if err != nil {
 		return
 	}
