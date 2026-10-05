@@ -156,7 +156,7 @@ users:
 
 		blockAPI.Store(true)
 		metricsDone := make(chan error, 3)
-		metricsClient := &http.Client{Timeout: 3 * time.Second}
+		metricsClient := &http.Client{Timeout: 15 * time.Second}
 		for range cap(metricsDone) {
 			go func() {
 				response, err := metricsClient.Get("http://" + options.MetricsAddr + "/metrics")
@@ -172,7 +172,7 @@ users:
 		Eventually(apiBlocked, 5*time.Second).Should(Receive())
 		checkHealth()
 		for range cap(metricsDone) {
-			Eventually(metricsDone, 5*time.Second).Should(Receive(Succeed()))
+			Eventually(metricsDone, 15*time.Second).Should(Receive(Succeed()))
 		}
 		checkHealth()
 		Expect(discoveryRequests.Load()).To(BeZero())

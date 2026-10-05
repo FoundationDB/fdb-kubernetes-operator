@@ -30,6 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
+const metricsCacheSyncTimeout = 10 * time.Second
+
 type fdbClusterCollector struct {
 	reconciler *FoundationDBClusterReconciler
 }
@@ -47,11 +49,12 @@ func (c *fdbClusterCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements the prometheus.Collector interface
 func (c *fdbClusterCollector) Collect(ch chan<- prometheus.Metric) {
 	// An initial scrape may need to wait for the cache to sync
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), metricsCacheSyncTimeout)
 	defer cancel()
 	clusters := &fdbv1beta2.FoundationDBClusterList{}
 	err := c.reconciler.List(ctx, clusters)
 	if err != nil {
+		c.reconciler.Log.Error(err, "unable to collect cluster metrics")
 		return
 	}
 	for _, cluster := range clusters.Items {
