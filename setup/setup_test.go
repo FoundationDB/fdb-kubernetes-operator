@@ -128,6 +128,7 @@ users:
 		scheme := runtime.NewScheme()
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
 		Expect(fdbv1beta2.AddToScheme(scheme)).To(Succeed())
+		// A setup failure in StartManager exits the process instead of failing this spec
 		mgr, _ := StartManager(scheme, options, zap.Options{},
 			controllers.NewFoundationDBClusterReconciler(&podmanager.StandardPodLifecycleManager{}),
 			&controllers.FoundationDBBackupReconciler{},
