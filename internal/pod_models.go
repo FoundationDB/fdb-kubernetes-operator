@@ -1125,6 +1125,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		)
 	}
 	deployment.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
+	deployment.ObjectMeta.Labels[fdbv1beta2.FDBClusterLabel] = backup.Spec.ClusterName
 
 	var podTemplate *corev1.PodTemplateSpec
 	if backup.Spec.PodTemplateSpec != nil {
@@ -1302,6 +1303,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		podTemplate.ObjectMeta.Labels = make(map[string]string, 1)
 	}
 	podTemplate.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentPodLabel] = deployment.ObjectMeta.Name
+	podTemplate.ObjectMeta.Labels[fdbv1beta2.FDBClusterLabel] = backup.Spec.ClusterName
 	deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
 		fdbv1beta2.BackupDeploymentPodLabel: deployment.ObjectMeta.Name,
 	}}
