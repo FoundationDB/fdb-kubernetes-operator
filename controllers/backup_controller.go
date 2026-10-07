@@ -27,6 +27,7 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -132,6 +133,14 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		req := subReconciler.reconcile(ctx, r, backup)
 		if req == nil {
 			continue
+		}
+
+		if req.curError != nil {
+			metrics.BackupReconcileErrorsCounter.WithLabelValues(
+				backup.Namespace,
+				backup.Name,
+				fmt.Sprintf("%T", subReconciler),
+			).Inc()
 		}
 
 		if req.delayedRequeue {

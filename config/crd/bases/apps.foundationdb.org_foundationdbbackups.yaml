@@ -4048,6 +4048,12 @@ spec:
                 type: integer
               backupDetails:
                 properties:
+                  lastRestorableVersionUpdateTime:
+                    format: date-time
+                    type: string
+                  latestRestorableVersion:
+                    format: int64
+                    type: integer
                   paused:
                     type: boolean
                   restorable:

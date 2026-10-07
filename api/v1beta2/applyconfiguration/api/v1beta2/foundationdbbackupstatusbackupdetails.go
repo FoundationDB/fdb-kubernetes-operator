@@ -2,6 +2,10 @@
 
 package v1beta2
 
+import (
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
 // FoundationDBBackupStatusBackupDetailsApplyConfiguration represents a declarative configuration of the FoundationDBBackupStatusBackupDetails type for use
 // with apply.
 //
@@ -14,6 +18,14 @@ type FoundationDBBackupStatusBackupDetailsApplyConfiguration struct {
 	SnapshotPeriodSeconds *int    `json:"snapshotTime,omitempty"`
 	Restorable            *bool   `json:"restorable,omitempty"`
 	Tag                   *string `json:"tag,omitempty"`
+	// LatestRestorableVersion is the most recent FDB version that this backup
+	// can currently be restored to.
+	LatestRestorableVersion *int64 `json:"latestRestorableVersion,omitempty"`
+	// LastRestorableVersionUpdateTime is the last time the LatestRestorableVersion
+	// advanced, i.e. the last time a new restorable point was recorded for this
+	// backup. This can be used to estimate the recovery point objective (RPO) of
+	// the backup.
+	LastRestorableVersionUpdateTime *v1.Time `json:"lastRestorableVersionUpdateTime,omitempty"`
 }
 
 // FoundationDBBackupStatusBackupDetailsApplyConfiguration constructs a declarative configuration of the FoundationDBBackupStatusBackupDetails type for use with
@@ -67,5 +79,21 @@ func (b *FoundationDBBackupStatusBackupDetailsApplyConfiguration) WithRestorable
 // If called multiple times, the Tag field is set to the value of the last call.
 func (b *FoundationDBBackupStatusBackupDetailsApplyConfiguration) WithTag(value string) *FoundationDBBackupStatusBackupDetailsApplyConfiguration {
 	b.Tag = &value
+	return b
+}
+
+// WithLatestRestorableVersion sets the LatestRestorableVersion field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LatestRestorableVersion field is set to the value of the last call.
+func (b *FoundationDBBackupStatusBackupDetailsApplyConfiguration) WithLatestRestorableVersion(value int64) *FoundationDBBackupStatusBackupDetailsApplyConfiguration {
+	b.LatestRestorableVersion = &value
+	return b
+}
+
+// WithLastRestorableVersionUpdateTime sets the LastRestorableVersionUpdateTime field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LastRestorableVersionUpdateTime field is set to the value of the last call.
+func (b *FoundationDBBackupStatusBackupDetailsApplyConfiguration) WithLastRestorableVersionUpdateTime(value v1.Time) *FoundationDBBackupStatusBackupDetailsApplyConfiguration {
+	b.LastRestorableVersionUpdateTime = &value
 	return b
 }

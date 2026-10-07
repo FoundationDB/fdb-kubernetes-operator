@@ -624,6 +624,10 @@ func StartManager(
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
 			os.Exit(1)
 		}
+
+		if operatorOpts.MetricsAddr != "0" {
+			controllers.InitCustomBackupMetrics(backupReconciler)
+		}
 	}
 
 	if restoreReconciler != nil {
