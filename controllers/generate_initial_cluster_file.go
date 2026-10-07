@@ -170,12 +170,13 @@ func (g generateInitialClusterFile) reconcile(
 	}
 
 	limits := locality.GetHardLimits(cluster)
-	// Only for the three data hall mode we allow a less restrictive selection of the initial coordinators.
+	// Only for the three data hall (fallback) mode we allow a less restrictive selection of the initial coordinators.
 	// The reason for this is that we don't know the data_hall locality until the fdbserver processes are running
 	// as they will report the data_hall locality. So this is a workaround to allow an easy bring up of a three_data_hall
 	// cluster with the unified image. Once the processes are reporting and the cluster is configured, the operator
 	// will choose 9 coordinators spread across the 3 data halls.
-	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+	if (cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall) ||
+		(cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback) {
 		count = 3
 		delete(limits, fdbv1beta2.FDBLocalityDataHallKey)
 	}

@@ -3796,6 +3796,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeThreeDataHall
 			Expect(cluster.ShouldUseLocks()).To(BeTrue())
 
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeThreeDataHallFallback
+			Expect(cluster.ShouldUseLocks()).To(BeTrue())
+
 			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeDouble
 			Expect(cluster.ShouldUseLocks()).To(BeFalse())
 
