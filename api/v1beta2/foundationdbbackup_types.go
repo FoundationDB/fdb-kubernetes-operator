@@ -51,6 +51,8 @@ type FoundationDBBackup struct {
 
 	Spec   FoundationDBBackupSpec   `json:"spec,omitempty"`
 	Status FoundationDBBackupStatus `json:"status,omitempty"`
+// FoundationDBBackup tracks a backup snapshot; restorable flag depends on blobstore path validity.
+// The spec defines which cluster to back up; the status reflects reconciliation outcome.
 }
 
 //+kubebuilder:object:root=true
