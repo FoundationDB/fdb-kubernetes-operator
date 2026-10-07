@@ -26,6 +26,7 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -49,6 +50,24 @@ var _ = Describe("In-place container image reconciliation", func() {
 		Expect(err).NotTo(HaveOccurred())
 		return pods
 	}
+	setImage := func(image string) {
+		containers := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers
+		for index := range containers {
+			if containers[index].Name == containerName {
+				containers[index].Image = image
+			}
+		}
+		cluster.Generation++
+		Expect(k8sClient.Update(ctx, cluster)).To(Succeed())
+	}
+	step := func() {
+		_, err := clusterReconciler.Reconcile(
+			ctx,
+			ctrl.Request{NamespacedName: client.ObjectKeyFromObject(cluster)},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)).To(Succeed())
+	}
 	confirmImages := func(pod *corev1.Pod) {
 		pod.Status.Phase = corev1.PodRunning
 		pod.Status.ContainerStatuses = nil
@@ -71,6 +90,15 @@ var _ = Describe("In-place container image reconciliation", func() {
 			)
 		}
 		Expect(k8sClient.Status().Update(ctx, pod)).To(Succeed())
+	}
+	pendingPods := func() []*corev1.Pod {
+		var pending []*corev1.Pod
+		for _, pod := range listPods() {
+			if pod.Annotations[internal.InPlaceImageUpdateAnnotation] != "" {
+				pending = append(pending, pod)
+			}
+		}
+		return pending
 	}
 	assertIdentity := func() {
 		Expect(adminClient.KilledAddresses).To(BeEmpty())
@@ -124,6 +152,252 @@ var _ = Describe("In-place container image reconciliation", func() {
 			confirmImages(pod)
 			originalPods[pod.Name] = pod.DeepCopy()
 		}
+	})
+
+	It(
+		"updates one Pod at a time and preserves Pod identity without requesting FDB restarts",
+		func() {
+			desiredImage := "example/log-forwarder@sha256:" + strings.Repeat("a", 64)
+			setImage(desiredImage)
+			for range len(originalPods) {
+				step()
+				pending := pendingPods()
+				Expect(pending).To(HaveLen(1))
+				Expect(cluster.Status.Generations.Reconciled).NotTo(Equal(cluster.Generation))
+				assertIdentity()
+				Expect(pending[0].Spec.Containers).To(ContainElement(And(
+					HaveField("Name", containerName), HaveField("Image", desiredImage),
+				)))
+				// An accepted patch with stale kubelet status must not release the next Pod
+				step()
+				stillPending := pendingPods()
+				Expect(stillPending).To(HaveLen(1))
+				Expect(stillPending[0].Name).To(Equal(pending[0].Name))
+				confirmImages(stillPending[0])
+			}
+			step()
+			Expect(pendingPods()).To(BeEmpty())
+			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.Generation))
+			assertIdentity()
+			for _, pod := range listPods() {
+				Expect(pod.Spec.Containers).To(ContainElement(And(
+					HaveField("Name", containerName), HaveField("Image", desiredImage),
+				)))
+			}
+		},
+	)
+
+	DescribeTable("corrects an unhealthy auxiliary image without replacement and accepts rollback",
+		func(phase corev1.PodPhase) {
+			pod := originalPods[cluster.Status.ProcessGroups[0].GetPodName(cluster)].DeepCopy()
+			pod.Status.Phase = phase
+			for index := range pod.Status.ContainerStatuses {
+				status := &pod.Status.ContainerStatuses[index]
+				if status.Name == containerName {
+					status.Ready = false
+					status.State = corev1.ContainerState{
+						Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"},
+					}
+				}
+			}
+			Expect(k8sClient.Status().Update(ctx, pod)).To(Succeed())
+			group := cluster.Status.ProcessGroups[0]
+			group.UpdateCondition(fdbv1beta2.PodFailing, true)
+			group.UpdateCondition(fdbv1beta2.PodPending, phase == corev1.PodPending)
+			for index := range group.ProcessGroupConditions {
+				group.ProcessGroupConditions[index].Timestamp = time.Now().
+					Add(-24 * time.Hour).
+					Unix()
+			}
+			Expect(k8sClient.Status().Update(ctx, cluster)).To(Succeed())
+
+			setImage("example/log-forwarder:missing")
+			step()
+			pending := pendingPods()
+			Expect(pending).To(HaveLen(1))
+			Expect(pending[0].Name).To(Equal(pod.Name))
+			Expect(pending[0].Spec.Containers).To(ContainElement(And(
+				HaveField(
+					"Name",
+					containerName,
+				),
+				HaveField("Image", "example/log-forwarder:missing"),
+			)))
+			assertIdentity()
+			for _, group := range cluster.Status.ProcessGroups {
+				Expect(group.GetConditionTime(fdbv1beta2.PodFailing)).To(BeNil())
+				Expect(group.GetConditionTime(fdbv1beta2.PodPending)).To(BeNil())
+			}
+			step()
+			Expect(pendingPods()).To(HaveLen(1))
+			Expect(cluster.Status.Generations.Reconciled).NotTo(Equal(cluster.Generation))
+			assertIdentity()
+
+			setImage("example/log-forwarder:1")
+			step()
+			pending = pendingPods()
+			Expect(pending).To(HaveLen(1))
+			Expect(pending[0].Name).To(Equal(pod.Name))
+			Expect(pending[0].Spec.Containers).To(ContainElement(And(
+				HaveField("Name", containerName), HaveField("Image", "example/log-forwarder:1"),
+			)))
+			confirmImages(pending[0])
+			step()
+			Expect(pendingPods()).To(BeEmpty())
+			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.Generation))
+			assertIdentity()
+		},
+		Entry("Running Pod with an expired failure condition", corev1.PodRunning),
+		Entry("Pending Pod with expired failure conditions", corev1.PodPending),
+	)
+
+	When("multiple auxiliary containers are selected", func() {
+		const metricsContainerName = "metrics-exporter"
+
+		BeforeEach(func() {
+			template := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate
+			template.Spec.Containers = append(template.Spec.Containers,
+				corev1.Container{Name: metricsContainerName, Image: "example/metrics-exporter:1"})
+			cluster.Spec.AutomationOptions.InPlaceImageUpdateContainers = []string{
+				containerName,
+				metricsContainerName,
+			}
+		})
+
+		It(
+			"releases a deselected container with an unverifiable image and updates the remaining selection",
+			func() {
+				setImage("example/log-forwarder:2")
+				for range len(originalPods) - 1 {
+					step()
+					pending := pendingPods()
+					Expect(pending).To(HaveLen(1))
+					confirmImages(pending[0])
+				}
+				step()
+				pending := pendingPods()
+				Expect(pending).To(HaveLen(1))
+				pod := pending[0]
+				for index := range pod.Status.ContainerStatuses {
+					status := &pod.Status.ContainerStatuses[index]
+					if status.Name == containerName {
+						status.Image = "runtime/unverifiable-alias:cached"
+					}
+				}
+				Expect(k8sClient.Status().Update(ctx, pod)).To(Succeed())
+				step()
+				Expect(pendingPods()).To(HaveLen(1))
+				Expect(cluster.Status.Generations.Reconciled).NotTo(Equal(cluster.Generation))
+
+				pod.Status.Phase = corev1.PodUnknown
+				Expect(k8sClient.Status().Update(ctx, pod)).To(Succeed())
+				cluster.Spec.AutomationOptions.InPlaceImageUpdateContainers = []string{
+					metricsContainerName,
+				}
+				cluster.Generation++
+				Expect(k8sClient.Update(ctx, cluster)).To(Succeed())
+				step()
+				Expect(pendingPods()).To(BeEmpty())
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(pod), pod)).To(Succeed())
+				confirmImages(pod)
+				step()
+				Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.Generation))
+				assertIdentity()
+
+				containers := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers
+				for index := range containers {
+					if containers[index].Name == metricsContainerName {
+						containers[index].Image = "example/metrics-exporter:2"
+					}
+				}
+				cluster.Generation++
+				Expect(k8sClient.Update(ctx, cluster)).To(Succeed())
+				for range len(originalPods) {
+					step()
+					pending = pendingPods()
+					Expect(pending).To(HaveLen(1))
+					Expect(
+						pending[0].Annotations[internal.InPlaceImageUpdateAnnotation],
+					).To(Equal(metricsContainerName))
+					Expect(pending[0].Spec.Containers).To(ContainElement(And(
+						HaveField(
+							"Name",
+							metricsContainerName,
+						),
+						HaveField("Image", "example/metrics-exporter:2"),
+					)))
+					confirmImages(pending[0])
+				}
+				step()
+				Expect(pendingPods()).To(BeEmpty())
+				Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.Generation))
+				assertIdentity()
+			},
+		)
+	})
+
+	DescribeTable(
+		"keeps the normal rollout for other changes",
+		func(mutate func()) {
+			mutate()
+			setImage("example/log-forwarder:2")
+			step()
+			Expect(pendingPods()).To(BeEmpty())
+			var replaced bool
+			for _, group := range cluster.Status.ProcessGroups {
+				replaced = replaced || group.IsMarkedForRemoval()
+			}
+			Expect(replaced).To(BeTrue())
+		},
+		Entry(
+			"without opt-in",
+			func() { cluster.Spec.AutomationOptions.InPlaceImageUpdateContainers = nil },
+		),
+		Entry("with an argument change", func() {
+			containers := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers
+			for index := range containers {
+				if containers[index].Name == containerName {
+					containers[index].Args = []string{"--changed"}
+				}
+			}
+		}),
+	)
+
+	It("still replaces failed FDB processes during an auxiliary image rollout", func() {
+		setImage("example/log-forwarder:2")
+		step()
+		pending := pendingPods()
+		Expect(pending).To(HaveLen(1))
+		pod := pending[0]
+		for index := range pod.Status.ContainerStatuses {
+			status := &pod.Status.ContainerStatuses[index]
+			if status.Name == fdbv1beta2.MainContainerName {
+				status.Ready = false
+				status.State = corev1.ContainerState{
+					Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"},
+				}
+			}
+		}
+		Expect(k8sClient.Status().Update(ctx, pod)).To(Succeed())
+		for _, group := range cluster.Status.ProcessGroups {
+			if group.GetPodName(cluster) == pod.Name {
+				group.UpdateCondition(fdbv1beta2.PodFailing, true)
+				for index := range group.ProcessGroupConditions {
+					group.ProcessGroupConditions[index].Timestamp = time.Now().
+						Add(-24 * time.Hour).
+						Unix()
+				}
+			}
+		}
+		Expect(k8sClient.Status().Update(ctx, cluster)).To(Succeed())
+		step()
+		var replaced bool
+		for _, group := range cluster.Status.ProcessGroups {
+			if group.GetPodName(cluster) == pod.Name {
+				replaced = group.IsMarkedForRemoval()
+			}
+		}
+		Expect(replaced).To(BeTrue())
 	})
 
 	It("rejects opting FDB-managed or init containers into independent image updates", func() {

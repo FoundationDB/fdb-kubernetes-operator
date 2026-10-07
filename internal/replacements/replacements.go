@@ -301,6 +301,10 @@ func processGroupNeedsRemovalForPod(
 	if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
 		return false, nil
 	}
+	imageUpdates, err := internal.GetInPlaceImageUpdates(cluster, pod, spec)
+	if err != nil || len(imageUpdates) > 0 {
+		return false, err
+	}
 
 	expectedNodeSelector := cluster.GetProcessSettings(
 		processGroup.ProcessClass,

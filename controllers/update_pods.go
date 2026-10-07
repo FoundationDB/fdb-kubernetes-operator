@@ -372,6 +372,18 @@ func getPodsToUpdate(
 			}
 		}
 
+		desiredSpec, err := internal.GetPodSpec(cluster, processGroup)
+		if err != nil {
+			return nil, err
+		}
+		imageUpdates, err := internal.GetInPlaceImageUpdates(cluster, pod, desiredSpec)
+		if err != nil {
+			return nil, err
+		}
+		if len(imageUpdates) > 0 {
+			continue
+		}
+
 		needsReplacement, err := replacements.ProcessGroupNeedsReplacements(
 			ctx,
 			reconciler.PodLifecycleManager,

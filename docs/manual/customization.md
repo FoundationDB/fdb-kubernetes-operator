@@ -123,6 +123,46 @@ spec:
                   mountPath: /var/log/fdb-trace-logs
 ```
 
+### Updating Auxiliary Container Images in Place
+
+Auxiliary containers that support independent restarts can opt into image-only updates:
+
+```yaml
+spec:
+  automationOptions:
+    inPlaceImageUpdateContainers:
+      - log-forwarder
+```
+
+Keep defining the container and its image in `processes.*.podTemplate.spec.containers`.
+The operator updates one Pod at a time, retaining its identity, node and volumes, and waits
+for the selected containers to run the requested images and become ready before proceeding.
+FDB-managed containers and init containers cannot be selected. The default list is empty.
+Use readiness probes that reflect when an auxiliary container is ready. Once the requested
+image has been observed running and ready, later failures use normal failure handling.
+
+Only image changes qualify. Adding or removing containers, or changing arguments, environment,
+resources or other Pod spec fields, follows the configured `podUpdateStrategy`.
+An auxiliary image that cannot start pauses the rollout and keeps the cluster unreconciled.
+Correcting its image or reverting to the previous image repairs the same Pod, provided the
+other containers are running and ready. Removing a container from the list cancels its pending
+update and restores normal failure handling. Failures of the FDB containers and other
+process-group replacement conditions still use the normal recovery path.
+The runtime must report the requested image name or a matching image digest in Pod status.
+If it reports an ambiguous alias, the rollout stays paused; use a digest-pinned image whose
+digest the runtime reports in `imageID`.
+
+The Pod retains its existing `imagePullPolicy`. Configure an explicit policy such as `Always`
+before using mutable tags, or pin images by digest. Changing the pull policy itself requires
+the normal Pod update strategy.
+
+While this option is enabled, the operator's headless Service publishes unready addresses
+so an auxiliary restart does not remove the DNS names used by FoundationDB. Auxiliary
+readiness still contributes to Pod readiness and Pod disruption budgets.
+
+Selected containers must tolerate restarting while FDB continues running. Persist any required
+state, such as a log forwarder's tail offsets, on a Pod volume before enabling this option.
+
 ## Customizing the FoundationDB Image
 
 If you want to use custom builds of the FoundationDB images, you can specify
