@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("pod_helper", func() {
@@ -749,5 +750,201 @@ var _ = Describe("pod_helper", func() {
 				},
 			},
 		),
+		Entry("PodTemplateGenerationLabel matches between pod and desired (steady state)",
+			testCase{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							fdbv1beta2.PodTemplateGenerationLabel: "abcdef0123456789",
+						},
+						Annotations: map[string]string{
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
+						},
+					},
+				},
+				metadata: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodTemplateGenerationLabel: "abcdef0123456789",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+				expected: true,
+				expectedMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodTemplateGenerationLabel: "abcdef0123456789",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+			},
+		),
+		Entry("PodTemplateGenerationLabel preserved when pod and desired differ (mid-roll)",
+			testCase{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							fdbv1beta2.PodTemplateGenerationLabel: "oldhash000000000",
+						},
+						Annotations: map[string]string{
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
+						},
+					},
+				},
+				metadata: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodTemplateGenerationLabel: "newhash000000000",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "2",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+				expected: true,
+				expectedMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodTemplateGenerationLabel: "oldhash000000000",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+			},
+		),
+		Entry("PodTemplateGenerationLabel missing from pod is not patched in",
+			testCase{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
+						},
+					},
+				},
+				metadata: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbv1beta2.PodTemplateGenerationLabel: "newhash000000000",
+					},
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+				expected: true,
+				expectedMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+					},
+				},
+			},
+		),
 	)
+
+	Describe("GetPodGenerationHash", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = CreateDefaultCluster()
+			Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(HaveOccurred())
+		})
+
+		It("is deterministic for an unchanged cluster", func() {
+			first, err := GetPodGenerationHash(cluster, fdbv1beta2.ProcessClassStorage)
+			Expect(err).NotTo(HaveOccurred())
+			second, err := GetPodGenerationHash(cluster, fdbv1beta2.ProcessClassStorage)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(first).To(Equal(second))
+		})
+
+		It("yields distinct hashes for distinct process classes", func() {
+			storage, err := GetPodGenerationHash(cluster, fdbv1beta2.ProcessClassStorage)
+			Expect(err).NotTo(HaveOccurred())
+			log, err := GetPodGenerationHash(cluster, fdbv1beta2.ProcessClassLog)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storage).NotTo(Equal(log))
+		})
+
+		// Comprehensive coverage of "what affects the rendered PodSpec" lives
+		// with GetPodSpec's own tests. These smoke tests confirm
+		// GetPodGenerationHash actually delegates to GetPodSpec — i.e., that
+		// mutations that DO affect the rendered PodSpec rotate the hash, and
+		// mutations that DON'T affect it leave the hash stable.
+		DescribeTable("rotation tracks the rendered PodSpec",
+			func(mutate func(*fdbv1beta2.FoundationDBCluster), expectChange bool) {
+				baseline, err := GetPodGenerationHash(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				mutate(cluster)
+				mutated, err := GetPodGenerationHash(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				if expectChange {
+					Expect(mutated).NotTo(Equal(baseline))
+				} else {
+					Expect(mutated).To(Equal(baseline))
+				}
+			},
+			Entry("ImageType change rotates (split <-> unified flips rendering)",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					t := fdbv1beta2.ImageTypeUnified
+					c.Spec.ImageType = &t
+				},
+				true,
+			),
+			Entry("podTemplate.spec.nodeSelector change rotates",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					settings := c.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					if settings.PodTemplate == nil {
+						settings.PodTemplate = &corev1.PodTemplateSpec{}
+					}
+					settings.PodTemplate.Spec.NodeSelector = map[string]string{
+						"test": "value",
+					}
+					c.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
+				},
+				true,
+			),
+			Entry("AutomationOptions change does NOT rotate",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					c.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(99)
+				},
+				false,
+			),
+			Entry("DatabaseConfiguration change does NOT rotate",
+				func(c *fdbv1beta2.FoundationDBCluster) {
+					c.Spec.DatabaseConfiguration.Storage = 99
+				},
+				false,
+			),
+		)
+	})
 })

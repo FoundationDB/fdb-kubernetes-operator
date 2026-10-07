@@ -27,6 +27,14 @@ type LabelConfigApplyConfiguration struct {
 	// by the match labels.
 	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
+	// IncludePodTemplateGenerationLabel determines whether the operator stamps
+	// each Pod at creation time with the "foundationdb.org/pod-template-generation"
+	// label, a class-scoped hash of the rendered PodSpec. The label is intended
+	// for use with topologySpreadConstraints.matchLabelKeys so that a rolling
+	// update spreads the new pod generation independently of the old one. It is
+	// applied only when a Pod is created, so enabling it on an existing cluster
+	// populates the label gradually as Pods are recreated. Defaults to false.
+	IncludePodTemplateGenerationLabel *bool `json:"includePodTemplateGenerationLabel,omitempty"`
 }
 
 // LabelConfigApplyConfiguration constructs a declarative configuration of the LabelConfig type for use with
@@ -88,5 +96,13 @@ func (b *LabelConfigApplyConfiguration) WithProcessClassLabels(values ...string)
 // If called multiple times, the FilterOnOwnerReferences field is set to the value of the last call.
 func (b *LabelConfigApplyConfiguration) WithFilterOnOwnerReferences(value bool) *LabelConfigApplyConfiguration {
 	b.FilterOnOwnerReferences = &value
+	return b
+}
+
+// WithIncludePodTemplateGenerationLabel sets the IncludePodTemplateGenerationLabel field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IncludePodTemplateGenerationLabel field is set to the value of the last call.
+func (b *LabelConfigApplyConfiguration) WithIncludePodTemplateGenerationLabel(value bool) *LabelConfigApplyConfiguration {
+	b.IncludePodTemplateGenerationLabel = &value
 	return b
 }

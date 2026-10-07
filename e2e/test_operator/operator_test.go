@@ -1722,6 +1722,86 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		},
 	)
 
+	When("the pod template generation label is enabled", func() {
+		var initialSetting *bool
+		var originalStorageNames map[string]bool
+		var podToReplace corev1.Pod
+
+		BeforeEach(func(ctx SpecContext) {
+			// Enabling the opt-in label does not relabel running pods, so we
+			// recreate a single storage pod below so it gets stamped.
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
+			initialSetting = spec.LabelConfig.IncludePodTemplateGenerationLabel
+			spec.LabelConfig.IncludePodTemplateGenerationLabel = ptr.To(true)
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+
+			storagePods := fdbCluster.GetStoragePods(ctx)
+			Expect(storagePods.Items).NotTo(BeEmpty())
+			originalStorageNames = make(map[string]bool, len(storagePods.Items))
+			for _, pod := range storagePods.Items {
+				originalStorageNames[pod.Name] = true
+			}
+
+			// Recreate a single storage pod so it is stamped with the label
+			// while the remaining storage pods and all log pods survive
+			// unlabeled, exercising the transitional mixed state.
+			podToReplace = storagePods.Items[0]
+			fdbCluster.ReplacePod(ctx, podToReplace, false)
+		})
+
+		AfterEach(func(ctx SpecContext) {
+			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
+			spec.LabelConfig.IncludePodTemplateGenerationLabel = initialSetting
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+			Expect(fdbCluster.ClearProcessGroupsToRemove(ctx)).NotTo(HaveOccurred())
+		})
+
+		It("should stamp recreated pods with the generation label but leave surviving pods untouched", func(ctx SpecContext) {
+			expectedHash, err := internal.GetPodGenerationHash(
+				fdbCluster.GetCluster(ctx),
+				fdbv1beta2.ProcessClassStorage,
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			lastForcedReconciliationTime := time.Now()
+			forceReconcileDuration := 4 * time.Minute
+			Eventually(func(g Gomega) {
+				// Force a reconcile periodically to speed up the replacement.
+				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
+					fdbCluster.ForceReconcile(ctx)
+					lastForcedReconciliationTime = time.Now()
+				}
+
+				// The replaced pod must be gone.
+				g.Expect(fdbCluster.GetPodsNames(ctx)).
+					NotTo(ContainElement(podToReplace.Name))
+
+				// A newly created storage pod (not in the original set) must
+				// carry the class-scoped hash, while storage pods that survived
+				// must not have the label.
+				var sawRecreatedPod bool
+				for _, pod := range fdbCluster.GetStoragePods(ctx).Items {
+					if originalStorageNames[pod.Name] {
+						g.Expect(pod.Labels).
+							NotTo(HaveKey(fdbv1beta2.PodTemplateGenerationLabel))
+						continue
+					}
+					sawRecreatedPod = true
+					g.Expect(pod.Labels).
+						To(HaveKeyWithValue(fdbv1beta2.PodTemplateGenerationLabel, expectedHash))
+				}
+				g.Expect(sawRecreatedPod).To(BeTrue())
+
+				// Log pods were never recreated, so they must not have gained
+				// the label; it is never patched onto a surviving pod.
+				for _, pod := range fdbCluster.GetLogPods(ctx).Items {
+					g.Expect(pod.Labels).
+						NotTo(HaveKey(fdbv1beta2.PodTemplateGenerationLabel))
+				}
+			}).WithTimeout(15 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+		})
+	})
+
 	// This test is pending, as all Pods will be restarted at the same time, which will lead to unavailability without
 	// using DNS.
 	PWhen("crash looping the sidecar for all Pods", func() {
