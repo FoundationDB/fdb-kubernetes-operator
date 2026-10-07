@@ -23,6 +23,7 @@ package podmanager
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -83,6 +85,18 @@ type PodLifecycleManager interface {
 		*corev1.Pod,
 		int,
 		string,
+	) error
+
+	// UpdateContainerImages atomically applies images, their spec hash and pending-container marker
+	// An empty pending list clears the marker; nil images leaves the images unchanged
+	UpdateContainerImages(
+		context.Context,
+		client.Client,
+		*fdbv1beta2.FoundationDBCluster,
+		*corev1.Pod,
+		map[string]string,
+		string,
+		[]string,
 	) error
 
 	// UpdateMetadata updates a Pod's metadata.
@@ -287,6 +301,48 @@ func (manager *StandardPodLifecycleManager) UpdateImageVersion(
 ) error {
 	pod.Spec.Containers[containerIndex].Image = image
 	return manager.updatePod(ctx, r, pod)
+}
+
+// UpdateContainerImages keeps image rollout bookkeeping atomic with conflict detection in both update modes
+func (manager *StandardPodLifecycleManager) UpdateContainerImages(
+	ctx context.Context,
+	r client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+	images map[string]string,
+	appliedSpecHash string,
+	pendingContainers []string,
+) error {
+	if cluster.ShouldFilterOnOwnerReferences() && !metav1.IsControlledBy(pod, cluster) {
+		return fmt.Errorf("pod %s is not controlled by cluster %s", pod.Name, cluster.Name)
+	}
+	updated := pod.DeepCopy()
+	for index := range updated.Spec.Containers {
+		container := &updated.Spec.Containers[index]
+		if image, found := images[container.Name]; found {
+			container.Image = image
+		}
+	}
+	if updated.Annotations == nil {
+		updated.Annotations = make(map[string]string)
+	}
+	updated.Annotations[fdbv1beta2.LastSpecKey] = appliedSpecHash
+	if len(pendingContainers) == 0 {
+		delete(updated.Annotations, internal.InPlaceImageUpdateAnnotation)
+	} else {
+		updated.Annotations[internal.InPlaceImageUpdateAnnotation] = strings.Join(
+			pendingContainers,
+			",",
+		)
+	}
+	if manager.updateMethod == Patch {
+		return r.Patch(
+			ctx,
+			updated,
+			client.MergeFromWithOptions(pod, client.MergeFromWithOptimisticLock{}),
+		)
+	}
+	return r.Update(ctx, updated)
 }
 
 // UpdateMetadata updates an Pod's metadata.
