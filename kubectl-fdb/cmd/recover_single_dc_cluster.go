@@ -1,5 +1,5 @@
 /*
- * recover_multi_region_cluster.go
+ * recover_single_dc_cluster.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -39,13 +39,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func newRecoverMultiRegionClusterCmd(streams genericiooptions.IOStreams) *cobra.Command {
+func newRecoverSingleDCClusterCmd(streams genericiooptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
-		Use:   "multi-region",
-		Short: "Recover a multi-region cluster if a majority of coordinators is lost permanently",
-		Long:  "Recover a multi-region cluster if a majority of coordinators is lost permanently",
+		Use:   "single-dc",
+		Short: "Recover a single dc cluster if a majority of coordinators is lost permanently",
+		Long:  "Recover a single dc cluster if a majority of coordinators is lost permanently",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
@@ -76,56 +76,61 @@ func newRecoverMultiRegionClusterCmd(streams genericiooptions.IOStreams) *cobra.
 				return err
 			}
 
+			excludedCoordinators, err := cmd.Flags().GetStringArray("exclude-coordinator")
+			if err != nil {
+				return err
+			}
+
 			if wait {
 				confirmed := confirmAction(
 					fmt.Sprintf(
-						"WARNING:\nThe cluster: %s/%s will be force recovered.\nOnly perform those steps if you are unable to recover the coordinator state.\nPerforming this action can lead to data loss.",
+						"WARNING:\nThe cluster: %s/%s will be force recovered.\nOnly perform those steps if you are unable to recover the coordinator pods.\nPerforming this action could lead to data loss.\n At least one coordinator must be active and running to copy the coordinator state.\n",
 						namespace,
 						clusterName,
 					),
 				)
 				if !confirmed {
-					return fmt.Errorf("aborted recover multi-region aciton")
-				}
-
-				confirmed = confirmAction(
-					"WARNING:\nIf this is a multi-region cluster, or is spread across different namespaces/Kubernetes clusters.\nEnsure that all Pods of this FDB cluster: %s in the other namespaces/Kubernetes clusters are deleted and shutdown.",
-				)
-				if !confirmed {
-					return fmt.Errorf("aborted recover multi-region aciton")
+					return fmt.Errorf("aborted recover single-dc aciton")
 				}
 			}
 
-			return RecoverMultiRegionCluster(cmd.Context(),
+			return RecoverSingleDCCluster(cmd.Context(),
 				RecoveryOpts{
-					Client:      kubeClient,
-					Config:      config,
-					ClusterName: clusterName,
-					Namespace:   namespace,
-					Stdout:      cmd.OutOrStdout(),
-					Stderr:      cmd.OutOrStderr(),
+					Client:               kubeClient,
+					Config:               config,
+					ClusterName:          clusterName,
+					Namespace:            namespace,
+					Stdout:               cmd.OutOrStdout(),
+					Stderr:               cmd.OutOrStderr(),
+					excludedCoordinators: excludedCoordinators,
 				})
 		},
 		Example: `
-# Recover the multi-region cluster "sample-cluster-1" in the current Namespace
-kubectl fdb recover multi-region sample-cluster-1
+# Recover the single dc cluster "sample-cluster-1" in the current Namespace
+kubectl fdb recover single-dc sample-cluster-1
 
-# Recover the multi-region cluster "sample-cluster-1" in the "testing" Namespace
-kubectl fdb recover multi-region -n testing sample-cluster-1
+# Recover the single-dc cluster "sample-cluster-1" in the "testing" Namespace
+kubectl fdb recover single-dc -n testing sample-cluster-1
+
+# Recover the single-dc cluster "sample-cluster-1" in the "testing" Namespace and excluding the coordinator on pod
+# sample-cluster-1-storage-42
+kubectl fdb recover single-dc -n testing sample-cluster-1 --exclude-coordinator sample-cluster-1-storage-42
 `,
 	}
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
+	cmd.Flags().
+		StringArray("exclude-coordinator", []string{}, "Exclude a coordinator from the recovery process, e.g. because the coordinator pod is running but not able to reach the rest of the cluster. The provided name must match the pod name of the coordinator.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
-// RecoverMultiRegionCluster will forcefully recover a multi-region cluster if a majority of coordinators are lost.
+// RecoverSingleDCCluster will forcefully recover a single-dc cluster if a majority of coordinators are lost.
 // Performing this action can result in data loss.
-func RecoverMultiRegionCluster(ctx context.Context, opts RecoveryOpts) error {
+func RecoverSingleDCCluster(ctx context.Context, opts RecoveryOpts) error {
 	cluster := &fdbv1beta2.FoundationDBCluster{}
 	err := opts.Client.Get(
 		ctx,
@@ -181,7 +186,7 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoveryOpts) error {
 	log.Println("Current coordinators", coordinators, "useTLS", useTLS)
 	// Fetch all Pods and coordinators for the remote and remote satellite.
 	runningCoordinators := map[string]fdbv1beta2.None{}
-	newCoordinators := make([]fdbv1beta2.ProcessAddress, 0, 5)
+	newCoordinators := make([]fdbv1beta2.ProcessAddress, 0, cluster.DesiredCoordinatorCount())
 	processCounts, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return err
@@ -193,13 +198,34 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoveryOpts) error {
 		return err
 	}
 
-	// Find a running coordinator to copy the coordinator files from.
+	excludedCoordinators := map[string]fdbv1beta2.None{}
+	for _, excludedCoordinator := range opts.excludedCoordinators {
+		excludedCoordinators[excludedCoordinator] = fdbv1beta2.None{}
+	}
+
+	// Find a running coordinator to copy the coordinator files from. Note: Running doesn't necessarily mean that the
+	// coordinator is healthy from a cluster perspective, as the coordinator hosting pods could be up and running but have
+	// networking issues like a network partition.
 	var runningCoordinator *corev1.Pod
 	for _, pod := range pods.Items {
+		if _, ok := excludedCoordinators[pod.Name]; ok {
+			log.Println("Skipping pod as excluded from recovery coordinator set:", pod.Name)
+			continue
+		}
+
+		if pod.Status.Phase != corev1.PodRunning {
+			log.Println(
+				"Skipping pod as pod's phase is not running, current phase:",
+				pod.Status.Phase,
+			)
+			continue
+		}
+
 		var addr fdbv1beta2.ProcessAddress
 		if usesDNSInClusterFile {
-			dnsName := internal.GetPodDNSName(cluster, pod.GetName())
-			addr = fdbv1beta2.ProcessAddress{StringAddress: dnsName}
+			addr = fdbv1beta2.ProcessAddress{
+				StringAddress: internal.GetPodDNSName(cluster, pod.GetName()),
+			}
 		} else {
 			currentPod := pod
 			publicIPs := internal.GetPublicIPsForPod(&currentPod, logr.Discard())
@@ -237,36 +263,23 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoveryOpts) error {
 		return fmt.Errorf("could not find any running coordinator for this cluster")
 	}
 
-	// Drop the multi-region setup if present.
-	newDatabaseConfiguration := cluster.Spec.DatabaseConfiguration.DeepCopy()
-	// Drop the multi-region configuration.
-	newDatabaseConfiguration.UsableRegions = 1
-	newDatabaseConfiguration.Regions = []fdbv1beta2.Region{
-		{
-			DataCenters: []fdbv1beta2.DataCenter{
-				{
-					ID: cluster.Spec.DataCenter,
-				},
-			},
-		},
-	}
-	log.Println("Update the database configuration to single region configuration")
-	err = updateDatabaseConfiguration(ctx, opts.Client, cluster, *newDatabaseConfiguration)
-	if err != nil {
-		return err
-	}
-
-	// Pick 5 new coordinators.
+	// Pick new coordinators.
 	needsUpload := make([]*corev1.Pod, 0, cluster.DesiredCoordinatorCount())
+	candidateIdx := 0
 	for len(newCoordinators) < cluster.DesiredCoordinatorCount() {
-		if len(newCoordinators) >= len(candidates) {
+		if candidateIdx >= len(candidates) {
 			return fmt.Errorf(
-				"not enough coordinator candidates: need %d, have %d",
-				cluster.DesiredCoordinatorCount(), len(candidates),
+				"not enough coordinator candidates: need %d more, have %d running and %d candidates",
+				cluster.DesiredCoordinatorCount()-len(
+					newCoordinators,
+				),
+				len(newCoordinators),
+				len(candidates),
 			)
 		}
 		log.Println("Current coordinators:", len(newCoordinators))
-		candidate := candidates[len(newCoordinators)]
+		candidate := candidates[candidateIdx]
+		candidateIdx++
 
 		var addr fdbv1beta2.ProcessAddress
 		if usesDNSInClusterFile {
@@ -322,11 +335,12 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoveryOpts) error {
 			return err
 		}
 
-		lines := strings.Split(stdout, "\n")
-		if len(lines) == 0 {
+		trimmedStdout := strings.TrimSpace(stdout)
+		if trimmedStdout == "" {
 			return fmt.Errorf("no coordination file found in %s", runningCoordinator.Name)
 		}
 
+		lines := strings.Split(trimmedStdout, "\n")
 		dataDir := path.Dir(strings.TrimSpace(lines[0]))
 		log.Println("dataDir:", dataDir)
 		for idx, coordinatorFile := range coordinatorFiles {
@@ -439,31 +453,6 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoveryOpts) error {
 
 	// Wait until all fdbservers have started again.
 	time.Sleep(1 * time.Minute)
-
-	command := []string{
-		"fdbcli",
-		"--exec",
-		fmt.Sprintf("force_recovery_with_data_loss %s", cluster.Spec.DataCenter),
-	}
-	// Now you can exec into a container and use `fdbcli` to connect to the cluster.
-	// If you use a multi-region cluster you have to issue `force_recovery_with_data_loss`
-	log.Println("Triggering force recovery with command:", command)
-	err = kubeHelper.ExecuteCommandRaw(
-		ctx,
-		opts.Client,
-		opts.Config,
-		runningCoordinator.Namespace,
-		runningCoordinator.Name,
-		fdbv1beta2.MainContainerName,
-		command,
-		nil,
-		opts.Stdout,
-		opts.Stderr,
-		false,
-	)
-	if err != nil {
-		return err
-	}
 
 	// Now you can set `spec.Skip = false` to let the operator take over again.
 	// Skip the cluster, make sure the operator is not taking any action on the cluster.

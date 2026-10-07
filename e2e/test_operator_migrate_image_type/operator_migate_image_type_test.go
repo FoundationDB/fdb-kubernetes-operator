@@ -82,7 +82,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 		})
 
 		AfterEach(func(ctx SpecContext) {
-			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
+			Expect(fdbCluster.Delete(ctx)).NotTo(HaveOccurred())
 		})
 
 		It("should convert the cluster", func(ctx SpecContext) {
@@ -136,7 +136,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 		})
 
 		AfterEach(func(ctx SpecContext) {
-			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
+			Expect(fdbCluster.Delete(ctx)).NotTo(HaveOccurred())
 		})
 
 		It("should convert the cluster", func(ctx SpecContext) {
@@ -184,7 +184,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 		})
 
 		AfterEach(func(ctx SpecContext) {
-			Expect(fdbCluster.Destroy(ctx)).NotTo(HaveOccurred())
+			Expect(fdbCluster.Delete(ctx)).NotTo(HaveOccurred())
 		})
 
 		It("should convert the cluster", func(ctx SpecContext) {

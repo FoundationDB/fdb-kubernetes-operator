@@ -103,7 +103,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 
 			namespace := fdbCluster.Namespace()
 			// Delete the FDB cluster to have a clean start.
-			Expect(fdbCluster.DestroyWithWaitForTearDown(ctx, true)).To(Succeed())
+			Expect(fdbCluster.DeleteWithWaitForTearDown(ctx, true)).To(Succeed())
 			// Restart the operator pods.
 			factory.RecreateOperatorPods(ctx, namespace)
 		})

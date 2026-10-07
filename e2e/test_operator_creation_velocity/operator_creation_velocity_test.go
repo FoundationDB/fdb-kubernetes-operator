@@ -85,7 +85,7 @@ var _ = Describe("Test Operator Velocity", Label("e2e"), func() {
 
 			runTime := time.Since(startTime)
 			log.Println("Single-DC cluster creation took: ", runTime.String())
-			Expect(fdbCluster.Destroy(ctx)).ToNot(HaveOccurred())
+			Expect(fdbCluster.Delete(ctx)).ToNot(HaveOccurred())
 		})
 	})
 

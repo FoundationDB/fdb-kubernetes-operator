@@ -219,7 +219,7 @@ func (factory *Factory) createHaFdbClusterSpec(
 // Delete removes all Clusters associated FoundationDBClusters.
 func (haFDBCluster *HaFdbCluster) Delete(ctx context.Context) {
 	for _, cluster := range haFDBCluster.GetAllClusters() {
-		gomega.Expect(cluster.Destroy(ctx)).NotTo(gomega.HaveOccurred())
+		gomega.Expect(cluster.Delete(ctx)).NotTo(gomega.HaveOccurred())
 	}
 }
 
