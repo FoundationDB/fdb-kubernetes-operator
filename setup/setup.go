@@ -540,6 +540,7 @@ func StartManager(
 	allowedPodModifications := operatorOpts.generateAllowedPodModifications()
 	if clusterReconciler != nil {
 		clusterReconciler.Client = mgr.GetClient()
+		clusterReconciler.APIReader = mgr.GetAPIReader()
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
 		clusterReconciler.DeprecationOptions = operatorOpts.DeprecationOptions
 		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)

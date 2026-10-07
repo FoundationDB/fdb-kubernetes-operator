@@ -103,6 +103,8 @@ type SimulationOptions struct {
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
+	// APIReader bypasses the informer cache when checking pending image updates
+	APIReader                                   client.Reader
 	Recorder                                    record.EventRecorder
 	Log                                         logr.Logger
 	EnableRestartIncompatibleProcesses          bool

@@ -42,7 +42,7 @@ type PodLifecycleManager interface {
 	// GetPods lists the Pods in the cluster.
 	GetPods(
 		context.Context,
-		client.Client,
+		client.Reader,
 		*fdbv1beta2.FoundationDBCluster,
 		...client.ListOption,
 	) ([]*corev1.Pod, error)
@@ -179,7 +179,7 @@ func (manager *StandardPodLifecycleManager) updatePod(
 // GetPods returns a list of Pods for FDB Pods that have been created.
 func (manager *StandardPodLifecycleManager) GetPods(
 	ctx context.Context,
-	r client.Client,
+	r client.Reader,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	options ...client.ListOption,
 ) ([]*corev1.Pod, error) {

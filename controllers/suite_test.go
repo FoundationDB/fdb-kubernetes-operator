@@ -202,9 +202,10 @@ func setupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster) error {
 
 func createTestClusterReconciler() *FoundationDBClusterReconciler {
 	return &FoundationDBClusterReconciler{
-		Client:   k8sClient,
-		Log:      ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Recorder: k8sClient,
+		APIReader: k8sClient,
+		Client:    k8sClient,
+		Log:       ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Recorder:  k8sClient,
 		SimulationOptions: SimulationOptions{
 			SimulateZones: true,
 			SimulateTime:  true,

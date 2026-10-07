@@ -142,6 +142,20 @@ func (updateContainerImages) reconcile(
 		return wait
 	}
 	if candidate != nil {
+		// A stale informer can hide an accepted update while another Pod becomes eligible
+		pods, err := r.PodLifecycleManager.GetPods(ctx, r.APIReader, cluster,
+			internal.GetPodListOptions(cluster, "", "")...)
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+		for _, pod := range pods {
+			if !cluster.ProcessGroupIsBeingRemoved(
+				internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta),
+			) &&
+				len(internal.PendingImageUpdateContainers(cluster, pod)) > 0 {
+				return wait
+			}
+		}
 		logger.Info(
 			"Updating auxiliary container images in place",
 			"pod",

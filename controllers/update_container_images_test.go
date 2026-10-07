@@ -36,6 +36,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var _ = Describe("In-place container image reconciliation", func() {
@@ -184,6 +185,61 @@ var _ = Describe("In-place container image reconciliation", func() {
 					HaveField("Name", containerName), HaveField("Image", desiredImage),
 				)))
 			}
+		},
+	)
+
+	It(
+		"waits for an accepted image update when the Pod cache is stale and FDB becomes unhealthy",
+		func() {
+			const desiredImage = "example/log-forwarder:2"
+			setImage(desiredImage)
+			step()
+			pending := pendingPods()
+			Expect(pending).To(HaveLen(1))
+			pod := pending[0]
+			cached := originalPods[pod.Name]
+			groupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
+			adminClient.RunLoopBusy[groupID] = clusterReconciler.HighRunLoopBusyThreshold
+			clusterReconciler.Client = interceptor.NewClient(k8sClient, interceptor.Funcs{
+				Get: func(ctx context.Context, cli client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+					if result, ok := obj.(*corev1.Pod); ok &&
+						key == client.ObjectKeyFromObject(pod) {
+						cached.DeepCopyInto(result)
+						return nil
+					}
+					return cli.Get(ctx, key, obj, opts...)
+				},
+			})
+
+			step()
+			group := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, groupID)
+			Expect(group.GetConditionTime(fdbv1beta2.ProcessHasHighRunLoopBusy)).NotTo(BeNil())
+			pending = pendingPods()
+			Expect(pending).To(HaveLen(1))
+			Expect(pending[0].Name).To(Equal(pod.Name))
+			for _, actual := range listPods() {
+				expectedImage := "example/log-forwarder:1"
+				if actual.Name == pod.Name {
+					expectedImage = desiredImage
+				}
+				Expect(actual.Spec.Containers).To(ContainElement(And(
+					HaveField("Name", containerName), HaveField("Image", expectedImage),
+				)))
+			}
+			assertIdentity()
+
+			clusterReconciler.Client = k8sClient
+			delete(adminClient.RunLoopBusy, groupID)
+			step()
+			pending = pendingPods()
+			Expect(pending).To(HaveLen(1))
+			Expect(pending[0].Name).To(Equal(pod.Name))
+			confirmImages(pending[0])
+			step()
+			pending = pendingPods()
+			Expect(pending).To(HaveLen(1))
+			Expect(pending[0].Name).NotTo(Equal(pod.Name))
+			assertIdentity()
 		},
 	)
 
