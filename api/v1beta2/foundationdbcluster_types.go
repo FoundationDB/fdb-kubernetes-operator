@@ -1112,6 +1112,8 @@ const (
 	// This condition can occur during the migration of the image type, the change of the image configuration
 	// for the sidecar or during version incompatible upgrades until the sidecar is updated to the new desired version.
 	IncorrectSidecarImage ProcessGroupConditionType = "IncorrectSidecarImage"
+	// UpdatingContainerImages keeps an auxiliary image rollout unreconciled without replacing healthy FDB processes
+	UpdatingContainerImages ProcessGroupConditionType = "UpdatingContainerImages"
 	// ProcessHasHighRunLoopBusy represents a process group that has a high run loop busy value. A high run loop busy
 	// value can be caused by infrastructure issues or by overloaded processes.
 	ProcessHasHighRunLoopBusy ProcessGroupConditionType = "ProcessHasHighRunLoopBusy"
@@ -1137,6 +1139,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		ProcessIsMarkedAsExcluded,
 		ProcessHasIOError,
 		IncorrectSidecarImage,
+		UpdatingContainerImages,
 		ProcessHasHighRunLoopBusy,
 	}
 }
@@ -1182,6 +1185,8 @@ func GetProcessGroupConditionType(
 		return ProcessHasIOError, nil
 	case "IncorrectSidecarImage":
 		return IncorrectSidecarImage, nil
+	case "UpdatingContainerImages":
+		return UpdatingContainerImages, nil
 	case "ProcessHasHighRunLoopBusy":
 		return ProcessHasHighRunLoopBusy, nil
 	}
@@ -1360,6 +1365,13 @@ type FoundationDBClusterAutomationOptions struct {
 	// +kubebuilder:validation:Enum=Replace;ReplaceTransactionSystem;Delete
 	// +kubebuilder:default:=ReplaceTransactionSystem
 	PodUpdateStrategy PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
+
+	// InPlaceImageUpdateContainers allows image-only updates of these auxiliary containers without recreating Pods.
+	// Containers must support independent restarts. Updates run one Pod at a time and wait for the new images to be ready.
+	// Other Pod spec changes use PodUpdateStrategy. FDB-managed containers and init containers cannot be selected
+	// +kubebuilder:validation:MaxItems=32
+	// +listType=set
+	InPlaceImageUpdateContainers []string `json:"inPlaceImageUpdateContainers,omitempty"`
 
 	// UseManagementAPI defines if the operator should make use of the management API instead of
 	// using fdbcli to interact with the FoundationDB cluster.
@@ -3335,6 +3347,28 @@ func (cluster *FoundationDBCluster) Validate(
 	allowedPodModifications *AllowedPodModifications,
 ) error {
 	var validations []string
+	for _, name := range cluster.Spec.AutomationOptions.InPlaceImageUpdateContainers {
+		if name == "" || name == MainContainerName || name == SidecarContainerName ||
+			name == InitContainerName {
+			validations = append(
+				validations,
+				fmt.Sprintf("container %q cannot be updated in place", name),
+			)
+		}
+		for _, settings := range cluster.Spec.Processes {
+			if settings.PodTemplate == nil {
+				continue
+			}
+			for _, container := range settings.PodTemplate.Spec.InitContainers {
+				if container.Name == name {
+					validations = append(
+						validations,
+						fmt.Sprintf("init container %q cannot be updated in place", name),
+					)
+				}
+			}
+		}
+	}
 
 	// Check if the provided storage engine is valid for the defined FDB version.
 	version, err := ParseFdbVersion(cluster.Spec.Version)
@@ -3434,6 +3468,12 @@ func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 // GetMaxZonesWithUnavailablePods returns the maximum number of zones that can have unavailable pods.
 func (cluster *FoundationDBCluster) GetMaxZonesWithUnavailablePods() int {
 	return ptr.Deref(cluster.Spec.MaxZonesWithUnavailablePods, math.MaxInt)
+}
+
+// AllowsInPlaceImageUpdate excludes FDB-managed containers even before spec validation
+func (cluster *FoundationDBCluster) AllowsInPlaceImageUpdate(name string) bool {
+	return name != MainContainerName && name != SidecarContainerName && name != InitContainerName &&
+		slices.Contains(cluster.Spec.AutomationOptions.InPlaceImageUpdateContainers, name)
 }
 
 // CacheDatabaseStatusForReconciliation returns if the sub-reconcilers should use a cached machine-readable status. If

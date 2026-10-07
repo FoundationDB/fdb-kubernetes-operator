@@ -91,6 +91,36 @@ var _ = Describe("add_services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
 		})
 
+		It(
+			"keeps headless DNS available while in-place auxiliary image updates are enabled",
+			func() {
+				service := &corev1.Service{}
+				key := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
+				Expect(k8sClient.Get(context.TODO(), key, service)).To(Succeed())
+				Expect(service.Spec.PublishNotReadyAddresses).To(BeFalse())
+				originalUID := service.UID
+
+				for _, enabled := range []bool{true, false} {
+					cluster.Spec.AutomationOptions.InPlaceImageUpdateContainers = nil
+					if enabled {
+						cluster.Spec.AutomationOptions.InPlaceImageUpdateContainers = []string{
+							"log-forwarder",
+						}
+					}
+					cluster.Generation++
+					Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
+					result, reconcileErr := reconcileCluster(cluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(BeZero())
+					_, reloadErr := reloadCluster(cluster)
+					Expect(reloadErr).NotTo(HaveOccurred())
+					Expect(k8sClient.Get(context.TODO(), key, service)).To(Succeed())
+					Expect(service.UID).To(Equal(originalUID))
+					Expect(service.Spec.PublishNotReadyAddresses).To(Equal(enabled))
+				}
+			},
+		)
+
 		Context("with a change to the match labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig.MatchLabels = map[string]string{
