@@ -315,6 +315,33 @@ spec:
     - "secure_connection=0"
 ```
 
+## Expiring Backup Data
+
+Set `spec.expiration.beforeTimestamp` on a managed `FoundationDBBackup` to expire data before a fixed RFC3339 timestamp:
+
+```yaml
+spec:
+  expiration:
+    beforeTimestamp: "2026-09-01T00:00:00Z"
+```
+
+The operator runs `fdbbackup expire` in a Kubernetes Job with FoundationDB's default restorability checks. It never passes `--force`: if expiration would leave the backup unrestorable, the Job fails. Expiration can run against running, paused, or stopped backups, including backups with `agentCount: 0`. It is not supported for `backupType: unmanaged`.
+
+This is a single request, not a rolling retention policy. Change the timestamp to submit another request. The operator pins the destination and source cluster when accepting a request, and finishes an existing Job before starting a different request. Unrelated spec changes do not repeat successful expiration. Removing `expiration` prevents new work but does not cancel a Job that already exists. Deleted data cannot be recovered by removing the field or moving the timestamp backward.
+
+The Job uses the backup's image, pod settings, credentials, TLS configuration, encryption key, and cluster-file initialization. Only the main `foundationdb` container runs, along with the configured init containers; additional regular containers and main-container health probes are omitted. Custom parameters beginning with `knob_` are inherited. The source cluster must remain available to convert the timestamp into an FDB commit version, and the blobstore credentials must permit deletion. Backup containers shared by different resources or operators must have a single owner for expiration.
+
+Inspect `status.expiration` for the pinned destination, source cluster, cutoff, Job name, phase (`Running`, `Succeeded`, or `Failed`), and completion time. `Succeeded` means the command completed, not that every file older than the cutoff disappeared: FDB may retain files that overlap the boundary. While an expiration request is pending or failed, `status.generations.needsBackupExpiration` identifies the unreconciled generation.
+
+Jobs have a one-hour deadline and at most three retries. A failed Job remains available for diagnosis:
+
+```sh
+kubectl get fdbbackup sample-cluster -o yaml
+kubectl logs job/<status.expiration.jobName>
+```
+
+After fixing the cause, delete the failed Job to retry the same cutoff and destination. For an unsafe cutoff, select an earlier timestamp or wait until a suitable newer snapshot exists before retrying. The operator keeps the most recent Job and removes it when processing a changed cutoff. Deletion policies that stop or clean up the backup wait for an active expiration Job to finish.
+
 ## Restoring a Backup
 
 You can start a restore by creating a restore object.

@@ -7,6 +7,8 @@ package v1beta2
 //
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
 type FoundationDBBackupStatusApplyConfiguration struct {
+	// Expiration records the most recent expiration request, including completed requests
+	Expiration *BackupExpirationStatusApplyConfiguration `json:"expiration,omitempty"`
 	// AgentCount provides the number of agents that are up-to-date, ready,
 	// and not terminated.
 	AgentCount *int `json:"agentCount,omitempty"`
@@ -25,6 +27,14 @@ type FoundationDBBackupStatusApplyConfiguration struct {
 // apply.
 func FoundationDBBackupStatus() *FoundationDBBackupStatusApplyConfiguration {
 	return &FoundationDBBackupStatusApplyConfiguration{}
+}
+
+// WithExpiration sets the Expiration field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Expiration field is set to the value of the last call.
+func (b *FoundationDBBackupStatusApplyConfiguration) WithExpiration(value *BackupExpirationStatusApplyConfiguration) *FoundationDBBackupStatusApplyConfiguration {
+	b.Expiration = value
+	return b
 }
 
 // WithAgentCount sets the AgentCount field in the declarative configuration to the given value

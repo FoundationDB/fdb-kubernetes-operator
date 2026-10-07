@@ -61,6 +61,7 @@ type FoundationDBBackupReconciler struct {
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 var backupSubReconcilers = []backupSubReconciler{
@@ -70,6 +71,7 @@ var backupSubReconcilers = []backupSubReconciler{
 	stopBackup{},
 	toggleBackupPaused{},
 	modifyBackup{},
+	expireBackup{},
 	updateBackupStatus{},
 }
 
@@ -326,6 +328,29 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 				return r.updateOrApplySpec(ctx, backup)
 			}
 
+			return nil
+		}
+
+		job, err := r.getBackupExpirationJob(ctx, backup)
+		if err != nil {
+			return err
+		}
+		if job != nil {
+			phase, _ := backupExpirationJobResult(job)
+			if phase == "Running" {
+				return nil
+			}
+			// Kubernetes 1.30 can report a terminal Job while its Pods are still terminating
+			if job.DeletionTimestamp == nil {
+				err = r.Delete(
+					ctx,
+					job,
+					client.PropagationPolicy(metav1.DeletePropagationForeground),
+				)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					return err
+				}
+			}
 			return nil
 		}
 

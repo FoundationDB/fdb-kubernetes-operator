@@ -45,6 +45,7 @@ func (s updateBackupStatus) reconcile(
 	backup *fdbv1beta2.FoundationDBBackup,
 ) *requeue {
 	status := fdbv1beta2.FoundationDBBackupStatus{}
+	status.Expiration = backup.Status.Expiration.DeepCopy()
 	status.Generations.Reconciled = backup.Status.Generations.Reconciled
 
 	desiredBackupDeployment, err := internal.GetBackupDeployment(backup)
