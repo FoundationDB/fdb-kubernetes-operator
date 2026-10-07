@@ -213,13 +213,6 @@ func (r *FoundationDBBackupReconciler) SetupWithManager(
 	maxConcurrentReconciles int,
 	selector metav1.LabelSelector,
 ) error {
-	err := mgr.GetFieldIndexer().
-		IndexField(context.Background(), &appsv1.Deployment{}, "metadata.name", func(o client.Object) []string {
-			return []string{o.(*appsv1.Deployment).Name}
-		})
-	if err != nil {
-		return err
-	}
 	labelSelectorPredicate, err := predicate.LabelSelectorPredicate(selector)
 	if err != nil {
 		return err

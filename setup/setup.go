@@ -25,6 +25,7 @@ import (
 	"io"
 	"io/fs"
 	"math"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -44,11 +45,18 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/fdbclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"gopkg.in/natefinch/lumberjack.v2"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -502,7 +510,8 @@ func StartManager(
 	}
 
 	options := ctrl.Options{
-		Scheme: scheme,
+		Scheme:         scheme,
+		MapperProvider: newRESTMapper,
 		Metrics: metricsserver.Options{
 			// TODO (johscheuer): Fix: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1258
 			BindAddress: operatorOpts.MetricsAddr,
@@ -514,13 +523,15 @@ func StartManager(
 		RetryPeriod:            &operatorOpts.RetryPeriod,
 		Cache:                  cacheOptions,
 		HealthProbeBindAddress: operatorOpts.HealthProbeBindAddress,
-		ReadinessEndpointName:  operatorOpts.HealthProbeBindAddress,
-		LivenessEndpointName:   operatorOpts.HealthProbeBindAddress,
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+	if err := mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to register health check")
 		os.Exit(1)
 	}
 
@@ -648,6 +659,37 @@ func StartManager(
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("setup manager")
 	return mgr, nil
+}
+
+func newRESTMapper(config *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
+	dynamicMapper, err := apiutil.NewDynamicRESTMapper(config, httpClient)
+	if err != nil {
+		return nil, err
+	}
+
+	// Known resource mappings must not depend on API discovery during setup or metrics collection
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		corev1.SchemeGroupVersion, appsv1.SchemeGroupVersion, fdbv1beta2.GroupVersion,
+	})
+	for _, kind := range []schema.GroupVersionKind{
+		corev1.SchemeGroupVersion.WithKind("Pod"),
+		corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"),
+		corev1.SchemeGroupVersion.WithKind("ConfigMap"),
+		corev1.SchemeGroupVersion.WithKind("Service"),
+		appsv1.SchemeGroupVersion.WithKind("Deployment"),
+		fdbv1beta2.GroupVersion.WithKind("FoundationDBCluster"),
+		fdbv1beta2.GroupVersion.WithKind("FoundationDBBackup"),
+		fdbv1beta2.GroupVersion.WithKind("FoundationDBRestore"),
+	} {
+		mapper.Add(kind, meta.RESTScopeNamespace)
+		// Namespace caches resolve the list kind's scope before selecting a cache
+		mapper.Add(kind.GroupVersion().WithKind(kind.Kind+"List"), meta.RESTScopeNamespace)
+	}
+	mapper.Add(corev1.SchemeGroupVersion.WithKind("Node"), meta.RESTScopeRoot)
+	mapper.Add(corev1.SchemeGroupVersion.WithKind("NodeList"), meta.RESTScopeRoot)
+	return meta.FirstHitRESTMapper{
+		MultiRESTMapper: meta.MultiRESTMapper{mapper, dynamicMapper},
+	}, nil
 }
 
 // generateAllowedPodModifications will generate the *internal.AllowedPodModifications based on the provided configuration.
