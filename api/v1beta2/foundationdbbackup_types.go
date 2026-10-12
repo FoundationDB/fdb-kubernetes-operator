@@ -164,7 +164,7 @@ type FoundationDBBackupSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="BackupTag is immutable"
 	Tag *BackupTag `json:"tag,omitempty"`
 
-	// Expiration configures recurring removal of old backup data with FDB restorability checks
+	// Expiration configures recurring removal of old backup data with FDB restorability checks.
 	// Omitting this field disables new expiration Jobs
 	Expiration *BackupExpiration `json:"expiration,omitempty"`
 }
@@ -173,21 +173,21 @@ type FoundationDBBackupSpec struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || self.restorableForSeconds <= self.expireAfterSeconds",message="restorableForSeconds must not exceed expireAfterSeconds"
 // +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || !has(self.restorableAfterVersion)",message="restorableForSeconds and restorableAfterVersion are mutually exclusive"
 type BackupExpiration struct {
-	// ExpireAfterSeconds expires data older than this duration, measured when each Job is scheduled
+	// ExpireAfterSeconds expires data older than this duration, measured when each Job is scheduled.
 	// The source cluster must be available to convert timestamps to FDB versions
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=315360000
 	ExpireAfterSeconds int64 `json:"expireAfterSeconds"`
-	// RestorableForSeconds requires restorability from this many seconds ago onward
+	// RestorableForSeconds requires restorability from this many seconds ago onward.
 	// Mutually exclusive with RestorableAfterVersion
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=315360000
 	RestorableForSeconds *int64 `json:"restorableForSeconds,omitempty"`
-	// RestorableAfterVersion protects the oldest database version still required by an external checkpoint
+	// RestorableAfterVersion protects the oldest database version still required by an external checkpoint.
 	// Omitting both restore requirements uses FDB's default check, which does not protect a specific checkpoint
 	// +kubebuilder:validation:Minimum=1
 	RestorableAfterVersion *int64 `json:"restorableAfterVersion,omitempty"`
-	// IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour
+	// IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour.
 	// Failed Jobs use exponential backoff up to one day
 	// +kubebuilder:validation:Minimum=60
 	// +kubebuilder:validation:Maximum=86400
@@ -223,8 +223,9 @@ type BackupExpirationStatus struct {
 	// ClusterName identifies the source cluster used to resolve the timestamps
 	ClusterName string `json:"clusterName"`
 	// JobName identifies the Job executing this expiration
-	JobName string                `json:"jobName"`
-	Phase   BackupExpirationPhase `json:"phase"`
+	JobName string `json:"jobName"`
+	// Phase is Running from scheduling until the Job reaches a terminal condition
+	Phase BackupExpirationPhase `json:"phase"`
 	// Message provides the Job's failure reason, if any
 	Message string `json:"message,omitempty"`
 	// CompletionTime records when the operator observed a terminal Job

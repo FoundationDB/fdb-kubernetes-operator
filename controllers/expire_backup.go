@@ -47,10 +47,9 @@ func (s expireBackup) reconcile(
 		delayedRequeue: true,
 		message:        "waiting for backup expiration",
 	}
-	currentStatus := backup.Status.Expiration
 	// Spec changes and deletion of a terminal Job must not bypass the persisted schedule
 	if backup.Spec.Expiration != nil {
-		if req := requeueUntilBackupExpiration(currentStatus); req != nil {
+		if req := requeueUntilBackupExpiration(backup.Status.Expiration); req != nil {
 			return req
 		}
 	}
@@ -68,33 +67,29 @@ func (s expireBackup) reconcile(
 		}
 	}
 
-	if backup.Spec.Expiration == nil {
-		if job != nil {
-			if err = r.deleteBackupExpirationJob(ctx, job); err != nil {
-				return &requeue{curError: err}
-			}
-			return pending
+	if backup.Spec.Expiration != nil {
+		if req := requeueUntilBackupExpiration(backup.Status.Expiration); req != nil {
+			return req
 		}
-		if currentStatus != nil {
-			backup.Status.Expiration = nil
-			if err = r.updateOrApply(ctx, backup); err != nil {
-				return &requeue{curError: err}
-			}
-		}
-		return nil
 	}
-
-	currentStatus = backup.Status.Expiration
-	if req := requeueUntilBackupExpiration(currentStatus); req != nil {
-		return req
-	}
-	// Remove the previous Job and its Pods before accepting another run
+	// Remove the previous Job and its Pods before accepting another run or clearing status
 	if job != nil {
 		if err = r.deleteBackupExpirationJob(ctx, job); err != nil {
 			return &requeue{curError: err}
 		}
 		return pending
 	}
+	if backup.Spec.Expiration == nil {
+		if backup.Status.Expiration == nil {
+			return nil
+		}
+		backup.Status.Expiration = nil
+		if err = r.updateOrApply(ctx, backup); err != nil {
+			return &requeue{curError: err}
+		}
+		return nil
+	}
+	currentStatus := backup.Status.Expiration
 	if currentStatus != nil && currentStatus.Phase == fdbv1beta2.BackupExpirationPhaseRunning {
 		job, err = internal.GetBackupExpirationJob(backup)
 		if err != nil {

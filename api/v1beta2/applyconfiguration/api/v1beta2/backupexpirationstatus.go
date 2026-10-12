@@ -23,8 +23,9 @@ type BackupExpirationStatusApplyConfiguration struct {
 	// ClusterName identifies the source cluster used to resolve the timestamps
 	ClusterName *string `json:"clusterName,omitempty"`
 	// JobName identifies the Job executing this expiration
-	JobName *string                           `json:"jobName,omitempty"`
-	Phase   *apiv1beta2.BackupExpirationPhase `json:"phase,omitempty"`
+	JobName *string `json:"jobName,omitempty"`
+	// Phase is Running from scheduling until the Job reaches a terminal condition
+	Phase *apiv1beta2.BackupExpirationPhase `json:"phase,omitempty"`
 	// Message provides the Job's failure reason, if any
 	Message *string `json:"message,omitempty"`
 	// CompletionTime records when the operator observed a terminal Job

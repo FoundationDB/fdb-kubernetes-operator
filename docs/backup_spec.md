@@ -33,10 +33,10 @@ BackupExpiration configures recurring backup retention
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| expireAfterSeconds | ExpireAfterSeconds expires data older than this duration, measured when each Job is scheduled The source cluster must be available to convert timestamps to FDB versions | int64 | true |
-| restorableForSeconds | RestorableForSeconds requires restorability from this many seconds ago onward Mutually exclusive with RestorableAfterVersion | *int64 | false |
-| restorableAfterVersion | RestorableAfterVersion protects the oldest database version still required by an external checkpoint Omitting both restore requirements uses FDB's default check, which does not protect a specific checkpoint | *int64 | false |
-| intervalSeconds | IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour Failed Jobs use exponential backoff up to one day | *int64 | false |
+| expireAfterSeconds | ExpireAfterSeconds expires data older than this duration, measured when each Job is scheduled. The source cluster must be available to convert timestamps to FDB versions | int64 | true |
+| restorableForSeconds | RestorableForSeconds requires restorability from this many seconds ago onward. Mutually exclusive with RestorableAfterVersion | *int64 | false |
+| restorableAfterVersion | RestorableAfterVersion protects the oldest database version still required by an external checkpoint. Omitting both restore requirements uses FDB's default check, which does not protect a specific checkpoint | *int64 | false |
+| intervalSeconds | IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour. Failed Jobs use exponential backoff up to one day | *int64 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -58,7 +58,7 @@ BackupExpirationStatus records the most recent expiration Job and its schedule
 | destinationURL | DestinationURL pins the target across restarts and Job creation, even if the backup URL changes | string | true |
 | clusterName | ClusterName identifies the source cluster used to resolve the timestamps | string | true |
 | jobName | JobName identifies the Job executing this expiration | string | true |
-| phase |  | [BackupExpirationPhase](#backupexpirationphase) | true |
+| phase | Phase is Running from scheduling until the Job reaches a terminal condition | [BackupExpirationPhase](#backupexpirationphase) | true |
 | message | Message provides the Job's failure reason, if any | string | false |
 | completionTime | CompletionTime records when the operator observed a terminal Job | *metav1.Time | false |
 | nextRunTime | NextRunTime persists the next scheduled run across operator restarts and spec updates | *metav1.Time | false |
@@ -194,7 +194,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
 | backupMode | BackupMode defines the backup mode that should be used for the backup. When the BackupMode is set to BackupModeOneTime, the backup will create a single snapshot and then stop. When set to BackupModeContinuous, the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds. Default: \"Continuous\". | *[BackupMode](#backupmode) | false |
 | tag | Tag defines the backup tag that should be used. Using different tags allows to have multiple backups for the same cluster. Default: \"default\". | *[BackupTag](#backuptag) | false |
-| expiration | Expiration configures recurring removal of old backup data with FDB restorability checks Omitting this field disables new expiration Jobs | *[BackupExpiration](#backupexpiration) | false |
+| expiration | Expiration configures recurring removal of old backup data with FDB restorability checks. Omitting this field disables new expiration Jobs | *[BackupExpiration](#backupexpiration) | false |
 
 [Back to TOC](#table-of-contents)
 
