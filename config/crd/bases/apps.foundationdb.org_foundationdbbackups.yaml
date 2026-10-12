@@ -138,12 +138,35 @@ spec:
                 type: string
               expiration:
                 properties:
-                  beforeTimestamp:
-                    format: date-time
-                    type: string
+                  expireAfterSeconds:
+                    format: int64
+                    maximum: 315360000
+                    minimum: 1
+                    type: integer
+                  intervalSeconds:
+                    format: int64
+                    maximum: 86400
+                    minimum: 60
+                    type: integer
+                  restorableAfterVersion:
+                    format: int64
+                    minimum: 1
+                    type: integer
+                  restorableForSeconds:
+                    format: int64
+                    maximum: 315360000
+                    minimum: 1
+                    type: integer
                 required:
-                - beforeTimestamp
+                - expireAfterSeconds
                 type: object
+                x-kubernetes-validations:
+                - message: restorableForSeconds must not exceed expireAfterSeconds
+                  rule: '!has(self.restorableForSeconds) || self.restorableForSeconds
+                    <= self.expireAfterSeconds'
+                - message: restorableForSeconds and restorableAfterVersion are mutually
+                    exclusive
+                  rule: '!has(self.restorableForSeconds) || !has(self.restorableAfterVersion)'
               imageType:
                 default: split
                 enum:
@@ -4087,9 +4110,15 @@ spec:
                     type: string
                   destinationURL:
                     type: string
+                  failureCount:
+                    minimum: 0
+                    type: integer
                   jobName:
                     type: string
                   message:
+                    type: string
+                  nextRunTime:
+                    format: date-time
                     type: string
                   phase:
                     enum:
@@ -4097,12 +4126,47 @@ spec:
                     - Succeeded
                     - Failed
                     type: string
+                  policy:
+                    properties:
+                      expireAfterSeconds:
+                        format: int64
+                        maximum: 315360000
+                        minimum: 1
+                        type: integer
+                      intervalSeconds:
+                        format: int64
+                        maximum: 86400
+                        minimum: 60
+                        type: integer
+                      restorableAfterVersion:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      restorableForSeconds:
+                        format: int64
+                        maximum: 315360000
+                        minimum: 1
+                        type: integer
+                    required:
+                    - expireAfterSeconds
+                    type: object
+                    x-kubernetes-validations:
+                    - message: restorableForSeconds must not exceed expireAfterSeconds
+                      rule: '!has(self.restorableForSeconds) || self.restorableForSeconds
+                        <= self.expireAfterSeconds'
+                    - message: restorableForSeconds and restorableAfterVersion are
+                        mutually exclusive
+                      rule: '!has(self.restorableForSeconds) || !has(self.restorableAfterVersion)'
+                  restorableAfterTimestamp:
+                    format: date-time
+                    type: string
                 required:
                 - beforeTimestamp
                 - clusterName
                 - destinationURL
                 - jobName
                 - phase
+                - policy
                 type: object
               generations:
                 properties:

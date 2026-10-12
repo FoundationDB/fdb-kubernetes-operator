@@ -7,7 +7,7 @@ package v1beta2
 //
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
 type FoundationDBBackupStatusApplyConfiguration struct {
-	// Expiration records the most recent expiration request, including completed requests
+	// Expiration records the most recent expiration Job and the next scheduled run
 	Expiration *BackupExpirationStatusApplyConfiguration `json:"expiration,omitempty"`
 	// AgentCount provides the number of agents that are up-to-date, ready,
 	// and not terminated.

@@ -8,7 +8,7 @@ package v1beta2
 // BackupGenerationStatus stores information on which generations have reached
 // different stages in reconciliation for the backup.
 type BackupGenerationStatusApplyConfiguration struct {
-	// NeedsBackupExpiration records the generation waiting for its expiration request to succeed
+	// NeedsBackupExpiration records the generation waiting for its expiration policy to succeed
 	NeedsBackupExpiration *int64 `json:"needsBackupExpiration,omitempty"`
 	// Reconciled provides the last generation that was fully reconciled.
 	Reconciled *int64 `json:"reconciled,omitempty"`

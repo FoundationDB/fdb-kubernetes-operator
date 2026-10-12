@@ -214,9 +214,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						shouldPauseBackup = true
 					})
 
-					It(
-						"completes safe expiration and preserves restoration",
-						func(ctx SpecContext) {
+					DescribeTable(
+						"preserves the requested checkpoint during expiration",
+						func(ctx SpecContext, protectOlderCheckpoint bool) {
 							type snapshotVersion struct {
 								Version      uint64
 								EpochSeconds int64
@@ -240,6 +240,10 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 								Expect(json.Unmarshal([]byte(output), &description)).To(Succeed())
 								return description.Snapshots
 							}
+							status := backup.RunStatusCommand(ctx)
+							Expect(status.LatestRestorablePoint).NotTo(BeNil())
+							Expect(status.LatestRestorablePoint.Version).NotTo(BeNil())
+							olderCheckpoint := *status.LatestRestorablePoint.Version
 							snapshots := describeSnapshots()
 							Expect(snapshots).NotTo(BeEmpty())
 							oldSnapshot := snapshots[0]
@@ -269,76 +273,84 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							before := backup.RunDescribeCommand(ctx)
 							Expect(before.TotalSnapshotBytes).NotTo(BeNil())
 							Expect(*before.TotalSnapshotBytes).To(BeNumerically(">", 0))
+							protectedVersion := retainedSnapshot.End.Version
+							expectedPhase := fdbv1beta2.BackupExpirationPhaseSucceeded
+							if protectOlderCheckpoint {
+								protectedVersion = olderCheckpoint
+								expectedPhase = fdbv1beta2.BackupExpirationPhaseFailed
+							}
 							spec := backup.GetBackup(ctx).Spec.DeepCopy()
-							spec.Expiration = &fdbv1beta2.BackupExpiration{BeforeTimestamp: cutoff}
+							spec.Expiration = &fdbv1beta2.BackupExpiration{
+								ExpireAfterSeconds:     int64(time.Since(cutoff.Time).Seconds()),
+								RestorableAfterVersion: ptr.To(int64(protectedVersion)),
+							}
 							backup.UpdateBackupSpecWithSpec(spec)
-							backup.WaitForReconciliation(ctx)
-							Expect(
-								backup.GetBackup(ctx).Status.Expiration.Phase,
-							).To(Equal("Succeeded"))
+							Eventually(func(g Gomega) {
+								currentStatus := backup.GetBackup(ctx).Status.Expiration
+								g.Expect(currentStatus).NotTo(BeNil())
+								g.Expect(currentStatus.Phase).To(Equal(expectedPhase))
+							}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 							after := backup.RunDescribeCommand(ctx)
 							Expect(ptr.Deref(after.Restorable, false)).To(BeTrue())
 							Expect(after.TotalSnapshotBytes).NotTo(BeNil())
-							Expect(
-								*after.TotalSnapshotBytes,
-							).To(BeNumerically("<", *before.TotalSnapshotBytes))
 							snapshots = describeSnapshots()
-							Expect(
-								snapshots,
-							).NotTo(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
+							if protectOlderCheckpoint {
+								Expect(
+									*after.TotalSnapshotBytes,
+								).To(Equal(*before.TotalSnapshotBytes))
+								Expect(
+									snapshots,
+								).To(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
+								pods := &corev1.PodList{}
+								Expect(factory.GetControllerRuntimeClient().List(ctx, pods,
+									ctrlClient.InNamespace(fdbCluster.Namespace()),
+									ctrlClient.MatchingLabels{
+										"job-name": backup.GetBackup(ctx).Status.Expiration.JobName,
+									},
+								),
+								).To(Succeed())
+								Expect(pods.Items).NotTo(BeEmpty())
+								for idx := range pods.Items {
+									Expect(
+										factory.GetLogsForPod(
+											ctx,
+											&pods.Items[idx],
+											fdbv1beta2.MainContainerName,
+											nil,
+										),
+									).To(
+										ContainSubstring(
+											"Requested expiration would be unsafe.  Backup would not meet minimum restorability.",
+										))
+								}
+							} else {
+								Expect(
+									*after.TotalSnapshotBytes,
+								).To(BeNumerically("<", *before.TotalSnapshotBytes))
+								Expect(
+									snapshots,
+								).NotTo(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
+							}
 							Expect(snapshots).To(ContainElement(And(
 								HaveField("Start.Version", retainedSnapshot.Start.Version),
 								HaveField("Restorable", true),
 							)))
 							fdbCluster.ClearRange(ctx, []byte{prefix}, 60)
-							restore = factory.CreateRestoreForCluster(ctx, backup, nil)
+							restore = factory.CreateRestoreForCluster(
+								ctx,
+								backup,
+								&protectedVersion,
+							)
 							Expect(
 								fdbCluster.GetRange(ctx, []byte{prefix}, 25, 60),
 							).To(Equal(keyValues))
 						},
-					)
-
-					It("refuses to expire the only restorable snapshot", func(ctx SpecContext) {
-						spec := backup.GetBackup(ctx).Spec.DeepCopy()
-						spec.Expiration = &fdbv1beta2.BackupExpiration{
-							BeforeTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
-						}
-						backup.UpdateBackupSpecWithSpec(spec)
-						Eventually(func(g Gomega) {
-							status := backup.GetBackup(ctx).Status.Expiration
-							g.Expect(status).NotTo(BeNil())
-							g.Expect(status.Phase).To(Equal("Failed"))
-						}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-						pods := &corev1.PodList{}
-						Expect(factory.GetControllerRuntimeClient().List(ctx, pods,
-							ctrlClient.InNamespace(fdbCluster.Namespace()),
-							ctrlClient.MatchingLabels{
-								"job-name": backup.GetBackup(ctx).Status.Expiration.JobName,
-							},
+						Entry("expires old data when the newer checkpoint is protected", false),
+						Entry(
+							"refuses expiration when an older checkpoint is protected despite a newer snapshot",
+							true,
 						),
-						).To(Succeed())
-						Expect(pods.Items).NotTo(BeEmpty())
-						for idx := range pods.Items {
-							Expect(
-								factory.GetLogsForPod(
-									ctx,
-									&pods.Items[idx],
-									fdbv1beta2.MainContainerName,
-									nil,
-								),
-							).To(
-								ContainSubstring(
-									"Requested expiration would be unsafe.  Backup would not meet minimum restorability.",
-								))
-						}
-						Expect(
-							ptr.Deref(backup.RunDescribeCommand(ctx).Restorable, false),
-						).To(BeTrue())
-						restore = factory.CreateRestoreForCluster(ctx, backup, nil)
-						Expect(
-							fdbCluster.GetRange(ctx, []byte{prefix}, 25, 60),
-						).To(Equal(keyValues))
-					})
+					)
 				})
 
 				When("no restorable version is specified", func() {

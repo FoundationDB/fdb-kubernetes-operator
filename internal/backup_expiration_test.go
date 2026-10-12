@@ -34,7 +34,7 @@ import (
 var _ = Describe("backup expiration Job", func() {
 	DescribeTable(
 		"inherits backup runtime configuration without running backup agents or sidecars",
-		func(imageType fdbv1beta2.ImageType) {
+		func(imageType fdbv1beta2.ImageType, restoreWindow bool, protectedVersion bool) {
 			backup := CreateDefaultBackup(CreateDefaultCluster())
 			backup.Labels = map[string]string{"operator-instance": "test"}
 			backup.Spec.ImageType = ptr.To(imageType)
@@ -43,7 +43,7 @@ var _ = Describe("backup expiration Job", func() {
 			backup.Spec.EncryptionKeyPath = "/keys/backup.key"
 			backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 				"knob_backup_concurrent_deletes=4", "force", "expire-before-version=123", "locality_custom=test",
-				"encryption-key-file=/keys/custom.key", "legacy-encryption-format",
+				"encryption-key-file=/keys/custom.key", "legacy-encryption-format", "restorable-after-version=999999",
 			}
 			backup.Spec.PodTemplateSpec = &corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"custom": "label"}},
@@ -81,7 +81,18 @@ var _ = Describe("backup expiration Job", func() {
 				DestinationURL: "blobstore://test@store:443/pinned-backup?bucket=backups",
 				ClusterName:    "original-cluster",
 				JobName:        "expiration-job",
-				Phase:          "Running",
+				Phase:          fdbv1beta2.BackupExpirationPhaseRunning,
+			}
+			if restoreWindow {
+				backup.Status.Expiration.RestorableAfterTimestamp = ptr.To(
+					metav1.NewTime(time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC)),
+				)
+			}
+			if protectedVersion {
+				backup.Status.Expiration.Policy.RestorableAfterVersion = ptr.To(int64(123456789))
+				backup.Spec.Expiration = &fdbv1beta2.BackupExpiration{
+					RestorableAfterVersion: ptr.To(int64(987654321)),
+				}
 			}
 			original := backup.DeepCopy()
 			job, err := GetBackupExpirationJob(backup)
@@ -117,11 +128,22 @@ var _ = Describe("backup expiration Job", func() {
 			container := pod.Spec.Containers[0]
 			Expect(container.Image).To(HaveSuffix(":7.4.6"))
 			Expect(container.Command).To(Equal([]string{"fdbbackup"}))
-			Expect(container.Args).To(Equal([]string{
+			expectedArgs := []string{
 				"expire", "-d", backup.Status.Expiration.DestinationURL,
 				"--expire-before-timestamp", "2026/09/01.00:00:00+0000",
-				"--knob_backup_concurrent_deletes=4",
-			}))
+			}
+			if restoreWindow {
+				expectedArgs = append(
+					expectedArgs,
+					"--restorable-after-timestamp",
+					"2026/09/02.00:00:00+0000",
+				)
+			}
+			if protectedVersion {
+				expectedArgs = append(expectedArgs, "--restorable-after-version", "123456789")
+			}
+			expectedArgs = append(expectedArgs, "--knob_backup_concurrent_deletes=4")
+			Expect(container.Args).To(Equal(expectedArgs))
 			Expect(
 				container.Env,
 			).To(ContainElements(original.Spec.PodTemplateSpec.Spec.Containers[0].Env))
@@ -136,7 +158,11 @@ var _ = Describe("backup expiration Job", func() {
 			Expect(container.StartupProbe).To(BeNil())
 			Expect(container.Lifecycle).To(BeNil())
 		},
-		Entry("split image", fdbv1beta2.ImageTypeSplit),
-		Entry("unified image", fdbv1beta2.ImageTypeUnified),
+		Entry("split image", fdbv1beta2.ImageTypeSplit, false, false),
+		Entry("split image with restore window", fdbv1beta2.ImageTypeSplit, true, false),
+		Entry("unified image", fdbv1beta2.ImageTypeUnified, false, false),
+		Entry("unified image with restore window", fdbv1beta2.ImageTypeUnified, true, false),
+		Entry("split image with protected version", fdbv1beta2.ImageTypeSplit, false, true),
+		Entry("unified image with protected version", fdbv1beta2.ImageTypeUnified, false, true),
 	)
 })

@@ -361,6 +361,7 @@ The backup reconciler runs the following subreconcilers:
 1. StopBackup
 1. ToggleBackupPaused
 1. ModifyBackup
+1. ExpireBackup
 1. UpdateBackupStatus (again)
 
 ### UpdateBackupStatus
@@ -392,6 +393,10 @@ Currently, this only supports the `snapshotPeriodSeconds` and `url` property.
 ### UpdateBackupStatus (again)
 
 Once we have completed all other steps in reconciliation, we run the `UpdateBackupStatus` subreconciler a second time to check that everything is in the desired state. If there is anything that is not in the desired state, the operator will requeue reconciliation.
+
+### ExpireBackup
+
+The `ExpireBackup` subreconciler applies the relative retention policy in `spec.expiration`. It pins the destination from backup status and computes timestamp cutoffs before creating an expiration Job. It observes Job completion, persists the next scheduled run with exponential backoff on failure, and removes the previous Job and its Pods before starting another. Removing the policy allows an active Job to finish, then deletes it and clears expiration status. See [Expiring Backup Data](backup.md#expiring-backup-data) for configuration and failure diagnosis.
 
 ## Restore Reconciliation
 

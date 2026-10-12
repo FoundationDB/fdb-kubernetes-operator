@@ -56,6 +56,8 @@ type FoundationDBBackupReconciler struct {
 	AllowedPodModifications *fdbv1beta2.AllowedPodModifications
 	// MinimumAgeForTerminalPodDeletion defines the minimum age of a terminal pod before it will be deleted.
 	MinimumAgeForTerminalPodDeletion time.Duration
+	// BackupExpirationPollInterval controls how often active expiration Jobs are observed
+	BackupExpirationPollInterval time.Duration
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -337,19 +339,12 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 		}
 		if job != nil {
 			phase, _ := backupExpirationJobResult(job)
-			if phase == "Running" {
+			if phase == fdbv1beta2.BackupExpirationPhaseRunning {
 				return nil
 			}
 			// Kubernetes 1.30 can report a terminal Job while its Pods are still terminating
-			if job.DeletionTimestamp == nil {
-				err = r.Delete(
-					ctx,
-					job,
-					client.PropagationPolicy(metav1.DeletePropagationForeground),
-				)
-				if err != nil && !k8serrors.IsNotFound(err) {
-					return err
-				}
+			if err = r.deleteBackupExpirationJob(ctx, job); err != nil {
+				return err
 			}
 			return nil
 		}

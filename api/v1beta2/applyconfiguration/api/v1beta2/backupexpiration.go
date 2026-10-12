@@ -2,18 +2,23 @@
 
 package v1beta2
 
-import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
 // BackupExpirationApplyConfiguration represents a declarative configuration of the BackupExpiration type for use
 // with apply.
 //
-// BackupExpiration requests expiration of data before a fixed timestamp
+// BackupExpiration configures recurring backup retention
 type BackupExpirationApplyConfiguration struct {
-	// BeforeTimestamp is the expiration cutoff, in RFC3339 format
-	// The source cluster must be available to convert this timestamp to an FDB version
-	BeforeTimestamp *v1.Time `json:"beforeTimestamp,omitempty"`
+	// ExpireAfterSeconds expires data older than this duration, measured when each Job is scheduled
+	// The source cluster must be available to convert timestamps to FDB versions
+	ExpireAfterSeconds *int64 `json:"expireAfterSeconds,omitempty"`
+	// RestorableForSeconds requires restorability from this many seconds ago onward
+	// Mutually exclusive with RestorableAfterVersion
+	RestorableForSeconds *int64 `json:"restorableForSeconds,omitempty"`
+	// RestorableAfterVersion protects the oldest database version still required by an external checkpoint
+	// Omitting both restore requirements uses FDB's default check, which does not protect a specific checkpoint
+	RestorableAfterVersion *int64 `json:"restorableAfterVersion,omitempty"`
+	// IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour
+	// Failed Jobs use exponential backoff up to one day
+	IntervalSeconds *int64 `json:"intervalSeconds,omitempty"`
 }
 
 // BackupExpirationApplyConfiguration constructs a declarative configuration of the BackupExpiration type for use with
@@ -22,10 +27,34 @@ func BackupExpiration() *BackupExpirationApplyConfiguration {
 	return &BackupExpirationApplyConfiguration{}
 }
 
-// WithBeforeTimestamp sets the BeforeTimestamp field in the declarative configuration to the given value
+// WithExpireAfterSeconds sets the ExpireAfterSeconds field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the BeforeTimestamp field is set to the value of the last call.
-func (b *BackupExpirationApplyConfiguration) WithBeforeTimestamp(value v1.Time) *BackupExpirationApplyConfiguration {
-	b.BeforeTimestamp = &value
+// If called multiple times, the ExpireAfterSeconds field is set to the value of the last call.
+func (b *BackupExpirationApplyConfiguration) WithExpireAfterSeconds(value int64) *BackupExpirationApplyConfiguration {
+	b.ExpireAfterSeconds = &value
+	return b
+}
+
+// WithRestorableForSeconds sets the RestorableForSeconds field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RestorableForSeconds field is set to the value of the last call.
+func (b *BackupExpirationApplyConfiguration) WithRestorableForSeconds(value int64) *BackupExpirationApplyConfiguration {
+	b.RestorableForSeconds = &value
+	return b
+}
+
+// WithRestorableAfterVersion sets the RestorableAfterVersion field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RestorableAfterVersion field is set to the value of the last call.
+func (b *BackupExpirationApplyConfiguration) WithRestorableAfterVersion(value int64) *BackupExpirationApplyConfiguration {
+	b.RestorableAfterVersion = &value
+	return b
+}
+
+// WithIntervalSeconds sets the IntervalSeconds field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IntervalSeconds field is set to the value of the last call.
+func (b *BackupExpirationApplyConfiguration) WithIntervalSeconds(value int64) *BackupExpirationApplyConfiguration {
+	b.IntervalSeconds = &value
 	return b
 }

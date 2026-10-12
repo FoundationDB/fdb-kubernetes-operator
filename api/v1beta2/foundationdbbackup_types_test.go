@@ -43,7 +43,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 	})
 
 	DescribeTable(
-		"validating expiration requests",
+		"validating expiration policies",
 		func(spec string, valid bool) {
 			Expect(json.Unmarshal([]byte(spec), &backup.Spec)).To(Succeed())
 			err := backup.Validate(nil)
@@ -55,14 +55,61 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 		},
 		Entry("disabled", `{}`, true),
 		Entry(
-			"timestamp cutoff",
-			`{"expiration":{"beforeTimestamp":"2026-09-01T00:00:00Z"}}`,
+			"checkpoint version",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableAfterVersion":123456789}}`,
 			true,
 		),
-		Entry("missing cutoff", `{"expiration":{}}`, false),
 		Entry(
-			"unmanaged backup",
-			`{"backupType":"unmanaged","expiration":{"beforeTimestamp":"2026-09-01T00:00:00Z"}}`,
+			"zero checkpoint version",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableAfterVersion":0}}`,
+			false,
+		),
+		Entry(
+			"negative checkpoint version",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableAfterVersion":-1}}`,
+			false,
+		),
+		Entry(
+			"conflicting restore requirements",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableAfterVersion":123456789,"restorableForSeconds":604800}}`,
+			false,
+		),
+		Entry("retention", `{"expiration":{"expireAfterSeconds":2592000}}`, true),
+		Entry(
+			"restore window",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableForSeconds":604800,"intervalSeconds":3600}}`,
+			true,
+		),
+		Entry("missing retention", `{"expiration":{}}`, false),
+		Entry("negative retention", `{"expiration":{"expireAfterSeconds":-1}}`, false),
+		Entry(
+			"overflowing duration",
+			`{"expiration":{"expireAfterSeconds":9223372036854775807}}`,
+			false,
+		),
+		Entry(
+			"zero restore window",
+			`{"expiration":{"expireAfterSeconds":100,"restorableForSeconds":0}}`,
+			false,
+		),
+		Entry(
+			"restore window exceeds retention",
+			`{"expiration":{"expireAfterSeconds":100,"restorableForSeconds":101}}`,
+			false,
+		),
+		Entry(
+			"too frequent",
+			`{"expiration":{"expireAfterSeconds":100,"intervalSeconds":1}}`,
+			false,
+		),
+		Entry(
+			"too infrequent",
+			`{"expiration":{"expireAfterSeconds":100,"intervalSeconds":86401}}`,
+			false,
+		),
+		Entry(
+			"unmanaged",
+			`{"backupType":"unmanaged","expiration":{"expireAfterSeconds":100}}`,
 			false,
 		),
 	)

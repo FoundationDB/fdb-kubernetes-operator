@@ -76,8 +76,8 @@ type FoundationDBBackupSpecApplyConfiguration struct {
 	// for the same cluster.
 	// Default: "default".
 	Tag *apiv1beta2.BackupTag `json:"tag,omitempty"`
-	// Expiration requests removal of old backup data while preserving FDB's restorability checks
-	// Updating the cutoff submits a new request. Omitting this field disables new requests
+	// Expiration configures recurring removal of old backup data with FDB restorability checks
+	// Omitting this field disables new expiration Jobs
 	Expiration *BackupExpirationApplyConfiguration `json:"expiration,omitempty"`
 }
 

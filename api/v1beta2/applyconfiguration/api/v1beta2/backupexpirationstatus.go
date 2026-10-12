@@ -3,28 +3,36 @@
 package v1beta2
 
 import (
+	apiv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // BackupExpirationStatusApplyConfiguration represents a declarative configuration of the BackupExpirationStatus type for use
 // with apply.
 //
-// BackupExpirationStatus records the most recent expiration request and its execution
+// BackupExpirationStatus records the most recent expiration Job and its schedule
 type BackupExpirationStatusApplyConfiguration struct {
+	// Policy is the retention policy used to calculate this Job's cutoffs
+	Policy *BackupExpirationApplyConfiguration `json:"policy,omitempty"`
 	// BeforeTimestamp is the requested cutoff, not a guarantee that every older file was removed
 	BeforeTimestamp *v1.Time `json:"beforeTimestamp,omitempty"`
-	// DestinationURL is the backup container pinned when the request was accepted
+	// RestorableAfterTimestamp is the minimum restorable point requested from FDB
+	RestorableAfterTimestamp *v1.Time `json:"restorableAfterTimestamp,omitempty"`
+	// DestinationURL pins the target across restarts and Job creation, even if the backup URL changes
 	DestinationURL *string `json:"destinationURL,omitempty"`
-	// ClusterName identifies the source cluster used to resolve the timestamp
+	// ClusterName identifies the source cluster used to resolve the timestamps
 	ClusterName *string `json:"clusterName,omitempty"`
-	// JobName identifies the Job executing this request
-	JobName *string `json:"jobName,omitempty"`
-	// Phase reports whether the request is running, succeeded, or failed
-	Phase *string `json:"phase,omitempty"`
+	// JobName identifies the Job executing this expiration
+	JobName *string                           `json:"jobName,omitempty"`
+	Phase   *apiv1beta2.BackupExpirationPhase `json:"phase,omitempty"`
 	// Message provides the Job's failure reason, if any
 	Message *string `json:"message,omitempty"`
 	// CompletionTime records when the operator observed a terminal Job
 	CompletionTime *v1.Time `json:"completionTime,omitempty"`
+	// NextRunTime persists the next scheduled run across operator restarts and spec updates
+	NextRunTime *v1.Time `json:"nextRunTime,omitempty"`
+	// FailureCount counts consecutive failed Jobs for exponential backoff
+	FailureCount *int `json:"failureCount,omitempty"`
 }
 
 // BackupExpirationStatusApplyConfiguration constructs a declarative configuration of the BackupExpirationStatus type for use with
@@ -33,11 +41,27 @@ func BackupExpirationStatus() *BackupExpirationStatusApplyConfiguration {
 	return &BackupExpirationStatusApplyConfiguration{}
 }
 
+// WithPolicy sets the Policy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Policy field is set to the value of the last call.
+func (b *BackupExpirationStatusApplyConfiguration) WithPolicy(value *BackupExpirationApplyConfiguration) *BackupExpirationStatusApplyConfiguration {
+	b.Policy = value
+	return b
+}
+
 // WithBeforeTimestamp sets the BeforeTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the BeforeTimestamp field is set to the value of the last call.
 func (b *BackupExpirationStatusApplyConfiguration) WithBeforeTimestamp(value v1.Time) *BackupExpirationStatusApplyConfiguration {
 	b.BeforeTimestamp = &value
+	return b
+}
+
+// WithRestorableAfterTimestamp sets the RestorableAfterTimestamp field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RestorableAfterTimestamp field is set to the value of the last call.
+func (b *BackupExpirationStatusApplyConfiguration) WithRestorableAfterTimestamp(value v1.Time) *BackupExpirationStatusApplyConfiguration {
+	b.RestorableAfterTimestamp = &value
 	return b
 }
 
@@ -68,7 +92,7 @@ func (b *BackupExpirationStatusApplyConfiguration) WithJobName(value string) *Ba
 // WithPhase sets the Phase field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Phase field is set to the value of the last call.
-func (b *BackupExpirationStatusApplyConfiguration) WithPhase(value string) *BackupExpirationStatusApplyConfiguration {
+func (b *BackupExpirationStatusApplyConfiguration) WithPhase(value apiv1beta2.BackupExpirationPhase) *BackupExpirationStatusApplyConfiguration {
 	b.Phase = &value
 	return b
 }
@@ -86,5 +110,21 @@ func (b *BackupExpirationStatusApplyConfiguration) WithMessage(value string) *Ba
 // If called multiple times, the CompletionTime field is set to the value of the last call.
 func (b *BackupExpirationStatusApplyConfiguration) WithCompletionTime(value v1.Time) *BackupExpirationStatusApplyConfiguration {
 	b.CompletionTime = &value
+	return b
+}
+
+// WithNextRunTime sets the NextRunTime field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NextRunTime field is set to the value of the last call.
+func (b *BackupExpirationStatusApplyConfiguration) WithNextRunTime(value v1.Time) *BackupExpirationStatusApplyConfiguration {
+	b.NextRunTime = &value
+	return b
+}
+
+// WithFailureCount sets the FailureCount field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the FailureCount field is set to the value of the last call.
+func (b *BackupExpirationStatusApplyConfiguration) WithFailureCount(value int) *BackupExpirationStatusApplyConfiguration {
+	b.FailureCount = &value
 	return b
 }

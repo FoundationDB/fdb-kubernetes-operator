@@ -317,30 +317,51 @@ spec:
 
 ## Expiring Backup Data
 
-Set `spec.expiration.beforeTimestamp` on a managed `FoundationDBBackup` to expire data before a fixed RFC3339 timestamp:
+Set `spec.expiration` on a managed `FoundationDBBackup` to expire data automatically. For example, expire data older than 30 days while requiring restorability for the last 7 days:
 
 ```yaml
 spec:
   expiration:
-    beforeTimestamp: "2026-09-01T00:00:00Z"
+    expireAfterSeconds: 2592000
+    restorableForSeconds: 604800
+    intervalSeconds: 3600
 ```
 
-The operator runs `fdbbackup expire` in a Kubernetes Job with FoundationDB's default restorability checks. It never passes `--force`: if expiration would leave the backup unrestorable, the Job fails. Expiration can run against running, paused, or stopped backups, including backups with `agentCount: 0`. It is not supported for `backupType: unmanaged`.
+`expireAfterSeconds` is required and must be positive. `restorableForSeconds` is optional, positive, and no greater than `expireAfterSeconds`. Use `restorableAfterVersion` instead when an external checkpoint requires an exact database version. The two restore requirements are mutually exclusive. Omitting both uses FoundationDB's default restorability check, which can pass when only a newer snapshot remains and does not protect an older checkpoint. Both durations support up to ten years. `intervalSeconds` defaults to one hour and supports values from one minute to one day. Durations use seconds, as does `snapshotPeriodSeconds`; one day is 86400 seconds.
 
-This is a single request, not a rolling retention policy. Change the timestamp to submit another request. The operator pins the destination and source cluster when accepting a request, and finishes an existing Job before starting a different request. Unrelated spec changes do not repeat successful expiration. Removing `expiration` prevents new work but does not cancel a Job that already exists. Deleted data cannot be recovered by removing the field or moving the timestamp backward.
+For each run, the operator subtracts these durations from the current time and passes the resulting cutoffs to `fdbbackup expire` as `--expire-before-timestamp` and, when configured, `--restorable-after-timestamp`. It never passes `--force`. FoundationDB refuses expiration when the remaining snapshots and logs cannot meet the requested restore window. Choose a retention duration that allows room for the snapshot interval and snapshot completion time.
 
-The Job uses the backup's image, pod settings, credentials, TLS configuration, encryption key, and cluster-file initialization. Only the main `foundationdb` container runs, along with the configured init containers; additional regular containers and main-container health probes are omitted. Custom parameters beginning with `knob_` are inherited. The source cluster must remain available to convert the timestamp into an FDB commit version, and the blobstore credentials must permit deletion. Backup containers shared by different resources or operators must have a single owner for expiration.
+To protect a checkpoint, set `restorableAfterVersion` to the oldest database version that must remain restorable:
 
-Inspect `status.expiration` for the pinned destination, source cluster, cutoff, Job name, phase (`Running`, `Succeeded`, or `Failed`), and completion time. `Succeeded` means the command completed, not that every file older than the cutoff disappeared: FDB may retain files that overlap the boundary. While an expiration request is pending or failed, `status.generations.needsBackupExpiration` identifies the unreconciled generation.
+```yaml
+spec:
+  expiration:
+    expireAfterSeconds: 2592000
+    restorableAfterVersion: 123456789
+```
 
-Jobs have a one-hour deadline and at most three retries. A failed Job remains available for diagnosis:
+The operator passes this version unchanged as `--restorable-after-version`. A checkpoint can depend on a snapshot older than the checkpoint itself: expiring before noon can remove a midnight snapshot needed to restore noon, even if a snapshot from the next day is available. FDB must refuse that expiration when the noon version is protected. The restore requirement is a guard, not an automatic adjustment of the expiration cutoff. Increase retention if the cutoff would remove a required snapshot.
+
+The checkpoint owner must supply and advance the oldest required version. The operator does not discover external checkpoints. Each Job pins the requirement before creation; later policy changes apply to subsequent Jobs and cannot protect data already being expired by an active Job.
+
+Expiration runs in a Kubernetes Job against running, paused, or stopped backups, including backups with `agentCount: 0`. It is not supported for `backupType: unmanaged`. Each run pins the cutoffs, destination, and source cluster before creating its Job, so an operator restart or spec change cannot redirect pending deletion. The destination comes from `status.backupDetails`, populated by the status subreconciler. A subsequent run uses the then-current destination; the operator does not retain an inventory of old backup containers.
+
+The Job uses the backup's image, pod settings, storage credentials, TLS configuration, and cluster-file initialization. Expiration does not decrypt backup contents and receives neither `--encryption-key-file` nor `--legacy-encryption-format`. Only the main `foundationdb` container runs, along with configured init containers; additional regular containers and main-container health probes are omitted. Custom parameters beginning with `knob_` are inherited. The source cluster must remain available for timestamp conversion, and blobstore credentials must permit deletion. A backup container shared by several resources or operators must have a single owner for expiration.
+
+Inspect `status.expiration` for the applied policy, concrete cutoffs, pinned destination, Job name, phase, completion time, failure count, and next run time:
 
 ```sh
 kubectl get fdbbackup sample-cluster -o yaml
 kubectl logs job/<status.expiration.jobName>
 ```
 
-After fixing the cause, delete the failed Job to retry the same cutoff and destination. For an unsafe cutoff, select an earlier timestamp or wait until a suitable newer snapshot exists before retrying. The operator keeps the most recent Job and removes it when processing a changed cutoff. Deletion policies that stop or clean up the backup wait for an active expiration Job to finish.
+`Succeeded` means the command completed; FoundationDB may retain files overlapping the cutoff. A pending or failed run, or a policy change awaiting execution, is reported in `status.generations.needsBackupExpiration`.
+
+Jobs have a one-hour deadline and at most three Pod retries. After success, the next run is scheduled one interval after completion. Consecutive failed Jobs double the interval between runs, capped at one day; success resets the backoff. The latest Job remains available for inspection until the next run. Policy changes and manual deletion of a terminal Job do not bypass the recorded schedule. Fix the cause of a failure or adjust the retention policy, then allow the scheduled retry to run.
+
+The operator keeps one Job per backup, deleting the previous Job and waiting for its Pods before starting another. Removing `expiration` prevents new work, lets an active Job finish, then deletes its Job and clears expiration status. Removing the field or increasing retention cannot recover deleted data. Deletion policies that stop or clean up the backup also wait for expiration and its Pods to finish.
+
+Active Jobs are polled once per minute by default. Set the operator flag `--backup-expiration-poll-interval` to adjust this frequency, for example `5m` when managing many backups. Idle backups requeue at their recorded next run time.
 
 ## Restoring a Backup
 

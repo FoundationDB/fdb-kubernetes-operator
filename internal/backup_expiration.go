@@ -23,6 +23,7 @@ package internal
 import (
 	"fmt"
 	"maps"
+	"strconv"
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -32,16 +33,16 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// GetBackupExpirationJob builds a Job for the request pinned in backup status
+// GetBackupExpirationJob builds a Job using the policy and target pinned in backup status
 func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job, error) {
-	request := backup.Status.Expiration
-	if request == nil {
-		return nil, fmt.Errorf("backup has no expiration request")
+	currentStatus := backup.Status.Expiration
+	if currentStatus == nil {
+		return nil, fmt.Errorf("backup has no expiration status")
 	}
 
 	// Build the same runtime configuration even when the backup has no agent deployment
 	configuration := backup.DeepCopy()
-	configuration.Spec.ClusterName = request.ClusterName
+	configuration.Spec.ClusterName = currentStatus.ClusterName
 	configuration.Spec.AgentCount = ptr.To(1)
 	deployment, err := GetBackupDeployment(configuration)
 	if err != nil {
@@ -58,8 +59,16 @@ func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job
 		}
 		container.Command = []string{"fdbbackup"}
 		container.Args = []string{
-			"expire", "-d", request.DestinationURL,
-			"--expire-before-timestamp", request.BeforeTimestamp.UTC().Format("2006/01/02.15:04:05-0700"),
+			"expire", "-d", currentStatus.DestinationURL,
+			"--expire-before-timestamp", currentStatus.BeforeTimestamp.UTC().Format("2006/01/02.15:04:05-0700"),
+		}
+		if currentStatus.RestorableAfterTimestamp != nil {
+			container.Args = append(container.Args, "--restorable-after-timestamp",
+				currentStatus.RestorableAfterTimestamp.UTC().Format("2006/01/02.15:04:05-0700"))
+		}
+		if currentStatus.Policy.RestorableAfterVersion != nil {
+			container.Args = append(container.Args, "--restorable-after-version",
+				strconv.FormatInt(*currentStatus.Policy.RestorableAfterVersion, 10))
 		}
 		// Only knobs can be inherited: other CLI options could override the destination or disable safety checks
 		for _, parameter := range backup.Spec.CustomParameters.GetKnobsForBackupRestoreCLI() {
@@ -77,7 +86,7 @@ func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job
 
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            request.JobName,
+			Name:            currentStatus.JobName,
 			Namespace:       backup.Namespace,
 			Labels:          maps.Clone(backup.Labels),
 			OwnerReferences: BuildOwnerReference(backup.TypeMeta, backup.ObjectMeta),

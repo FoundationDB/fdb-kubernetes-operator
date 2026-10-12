@@ -46,55 +46,43 @@ func (s expireBackup) reconcile(
 		return nil
 	}
 	pending := &requeue{
-		delay:          10 * time.Second,
+		delay:          r.backupExpirationPollInterval(),
 		delayedRequeue: true,
 		message:        "waiting for backup expiration",
 	}
-	request := backup.Status.Expiration
-	desired := backup.Spec.Expiration
-	sameRequest := desired != nil && request != nil &&
-		desired.BeforeTimestamp.Equal(&request.BeforeTimestamp)
+	currentStatus := backup.Status.Expiration
+	// Spec changes and deletion of a terminal Job must not bypass the persisted schedule
+	if backup.Spec.Expiration != nil && currentStatus != nil && currentStatus.NextRunTime != nil {
+		if delay := time.Until(currentStatus.NextRunTime.Time); delay > 0 {
+			return &requeue{
+				delay:          delay,
+				delayedRequeue: true,
+				message:        "waiting for scheduled backup expiration",
+			}
+		}
+	}
 
 	job, err := r.getBackupExpirationJob(ctx, backup)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	if job != nil {
-		phase, message := backupExpirationJobResult(job)
-		if phase == "Running" {
-			if request.Phase != phase {
-				request.Phase = phase
-				request.Message = ""
-				request.CompletionTime = nil
-				if err = r.updateOrApply(ctx, backup); err != nil {
-					return &requeue{curError: err}
-				}
-			}
-			return pending
+		if err = r.updateBackupExpirationStatus(ctx, backup, job); err != nil {
+			return &requeue{curError: err}
 		}
-		if request.Phase != phase {
-			request.Phase = phase
-			request.Message = message
-			now := metav1.Now()
-			request.CompletionTime = &now
-			if err = r.updateOrApply(ctx, backup); err != nil {
-				return &requeue{curError: err}
-			}
-			eventType := corev1.EventTypeNormal
-			if phase == "Failed" {
-				eventType = corev1.EventTypeWarning
-			}
-			r.Recorder.Event(
-				backup,
-				eventType,
-				"BackupExpiration"+phase,
-				"Expiration Job "+job.Name+": "+phase,
-			)
+		if backup.Status.Expiration.Phase == fdbv1beta2.BackupExpirationPhaseRunning {
+			return pending
 		}
 	}
 
-	if desired == nil {
-		if job == nil && request != nil && request.Phase == "Running" {
+	if backup.Spec.Expiration == nil {
+		if job != nil {
+			if err = r.deleteBackupExpirationJob(ctx, job); err != nil {
+				return &requeue{curError: err}
+			}
+			return pending
+		}
+		if currentStatus != nil {
 			backup.Status.Expiration = nil
 			if err = r.updateOrApply(ctx, backup); err != nil {
 				return &requeue{curError: err}
@@ -102,18 +90,25 @@ func (s expireBackup) reconcile(
 		}
 		return nil
 	}
-	if sameRequest {
-		if request.Phase == "Succeeded" {
-			return nil
-		}
-		if job != nil {
-			// Retain a failed Job for diagnosis; deleting it explicitly retries this request
+
+	currentStatus = backup.Status.Expiration
+	if currentStatus != nil && currentStatus.NextRunTime != nil {
+		if delay := time.Until(currentStatus.NextRunTime.Time); delay > 0 {
 			return &requeue{
-				delay:          time.Minute,
+				delay:          delay,
 				delayedRequeue: true,
-				message:        "backup expiration failed; inspect Job " + job.Name,
+				message:        "waiting for scheduled backup expiration",
 			}
 		}
+	}
+	// Remove the previous Job and its Pods before accepting another run
+	if job != nil {
+		if err = r.deleteBackupExpirationJob(ctx, job); err != nil {
+			return &requeue{curError: err}
+		}
+		return pending
+	}
+	if currentStatus != nil && currentStatus.Phase == fdbv1beta2.BackupExpirationPhaseRunning {
 		job, err = internal.GetBackupExpirationJob(backup)
 		if err != nil {
 			return &requeue{curError: err}
@@ -121,59 +116,122 @@ func (s expireBackup) reconcile(
 		if err = r.Create(ctx, job); err != nil {
 			return &requeue{curError: err}
 		}
-		request.Phase = "Running"
-		request.Message = ""
-		request.CompletionTime = nil
-		if err = r.updateOrApply(ctx, backup); err != nil {
-			return &requeue{curError: err}
-		}
 		return pending
 	}
-
-	if job != nil {
-		if job.DeletionTimestamp == nil {
-			err = r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return &requeue{curError: err}
-			}
-		}
+	if backup.Status.BackupDetails == nil || backup.Status.BackupDetails.URL == "" {
+		pending.message = "waiting for backup destination before expiration"
 		return pending
 	}
-
-	adminClient, err := r.adminClientForBackup(ctx, backup)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-	defer func() { _ = adminClient.Close() }()
-	liveStatus, err := adminClient.GetBackupStatus(backup)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-	if liveStatus.DestinationURL == "" {
-		return &requeue{
-			delay:          10 * time.Second,
-			delayedRequeue: true,
-			message:        "waiting for backup destination before expiration",
-		}
-	}
-
-	hash := sha256.Sum256(
-		[]byte(string(backup.UID) + "/" + desired.BeforeTimestamp.UTC().Format(time.RFC3339)),
-	)
-	backup.Status.Expiration = &fdbv1beta2.BackupExpirationStatus{
-		BeforeTimestamp: desired.BeforeTimestamp,
-		DestinationURL:  liveStatus.DestinationURL,
-		ClusterName:     backup.Spec.ClusterName,
-		JobName:         fmt.Sprintf("fdbbackup-expire-%x", hash[:16]),
-		Phase:           "Running",
-	}
-	// Persist the target before creating the Job so restarts cannot redirect a pending request
-	if err = r.updateOrApply(ctx, backup); err != nil {
+	if err = r.scheduleBackupExpiration(ctx, backup); err != nil {
 		return &requeue{curError: err}
 	}
 	return pending
 }
 
+func (r *FoundationDBBackupReconciler) backupExpirationPollInterval() time.Duration {
+	if r.BackupExpirationPollInterval <= 0 {
+		return time.Minute
+	}
+	return r.BackupExpirationPollInterval
+}
+
+// scheduleBackupExpiration persists the cutoffs and target before Job creation so restarts cannot redirect deletion
+func (r *FoundationDBBackupReconciler) scheduleBackupExpiration(
+	ctx context.Context,
+	backup *fdbv1beta2.FoundationDBBackup,
+) error {
+	now := time.Now().UTC().Truncate(time.Second)
+	policy := backup.Spec.Expiration.DeepCopy()
+	cutoff := metav1.NewTime(now.Add(-time.Duration(policy.ExpireAfterSeconds) * time.Second))
+	hash := sha256.Sum256([]byte(string(backup.UID) + "/" + cutoff.Format(time.RFC3339Nano)))
+	failureCount := 0
+	if backup.Status.Expiration != nil {
+		failureCount = backup.Status.Expiration.FailureCount
+	}
+	backup.Status.Expiration = &fdbv1beta2.BackupExpirationStatus{
+		Policy:          *policy,
+		BeforeTimestamp: cutoff,
+		DestinationURL:  backup.Status.BackupDetails.URL,
+		ClusterName:     backup.Spec.ClusterName,
+		JobName:         fmt.Sprintf("fdbbackup-expire-%x", hash[:16]),
+		Phase:           fdbv1beta2.BackupExpirationPhaseRunning,
+		FailureCount:    failureCount,
+	}
+	if policy.RestorableForSeconds != nil {
+		restorableAfter := metav1.NewTime(
+			now.Add(-time.Duration(*policy.RestorableForSeconds) * time.Second),
+		)
+		backup.Status.Expiration.RestorableAfterTimestamp = &restorableAfter
+	}
+	return r.updateOrApply(ctx, backup)
+}
+
+func (r *FoundationDBBackupReconciler) updateBackupExpirationStatus(
+	ctx context.Context,
+	backup *fdbv1beta2.FoundationDBBackup,
+	job *batchv1.Job,
+) error {
+	phase, message := backupExpirationJobResult(job)
+	if backup.Status.Expiration.Phase == phase {
+		return nil
+	}
+	backup.Status.Expiration.Phase = phase
+	backup.Status.Expiration.Message = message
+	backup.Status.Expiration.CompletionTime = nil
+	backup.Status.Expiration.NextRunTime = nil
+	if phase != fdbv1beta2.BackupExpirationPhaseRunning {
+		now := metav1.Now()
+		backup.Status.Expiration.CompletionTime = &now
+		if phase == fdbv1beta2.BackupExpirationPhaseFailed {
+			backup.Status.Expiration.FailureCount = min(backup.Status.Expiration.FailureCount+1, 32)
+		} else {
+			backup.Status.Expiration.FailureCount = 0
+		}
+		nextRun := metav1.NewTime(now.Add(backupExpirationRetryDelay(backup.Status.Expiration)))
+		backup.Status.Expiration.NextRunTime = &nextRun
+	}
+	if err := r.updateOrApply(ctx, backup); err != nil {
+		return err
+	}
+	if phase != fdbv1beta2.BackupExpirationPhaseRunning {
+		eventType := corev1.EventTypeNormal
+		if phase == fdbv1beta2.BackupExpirationPhaseFailed {
+			eventType = corev1.EventTypeWarning
+		}
+		r.Recorder.Event(
+			backup,
+			eventType,
+			"BackupExpiration"+string(phase),
+			"Expiration Job "+job.Name+": "+string(phase),
+		)
+	}
+	return nil
+}
+
+func backupExpirationRetryDelay(currentStatus *fdbv1beta2.BackupExpirationStatus) time.Duration {
+	interval := currentStatus.Policy.Interval()
+	for failures := 1; failures < currentStatus.FailureCount && interval < 24*time.Hour; failures++ {
+		interval *= 2
+	}
+	return min(interval, 24*time.Hour)
+}
+
+// deleteBackupExpirationJob starts foreground deletion; callers must wait for the Job to disappear
+func (r *FoundationDBBackupReconciler) deleteBackupExpirationJob(
+	ctx context.Context,
+	job *batchv1.Job,
+) error {
+	if job.DeletionTimestamp != nil {
+		return nil
+	}
+	err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationForeground))
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+// getBackupExpirationJob fetches the recorded Job and verifies that this backup controls it
 func (r *FoundationDBBackupReconciler) getBackupExpirationJob(
 	ctx context.Context,
 	backup *fdbv1beta2.FoundationDBBackup,
@@ -199,17 +257,17 @@ func (r *FoundationDBBackupReconciler) getBackupExpirationJob(
 	return job, nil
 }
 
-func backupExpirationJobResult(job *batchv1.Job) (string, string) {
+func backupExpirationJobResult(job *batchv1.Job) (fdbv1beta2.BackupExpirationPhase, string) {
 	for _, condition := range job.Status.Conditions {
 		if condition.Status != corev1.ConditionTrue {
 			continue
 		}
 		switch condition.Type {
 		case batchv1.JobComplete:
-			return "Succeeded", ""
+			return fdbv1beta2.BackupExpirationPhaseSucceeded, ""
 		case batchv1.JobFailed:
-			return "Failed", condition.Reason + ": " + condition.Message
+			return fdbv1beta2.BackupExpirationPhaseFailed, condition.Reason + ": " + condition.Message
 		}
 	}
-	return "Running", ""
+	return fdbv1beta2.BackupExpirationPhaseRunning, ""
 }

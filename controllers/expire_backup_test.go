@@ -46,7 +46,8 @@ var _ = Describe("backup expiration", func() {
 		cluster := internal.CreateDefaultCluster()
 		backup = internal.CreateDefaultBackup(cluster)
 		backup.Spec.Expiration = &fdbv1beta2.BackupExpiration{
-			BeforeTimestamp: metav1.NewTime(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)),
+			ExpireAfterSeconds:   86400,
+			RestorableForSeconds: ptr.To(int64(3600)),
 		}
 		Expect(k8sClient.Create(ctx, cluster)).To(Succeed())
 		Expect(k8sClient.Create(ctx, backup)).To(Succeed())
@@ -90,7 +91,9 @@ var _ = Describe("backup expiration", func() {
 			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 			reconcile()
 			Expect(jobs()).To(HaveLen(1))
-			Expect(backup.Status.Expiration.Phase).To(Equal("Running"))
+			Expect(
+				backup.Status.Expiration.Phase,
+			).To(Equal(fdbv1beta2.BackupExpirationPhaseRunning))
 			Expect(backup.Status.Generations.NeedsBackupExpiration).To(Equal(backup.Generation))
 			Expect(backup.Status.Generations.Reconciled).To(BeNumerically("<", backup.Generation))
 		},
@@ -100,6 +103,7 @@ var _ = Describe("backup expiration", func() {
 	)
 
 	It("persists the target before creating a Job and retains it across restarts", func() {
+		Expect(updateBackupStatus{}.reconcile(ctx, backupReconciler, backup)).To(BeNil())
 		req := expireBackup{}.reconcile(ctx, backupReconciler, backup)
 		Expect(req.curError).NotTo(HaveOccurred())
 		Expect(jobs()).To(BeEmpty())
@@ -119,7 +123,7 @@ var _ = Describe("backup expiration", func() {
 		job := jobs()[0]
 		finish(&job, batchv1.JobComplete)
 		reconcile()
-		Expect(backup.Status.Expiration.Phase).To(Equal("Succeeded"))
+		Expect(backup.Status.Expiration.Phase).To(Equal(fdbv1beta2.BackupExpirationPhaseSucceeded))
 		Expect(backup.Status.Expiration.CompletionTime).NotTo(BeNil())
 		Expect(backup.Status.Generations.Reconciled).To(Equal(backup.Generation))
 		Expect(k8sClient.Delete(ctx, &job)).To(Succeed())
@@ -127,31 +131,53 @@ var _ = Describe("backup expiration", func() {
 		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 		reconcile()
 		Expect(jobs()).To(BeEmpty())
-		Expect(backup.Status.Expiration.Phase).To(Equal("Succeeded"))
+		Expect(backup.Status.Expiration.Phase).To(Equal(fdbv1beta2.BackupExpirationPhaseSucceeded))
 	})
 
-	It("retains a failed Job until the user deletes it to retry", func() {
+	It("backs off failed runs even after policy changes or Job deletion", func() {
 		reconcile()
+		for attempt := 1; attempt <= 3; attempt++ {
+			job := jobs()[0]
+			finish(&job, batchv1.JobFailed)
+			reconcile()
+			currentStatus := backup.Status.Expiration
+			Expect(currentStatus.Phase).To(Equal(fdbv1beta2.BackupExpirationPhaseFailed))
+			Expect(currentStatus.Message).To(ContainSubstring("TestResult"))
+			Expect(currentStatus.FailureCount).To(Equal(attempt))
+			Expect(
+				currentStatus.NextRunTime.Sub(currentStatus.CompletionTime.Time),
+			).To(Equal(time.Hour * time.Duration(1<<(attempt-1))))
+			Expect(jobs()).To(HaveLen(1))
+			backup.Spec.Expiration.ExpireAfterSeconds++
+			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, &job)).To(Succeed())
+			reconcile()
+			Expect(jobs()).To(BeEmpty())
+			backup.Status.Expiration.NextRunTime = ptr.To(
+				metav1.NewTime(time.Now().Add(-time.Minute)),
+			)
+			Expect(k8sClient.Status().Update(ctx, backup)).To(Succeed())
+			reconcile()
+			Expect(jobs()).To(HaveLen(1))
+			Expect(jobs()[0].Name).NotTo(Equal(job.Name))
+			Expect(
+				backup.Status.Expiration.Phase,
+			).To(Equal(fdbv1beta2.BackupExpirationPhaseRunning))
+		}
 		job := jobs()[0]
-		finish(&job, batchv1.JobFailed)
+		finish(&job, batchv1.JobComplete)
 		reconcile()
-		Expect(backup.Status.Expiration.Phase).To(Equal("Failed"))
-		Expect(backup.Status.Expiration.Message).To(ContainSubstring("TestResult"))
-		Expect(jobs()).To(HaveLen(1))
-		Expect(jobs()[0].UID).To(Equal(job.UID))
-		Expect(k8sClient.Delete(ctx, &job)).To(Succeed())
-		reconcile()
-		Expect(jobs()).To(HaveLen(1))
-		Expect(jobs()[0].Status.Conditions).To(BeEmpty())
-		Expect(backup.Status.Expiration.Phase).To(Equal("Running"))
-		Expect(backup.Status.Expiration.Message).To(BeEmpty())
+		Expect(backup.Status.Expiration.FailureCount).To(BeZero())
+		Expect(
+			backup.Status.Expiration.NextRunTime.Sub(backup.Status.Expiration.CompletionTime.Time),
+		).To(Equal(time.Hour))
 	})
 
-	It("finishes an active request before processing a changed cutoff", func() {
+	It("finishes an active Job before applying a changed policy at the next scheduled run", func() {
 		reconcile()
 		job := jobs()[0]
-		originalCutoff := backup.Spec.Expiration.BeforeTimestamp
-		backup.Spec.Expiration.BeforeTimestamp = metav1.NewTime(originalCutoff.Add(24 * time.Hour))
+		originalCutoff := backup.Status.Expiration.BeforeTimestamp
+		backup.Spec.Expiration.ExpireAfterSeconds *= 2
 		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 		reconcile()
 		Expect(jobs()).To(HaveLen(1))
@@ -159,11 +185,109 @@ var _ = Describe("backup expiration", func() {
 		Expect(backup.Status.Expiration.BeforeTimestamp).To(Equal(originalCutoff))
 		finish(&job, batchv1.JobComplete)
 		reconcile()
+		Expect(jobs()[0].Name).To(Equal(job.Name))
+		backup.Status.Expiration.NextRunTime = ptr.To(metav1.NewTime(time.Now().Add(-time.Minute)))
+		Expect(k8sClient.Status().Update(ctx, backup)).To(Succeed())
+		reconcile()
 		Expect(jobs()).To(HaveLen(1))
 		Expect(jobs()[0].Name).NotTo(Equal(job.Name))
 		Expect(
-			backup.Status.Expiration.BeforeTimestamp,
-		).To(Equal(backup.Spec.Expiration.BeforeTimestamp))
+			backup.Status.Expiration.Policy.ExpireAfterSeconds,
+		).To(Equal(backup.Spec.Expiration.ExpireAfterSeconds))
+		Expect(backup.Status.Expiration.BeforeTimestamp.Before(&originalCutoff)).To(BeTrue())
+	})
+
+	It("expires again without changing the spec and waits for the previous Job's Pods", func() {
+		reconcile()
+		job := jobs()[0]
+		job.Finalizers = []string{metav1.FinalizerDeleteDependents}
+		Expect(k8sClient.Update(ctx, &job)).To(Succeed())
+		finish(&job, batchv1.JobComplete)
+		reconcile()
+		generation := backup.Generation
+		backup.Status.Expiration.NextRunTime = ptr.To(metav1.NewTime(time.Now().Add(-time.Minute)))
+		Expect(k8sClient.Status().Update(ctx, backup)).To(Succeed())
+		reconcile()
+		Expect(jobs()).To(HaveLen(1))
+		job = jobs()[0]
+		Expect(job.DeletionTimestamp).NotTo(BeNil())
+		job.Finalizers = nil
+		Expect(k8sClient.Update(ctx, &job)).To(Succeed())
+		reconcile()
+		Expect(jobs()).To(HaveLen(1))
+		Expect(jobs()[0].UID).NotTo(Equal(job.UID))
+		Expect(jobs()[0].Status.Conditions).To(BeEmpty())
+		Expect(backup.Generation).To(Equal(generation))
+	})
+
+	It("pins both relative cutoffs using the backup status without another admin call", func() {
+		backup.Status.BackupDetails = &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
+			URL: "blobstore://pinned",
+		}
+		adminClient.MockError(errors.New("unexpected admin call"))
+		before := time.Now().Truncate(time.Second)
+		req := expireBackup{}.reconcile(ctx, backupReconciler, backup)
+		Expect(req.curError).NotTo(HaveOccurred())
+		Expect(backup.Status.Expiration.DestinationURL).To(Equal("blobstore://pinned"))
+		Expect(
+			backup.Status.Expiration.BeforeTimestamp.Time,
+		).To(BeTemporally(">=", before.Add(-24*time.Hour)))
+		Expect(
+			backup.Status.Expiration.BeforeTimestamp.Time,
+		).To(BeTemporally("<=", time.Now().Add(-24*time.Hour)))
+		Expect(
+			backup.Status.Expiration.RestorableAfterTimestamp.Sub(
+				backup.Status.Expiration.BeforeTimestamp.Time,
+			),
+		).To(Equal(23 * time.Hour))
+	})
+
+	It("waits for backup details instead of querying the admin client", func() {
+		adminClient.MockError(errors.New("unexpected admin call"))
+		req := expireBackup{}.reconcile(ctx, backupReconciler, backup)
+		Expect(req.curError).NotTo(HaveOccurred())
+		Expect(backup.Status.Expiration).To(BeNil())
+		Expect(jobs()).To(BeEmpty())
+	})
+
+	It("pins the protected checkpoint version across restarts and policy changes", func() {
+		backup.Spec.Expiration.RestorableForSeconds = nil
+		backup.Spec.Expiration.RestorableAfterVersion = ptr.To(int64(123456789))
+		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+		Expect(updateBackupStatus{}.reconcile(ctx, backupReconciler, backup)).To(BeNil())
+		Expect(
+			expireBackup{}.reconcile(ctx, backupReconciler, backup).curError,
+		).NotTo(HaveOccurred())
+		Expect(jobs()).To(BeEmpty())
+		_, err := reloadBackup(backup)
+		Expect(err).NotTo(HaveOccurred())
+		*backup.Spec.Expiration.RestorableAfterVersion = 987654321
+		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+		reconcile()
+		Expect(jobs()).To(HaveLen(1))
+		Expect(
+			jobs()[0].Spec.Template.Spec.Containers[0].Args,
+		).To(ContainElements("--restorable-after-version", "123456789"))
+		Expect(
+			backup.Status.Expiration.Policy.RestorableAfterVersion,
+		).To(HaveValue(Equal(int64(123456789))))
+		job := jobs()[0]
+		finish(&job, batchv1.JobComplete)
+		reconcile()
+		Expect(backup.NeedsBackupExpiration()).To(BeTrue())
+	})
+
+	It("uses the configured polling interval", func() {
+		reconciler := *backupReconciler
+		reconciler.BackupExpirationPollInterval = 3 * time.Minute
+		req := expireBackup{}.reconcile(ctx, &reconciler, backup)
+		Expect(req.delay).To(Equal(3 * time.Minute))
+	})
+
+	It("caps repeated failures at a daily retry", func() {
+		Expect(backupExpirationRetryDelay(&fdbv1beta2.BackupExpirationStatus{
+			Policy: *backup.Spec.Expiration, FailureCount: 32,
+		})).To(Equal(24 * time.Hour))
 	})
 
 	It("observes an active Job after expiration is removed without creating another", func() {
@@ -175,11 +299,12 @@ var _ = Describe("backup expiration", func() {
 		Expect(jobs()).To(HaveLen(1))
 		finish(&job, batchv1.JobComplete)
 		reconcile()
-		Expect(backup.Status.Expiration.Phase).To(Equal("Succeeded"))
-		Expect(jobs()).To(HaveLen(1))
+		Expect(backup.Status.Expiration).To(BeNil())
+		Expect(jobs()).To(BeEmpty())
 	})
 
 	It("does not create an unstarted request after expiration is removed", func() {
+		Expect(updateBackupStatus{}.reconcile(ctx, backupReconciler, backup)).To(BeNil())
 		req := expireBackup{}.reconcile(ctx, backupReconciler, backup)
 		Expect(req.curError).NotTo(HaveOccurred())
 		backup.Spec.Expiration = nil
