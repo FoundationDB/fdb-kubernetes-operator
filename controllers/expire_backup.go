@@ -42,9 +42,6 @@ func (s expireBackup) reconcile(
 	r *FoundationDBBackupReconciler,
 	backup *fdbv1beta2.FoundationDBBackup,
 ) *requeue {
-	if backup.GetBackupType() == fdbv1beta2.BackupTypeUnmanaged {
-		return nil
-	}
 	pending := &requeue{
 		delay:          r.backupExpirationPollInterval(),
 		delayedRequeue: true,
@@ -192,7 +189,7 @@ func (r *FoundationDBBackupReconciler) updateBackupExpirationStatus(
 		} else {
 			backup.Status.Expiration.FailureCount = 0
 		}
-		nextRun := metav1.NewTime(now.Add(backupExpirationRetryDelay(backup.Status.Expiration)))
+		nextRun := metav1.NewTime(now.Add(backupExpirationNextRunDelay(backup.Status.Expiration)))
 		backup.Status.Expiration.NextRunTime = &nextRun
 	}
 	if err := r.updateOrApply(ctx, backup); err != nil {
@@ -213,7 +210,7 @@ func (r *FoundationDBBackupReconciler) updateBackupExpirationStatus(
 	return nil
 }
 
-func backupExpirationRetryDelay(currentStatus *fdbv1beta2.BackupExpirationStatus) time.Duration {
+func backupExpirationNextRunDelay(currentStatus *fdbv1beta2.BackupExpirationStatus) time.Duration {
 	interval := currentStatus.Policy.Interval()
 	for failures := 1; failures < currentStatus.FailureCount && interval < 24*time.Hour; failures++ {
 		interval *= 2

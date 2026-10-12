@@ -236,7 +236,7 @@ type BackupExpirationStatus struct {
 	FailureCount int `json:"failureCount,omitempty"`
 }
 
-// NeedsBackupExpiration reports whether the configured policy has a successful execution
+// NeedsBackupExpiration reports whether the configured policy still needs a successful execution
 func (backup *FoundationDBBackup) NeedsBackupExpiration() bool {
 	desired := backup.Spec.Expiration
 	if desired == nil {

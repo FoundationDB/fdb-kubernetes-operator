@@ -136,6 +136,60 @@ var _ = Describe("backup expiration", func() {
 	})
 
 	DescribeTable(
+		"keeps expiration timing separate from pending agent updates",
+		func(condition batchv1.JobConditionType, agentsReady bool, expectedDelay time.Duration) {
+			backup.Spec.Expiration.IntervalSeconds = ptr.To(int64(86400))
+			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+			reconcile()
+			job := jobs()[0]
+			if condition != "" {
+				finish(&job, condition)
+				reconcile()
+			}
+			nextRun := backup.Status.Expiration.NextRunTime.DeepCopy()
+			backup.Spec.AgentCount = ptr.To(3)
+			backup.Generation++
+			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+			reconciler := *backupReconciler
+			reconciler.InSimulation = agentsReady
+			reconciler.BackupExpirationPollInterval = 3 * time.Minute
+
+			result, err := reconciler.Reconcile(ctx, ctrl.Request{
+				NamespacedName: client.ObjectKeyFromObject(backup),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = reloadBackup(backup)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(backup.Status.Generations.NeedsBackupAgentUpdate != 0).To(Equal(!agentsReady))
+			Expect(result.RequeueAfter).To(BeNumerically("~", expectedDelay, time.Second))
+			Expect(backup.Status.Expiration.NextRunTime).To(Equal(nextRun))
+			Expect(jobs()).To(HaveLen(1))
+			Expect(jobs()[0].UID).To(Equal(job.UID))
+		},
+		Entry(
+			"pending agents with active expiration",
+			batchv1.JobConditionType(""),
+			false,
+			5*time.Second,
+		),
+		Entry(
+			"pending agents after successful expiration",
+			batchv1.JobComplete,
+			false,
+			5*time.Second,
+		),
+		Entry("pending agents during expiration backoff", batchv1.JobFailed, false, 5*time.Second),
+		Entry(
+			"ready agents with active expiration",
+			batchv1.JobConditionType(""),
+			true,
+			3*time.Minute,
+		),
+		Entry("ready agents after successful expiration", batchv1.JobComplete, true, 24*time.Hour),
+		Entry("ready agents during expiration backoff", batchv1.JobFailed, true, 24*time.Hour),
+	)
+
+	DescribeTable(
 		"requeues at the earlier backup maintenance deadline",
 		func(podCleanupDelay, expirationInterval time.Duration) {
 			backup.Spec.Expiration.IntervalSeconds = ptr.To(int64(expirationInterval.Seconds()))
@@ -145,19 +199,22 @@ var _ = Describe("backup expiration", func() {
 			finish(&job, batchv1.JobComplete)
 			reconcile()
 			nextRun := backup.Status.Expiration.NextRunTime.DeepCopy()
-			backupReconciler.MinimumAgeForTerminalPodDeletion = podCleanupDelay
+			reconciler := *backupReconciler
+			reconciler.MinimumAgeForTerminalPodDeletion = podCleanupDelay
+			reconciler.InSimulation = false
 			setupUnreadyDeploymentWithTerminalPod(ctx, backup, corev1.PodFailed)
 
-			result, err := backupReconciler.Reconcile(ctx, ctrl.Request{
+			result, err := reconciler.Reconcile(ctx, ctrl.Request{
 				NamespacedName: client.ObjectKeyFromObject(backup),
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 			Expect(
 				result.RequeueAfter,
-			).To(BeNumerically("<=", min(podCleanupDelay, expirationInterval)))
+			).To(BeNumerically("~", min(podCleanupDelay, expirationInterval), time.Second))
 			_, err = reloadBackup(backup)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(backup.Status.Generations.NeedsBackupAgentUpdate).To(Equal(backup.Generation))
 			Expect(backup.Status.Expiration.NextRunTime).To(Equal(nextRun))
 			Expect(jobs()).To(HaveLen(1))
 			Expect(jobs()[0].UID).To(Equal(job.UID))
@@ -318,23 +375,84 @@ var _ = Describe("backup expiration", func() {
 	})
 
 	It("caps repeated failures at a daily retry", func() {
-		Expect(backupExpirationRetryDelay(&fdbv1beta2.BackupExpirationStatus{
+		Expect(backupExpirationNextRunDelay(&fdbv1beta2.BackupExpirationStatus{
 			Policy: *backup.Spec.Expiration, FailureCount: 32,
 		})).To(Equal(24 * time.Hour))
 	})
 
-	It("observes an active Job after expiration is removed without creating another", func() {
-		reconcile()
-		job := jobs()[0]
-		backup.Spec.Expiration = nil
-		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
-		reconcile()
-		Expect(jobs()).To(HaveLen(1))
-		finish(&job, batchv1.JobComplete)
-		reconcile()
-		Expect(backup.Status.Expiration).To(BeNil())
-		Expect(jobs()).To(BeEmpty())
-	})
+	DescribeTable(
+		"cleans up an active Job after expiration is removed",
+		func(backupType fdbv1beta2.BackupType) {
+			reconcile()
+			job := jobs()[0]
+			backup.Spec.Expiration = nil
+			backup.Spec.BackupType = ptr.To(backupType)
+			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+			reconcile()
+			Expect(jobs()).To(HaveLen(1))
+			Expect(
+				backup.Status.Expiration.Phase,
+			).To(Equal(fdbv1beta2.BackupExpirationPhaseRunning))
+			job.Finalizers = []string{metav1.FinalizerDeleteDependents}
+			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
+			finish(&job, batchv1.JobComplete)
+			reconcile()
+			Expect(jobs()).To(HaveLen(1))
+			job = jobs()[0]
+			Expect(job.DeletionTimestamp).NotTo(BeNil())
+			Expect(backup.Status.Expiration).NotTo(BeNil())
+			job.Finalizers = nil
+			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
+			reconcile()
+			Expect(backup.Status.Expiration).To(BeNil())
+			Expect(jobs()).To(BeEmpty())
+		},
+		Entry("remaining managed", fdbv1beta2.BackupTypeDefault),
+		Entry("switching to unmanaged", fdbv1beta2.BackupTypeUnmanaged),
+	)
+
+	DescribeTable(
+		"uses expiration polling while backup deletion waits for a Job",
+		func(condition batchv1.JobConditionType, policy fdbv1beta2.BackupDeletionPolicy) {
+			backup.Spec.DeletionPolicy = ptr.To(policy)
+			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+			reconcile()
+			job := jobs()[0]
+			job.Finalizers = []string{metav1.FinalizerDeleteDependents}
+			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
+			if condition != "" {
+				finish(&job, condition)
+			}
+			Expect(k8sClient.Delete(ctx, backup)).To(Succeed())
+			reconciler := *backupReconciler
+			reconciler.BackupExpirationPollInterval = 3 * time.Minute
+			adminClient.MockError(errors.New("cleanup reached admin client"))
+
+			result, err := reconciler.Reconcile(ctx, ctrl.Request{
+				NamespacedName: client.ObjectKeyFromObject(backup),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(3 * time.Minute))
+		},
+		Entry(
+			"active Job with cleanup",
+			batchv1.JobConditionType(""),
+			fdbv1beta2.BackupDeletionPolicyCleanup,
+		),
+		Entry(
+			"completed Job with cleanup",
+			batchv1.JobComplete,
+			fdbv1beta2.BackupDeletionPolicyCleanup,
+		),
+		Entry("failed Job with cleanup", batchv1.JobFailed, fdbv1beta2.BackupDeletionPolicyCleanup),
+		Entry(
+			"active Job with stop",
+			batchv1.JobConditionType(""),
+			fdbv1beta2.BackupDeletionPolicyStop,
+		),
+		Entry("completed Job with stop", batchv1.JobComplete, fdbv1beta2.BackupDeletionPolicyStop),
+		Entry("failed Job with stop", batchv1.JobFailed, fdbv1beta2.BackupDeletionPolicyStop),
+	)
 
 	It("does not create an unstarted request after expiration is removed", func() {
 		Expect(updateBackupStatus{}.reconcile(ctx, backupReconciler, backup)).To(BeNil())
@@ -353,23 +471,25 @@ var _ = Describe("backup expiration", func() {
 			backup.Spec.DeletionPolicy = ptr.To(policy)
 			backup.DeletionTimestamp = ptr.To(metav1.Now())
 			adminClient.MockError(errors.New("cleanup reached admin client"))
-			Expect(backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)).To(Succeed())
+			_, err := backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)
+			Expect(err).NotTo(HaveOccurred())
 			job := jobs()[0]
 			// Hold the Job until its dependents have been removed by garbage collection
 			job.Finalizers = []string{metav1.FinalizerDeleteDependents}
 			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
 			finish(&job, condition)
-			Expect(backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)).To(Succeed())
+			_, err = backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(jobs()).To(HaveLen(1))
 			job = jobs()[0]
 			Expect(job.DeletionTimestamp).NotTo(BeNil())
-			Expect(backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)).To(Succeed())
+			_, err = backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)
+			Expect(err).NotTo(HaveOccurred())
 			job.Finalizers = nil
 			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
 			Expect(jobs()).To(BeEmpty())
-			Expect(
-				backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup),
-			).To(MatchError("cleanup reached admin client"))
+			_, err = backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)
+			Expect(err).To(MatchError("cleanup reached admin client"))
 		},
 		Entry(
 			"completed Job with cleanup",

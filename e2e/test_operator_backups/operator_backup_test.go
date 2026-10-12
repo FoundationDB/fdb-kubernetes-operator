@@ -217,34 +217,11 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					DescribeTable(
 						"preserves the requested checkpoint during expiration",
 						func(ctx SpecContext, protectOlderCheckpoint bool) {
-							type snapshotVersion struct {
-								Version      uint64
-								EpochSeconds int64
-							}
-							type snapshot struct {
-								Start      snapshotVersion
-								End        snapshotVersion
-								Restorable bool
-							}
-							describeSnapshots := func() []snapshot {
-								var description struct{ Snapshots []snapshot }
-								url, err := backup.GetBackup(ctx).BackupURL()
-								Expect(err).NotTo(HaveOccurred())
-								output := backup.RunCommandOnBackupPod(
-									ctx,
-									fmt.Sprintf(
-										"fdbbackup describe -d %q --json --version-timestamps",
-										url,
-									),
-								)
-								Expect(json.Unmarshal([]byte(output), &description)).To(Succeed())
-								return description.Snapshots
-							}
 							status := backup.RunStatusCommand(ctx)
 							Expect(status.LatestRestorablePoint).NotTo(BeNil())
 							Expect(status.LatestRestorablePoint.Version).NotTo(BeNil())
 							olderCheckpoint := *status.LatestRestorablePoint.Version
-							snapshots := describeSnapshots()
+							snapshots := describeBackupSnapshots(ctx, backup)
 							Expect(snapshots).NotTo(BeEmpty())
 							oldSnapshot := snapshots[0]
 							Expect(oldSnapshot.Restorable).To(BeTrue())
@@ -257,9 +234,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							fdbCluster.WriteKeyValues(ctx, keyValues)
 							backup.Start(ctx)
 							backup.SetSnapshotInterval(ctx, 30)
-							var retainedSnapshot snapshot
+							var retainedSnapshot backupSnapshot
 							Eventually(func() bool {
-								for _, candidate := range describeSnapshots() {
+								for _, candidate := range describeBackupSnapshots(ctx, backup) {
 									if candidate.Restorable &&
 										candidate.Start.EpochSeconds > cutoff.Add(time.Minute).
 											Unix() {
@@ -293,7 +270,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							after := backup.RunDescribeCommand(ctx)
 							Expect(ptr.Deref(after.Restorable, false)).To(BeTrue())
 							Expect(after.TotalSnapshotBytes).NotTo(BeNil())
-							snapshots = describeSnapshots()
+							snapshots = describeBackupSnapshots(ctx, backup)
 							if protectOlderCheckpoint {
 								Expect(
 									*after.TotalSnapshotBytes,
@@ -301,28 +278,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 								Expect(
 									snapshots,
 								).To(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
-								pods := &corev1.PodList{}
-								Expect(factory.GetControllerRuntimeClient().List(ctx, pods,
-									ctrlClient.InNamespace(fdbCluster.Namespace()),
-									ctrlClient.MatchingLabels{
-										"job-name": backup.GetBackup(ctx).Status.Expiration.JobName,
-									},
-								),
-								).To(Succeed())
-								Expect(pods.Items).NotTo(BeEmpty())
-								for idx := range pods.Items {
-									Expect(
-										factory.GetLogsForPod(
-											ctx,
-											&pods.Items[idx],
-											fdbv1beta2.MainContainerName,
-											nil,
-										),
-									).To(
-										ContainSubstring(
-											"Requested expiration would be unsafe.  Backup would not meet minimum restorability.",
-										))
-								}
+								expectExpirationRefused(ctx, factory, backup)
 							} else {
 								Expect(
 									*after.TotalSnapshotBytes,
@@ -805,3 +761,49 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 		})
 	})
 })
+
+type backupSnapshotVersion struct {
+	Version      uint64
+	EpochSeconds int64
+}
+
+type backupSnapshot struct {
+	Start      backupSnapshotVersion
+	End        backupSnapshotVersion
+	Restorable bool
+}
+
+func describeBackupSnapshots(ctx SpecContext, backup *fixtures.FdbBackup) []backupSnapshot {
+	GinkgoHelper()
+	var description struct{ Snapshots []backupSnapshot }
+	url, err := backup.GetBackup(ctx).BackupURL()
+	Expect(err).NotTo(HaveOccurred())
+	output := backup.RunCommandOnBackupPod(
+		ctx,
+		fmt.Sprintf("fdbbackup describe -d %q --json --version-timestamps", url),
+	)
+	Expect(json.Unmarshal([]byte(output), &description)).To(Succeed())
+	return description.Snapshots
+}
+
+func expectExpirationRefused(
+	ctx SpecContext,
+	factory *fixtures.Factory,
+	backup *fixtures.FdbBackup,
+) {
+	GinkgoHelper()
+	currentBackup := backup.GetBackup(ctx)
+	pods := &corev1.PodList{}
+	Expect(factory.GetControllerRuntimeClient().List(ctx, pods,
+		ctrlClient.InNamespace(currentBackup.Namespace),
+		ctrlClient.MatchingLabels{"job-name": currentBackup.Status.Expiration.JobName},
+	)).To(Succeed())
+	Expect(pods.Items).NotTo(BeEmpty())
+	for idx := range pods.Items {
+		Expect(factory.GetLogsForPod(ctx, &pods.Items[idx], fdbv1beta2.MainContainerName, nil)).To(
+			ContainSubstring(
+				"Requested expiration would be unsafe.  Backup would not meet minimum restorability.",
+			),
+		)
+	}
+}

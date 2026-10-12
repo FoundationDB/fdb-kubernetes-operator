@@ -107,7 +107,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 
 	// Check if the finalizer is added or should be removed. If the FoundationDBBackup resource is being deleted (has
 	// a deletion timestamp set) perform the required actions to allow the finalizer to be removed.
-	err = r.updateFinalizerIfNeeded(ctx, backupLog, backup)
+	finalizerDelay, err := r.updateFinalizerIfNeeded(ctx, backupLog, backup)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -115,7 +115,10 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 	// If the resource is being deleted, we don't want to perform any work, besides the work to remove the
 	// finalizer.
 	if backup.DeletionTimestamp != nil {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+		if finalizerDelay == 0 {
+			finalizerDelay = 5 * time.Second
+		}
+		return ctrl.Result{RequeueAfter: finalizerDelay}, nil
 	}
 
 	err = backup.Validate(r.AllowedPodModifications)
@@ -131,6 +134,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 
 	var delayedRequeueDuration time.Duration
 	var delayedRequeue bool
+	var delayedBackupRequeue bool
 
 	for _, subReconciler := range backupSubReconcilers {
 		req := subReconciler.reconcile(ctx, r, backup)
@@ -149,13 +153,20 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 			}
 
 			delayedRequeue = true
+			if _, isExpiration := subReconciler.(expireBackup); !isExpiration {
+				delayedBackupRequeue = true
+			}
 			continue
 		}
 
 		return processRequeue(req, subReconciler, backup, r.Recorder, backupLog)
 	}
 
-	if backup.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
+	generations := backup.Status.Generations
+	pendingBackupWork := generations.NeedsBackupAgentUpdate != 0 ||
+		generations.NeedsBackupStart != 0 || generations.NeedsBackupStop != 0 ||
+		generations.NeedsBackupPauseToggle != 0 || generations.NeedsBackupReconfiguration != 0
+	if generations.Reconciled < originalGeneration || pendingBackupWork || delayedRequeue {
 		backupLog.Info("Backup was not fully reconciled by reconciliation process",
 			"status",
 			backup.Status.Generations,
@@ -166,7 +177,9 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 			"DelayedRequeue",
 			delayedRequeueDuration.String())
 
-		if delayedRequeueDuration == time.Duration(0) {
+		// Expiration backoff must not postpone reconciliation of the backup itself
+		if delayedRequeueDuration == 0 ||
+			(pendingBackupWork && !delayedBackupRequeue && delayedRequeueDuration > 5*time.Second) {
 			delayedRequeueDuration = 5 * time.Second
 		}
 
@@ -299,13 +312,11 @@ func (r *FoundationDBBackupReconciler) updateOrApplySpec(
 	return r.Update(ctx, backup)
 }
 
-// updateFinalizerIfNeeded will check if the finalizes must be updated. In case that they must be updated, they will
-// be either added or removed. In case that the resource has a deletion timestamp, the operator will perform the
-// according cleanup operation based on the fdbv1beta2.BackupDeletionPolicy.
+// updateFinalizerIfNeeded manages backup deletion and returns a delay while waiting for expiration
 func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Context,
 	logger logr.Logger,
 	backup *fdbv1beta2.FoundationDBBackup,
-) error {
+) (time.Duration, error) {
 	deletionPolicy := backup.GetDeletionPolicy()
 	logger.V(1).Info("checking finalizer state", "deletionPolicy", deletionPolicy)
 
@@ -314,10 +325,10 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 		backup.GetBackupType() == fdbv1beta2.BackupTypeUnmanaged {
 		if controllerutil.RemoveFinalizer(backup, fdbv1beta2.FoundationDBBackupFinalizerName) {
 			logger.V(1).Info("removing the finalizer for backup resource")
-			return r.updateOrApplySpec(ctx, backup)
+			return 0, r.updateOrApplySpec(ctx, backup)
 		}
 
-		return nil
+		return 0, nil
 	}
 
 	if deletionPolicy == fdbv1beta2.BackupDeletionPolicyCleanup ||
@@ -327,44 +338,44 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 		if backup.DeletionTimestamp == nil {
 			if controllerutil.AddFinalizer(backup, fdbv1beta2.FoundationDBBackupFinalizerName) {
 				logger.V(1).Info("adding the finalizer for backup resource")
-				return r.updateOrApplySpec(ctx, backup)
+				return 0, r.updateOrApplySpec(ctx, backup)
 			}
 
-			return nil
+			return 0, nil
 		}
 
 		job, err := r.getBackupExpirationJob(ctx, backup)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		if job != nil {
 			phase, _ := backupExpirationJobResult(job)
 			if phase == fdbv1beta2.BackupExpirationPhaseRunning {
-				return nil
+				return r.backupExpirationPollInterval(), nil
 			}
 			// Kubernetes 1.30 can report a terminal Job while its Pods are still terminating
 			if err = r.deleteBackupExpirationJob(ctx, job); err != nil {
-				return err
+				return 0, err
 			}
-			return nil
+			return r.backupExpirationPollInterval(), nil
 		}
 
 		// This part of the code will be executed when the backup resource has a deletion timestamp and is waiting
 		// for the cleanup of external resources.
 		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		backupStatus, err := adminClient.GetBackupStatus(backup)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		if backupStatus.Status.Running {
 			err = adminClient.AbortBackup(backup)
 			if err != nil {
-				return err
+				return 0, err
 			}
 		}
 
@@ -375,10 +386,10 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 				backup,
 				fdbv1beta2.FoundationDBBackupFinalizerName,
 			) {
-				return r.updateOrApplySpec(ctx, backup)
+				return 0, r.updateOrApplySpec(ctx, backup)
 			}
 
-			return nil
+			return 0, nil
 		}
 
 		logger.V(1).Info("deleting backup data")
@@ -392,17 +403,17 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 					backup,
 					fdbv1beta2.FoundationDBBackupFinalizerName,
 				) {
-					return r.updateOrApplySpec(ctx, backup)
+					return 0, r.updateOrApplySpec(ctx, backup)
 				}
 
-				return nil
+				return 0, nil
 			}
 
-			return err
+			return 0, err
 		}
 
-		return nil
+		return 0, nil
 	}
 
-	return fmt.Errorf("unknown backup deletion policy: %s", deletionPolicy)
+	return 0, fmt.Errorf("unknown backup deletion policy: %s", deletionPolicy)
 }
