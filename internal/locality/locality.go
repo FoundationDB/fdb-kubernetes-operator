@@ -319,11 +319,11 @@ func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 				fdbv1beta2.FDBLocalityZoneIDKey:   1,
 			}
 		}
+		// For the three_data_hall_fallback redundancy mode, we will only recruit 5 coordinators.
+		// If one data hall is missing, we still need up to 3 coordinators from the same data hall.
 		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback {
 			return map[string]int{
-				// A three_data_hall_fallback cluster also has 9 coordinators, but to tolerate a whole data hall
-				// to be offline, we may need to have up to 5 coordinators in one of the two remaining data halls.
-				fdbv1beta2.FDBLocalityDataHallKey: 5,
+				fdbv1beta2.FDBLocalityDataHallKey: 3,
 				fdbv1beta2.FDBLocalityZoneIDKey:   1,
 			}
 		}
