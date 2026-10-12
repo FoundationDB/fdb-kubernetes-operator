@@ -355,7 +355,7 @@ kubectl get fdbbackup sample-cluster -o yaml
 kubectl logs job/<status.expiration.jobName>
 ```
 
-`Succeeded` means the command completed; FoundationDB may retain files overlapping the cutoff. A pending or failed run, or a policy change awaiting execution, is reported in `status.generations.needsBackupExpiration`.
+`Succeeded` means the command completed; FoundationDB may retain files overlapping the cutoff. Expiration runs independently of backup reconciliation: `status.generations.reconciled` does not indicate expiration success. Check `status.expiration.phase` and compare `status.expiration.policy` with `spec.expiration` to determine whether the desired policy has succeeded.
 
 Jobs have a one-hour deadline and at most three Pod retries. After success, the next run is scheduled one interval after completion. Consecutive failed Jobs double the interval between runs, capped at one day; success resets the backoff. The latest Job remains available for inspection until the next run. Policy changes and manual deletion of a terminal Job do not bypass the recorded schedule. Fix the cause of a failure or adjust the retention policy, then allow the scheduled retry to run.
 

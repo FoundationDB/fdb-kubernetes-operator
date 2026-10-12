@@ -10,7 +10,7 @@ The controller uses the destination populated by `updateBackupStatus`, then pers
 
 Completion records the next run time. Failed Jobs use exponential backoff from the configured interval, capped at one day, and success resets the backoff. The schedule survives spec changes, terminal Job deletion, and operator restarts. The latest Job is retained for diagnosis until the next run, then removed with foreground propagation before another Job is accepted. Removing the policy finishes any active Job and removes it before clearing status. Backup deletion cleanup uses the same foreground deletion barrier.
 
-The operator polls active Jobs at a configurable interval, defaulting to one minute. Idle backups requeue at the next run time. Kubernetes API errors use the controller's existing error rate limiter.
+Expiration progress is reported in `status.expiration` and does not gate backup generation reconciliation. The operator polls active Jobs at a configurable interval, defaulting to one minute. The next reconciliation uses the earlier of the backup retry and expiration deadlines. Idle backups requeue at the next run time. Kubernetes API errors use the controller's existing error rate limiter.
 
 ## Alternatives
 

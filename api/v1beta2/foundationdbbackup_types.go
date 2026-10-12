@@ -236,23 +236,6 @@ type BackupExpirationStatus struct {
 	FailureCount int `json:"failureCount,omitempty"`
 }
 
-// NeedsBackupExpiration reports whether the configured policy still needs a successful execution
-func (backup *FoundationDBBackup) NeedsBackupExpiration() bool {
-	desired := backup.Spec.Expiration
-	if desired == nil {
-		return false
-	}
-	currentStatus := backup.Status.Expiration
-	if currentStatus == nil || currentStatus.Phase != BackupExpirationPhaseSucceeded {
-		return true
-	}
-	applied := currentStatus.Policy
-	return desired.ExpireAfterSeconds != applied.ExpireAfterSeconds ||
-		!ptr.Equal(desired.RestorableForSeconds, applied.RestorableForSeconds) ||
-		!ptr.Equal(desired.RestorableAfterVersion, applied.RestorableAfterVersion) ||
-		desired.Interval() != applied.Interval()
-}
-
 // BackupTag defines the backup tag that should be used for the backup.
 // +kubebuilder:validation:MaxLength=64
 type BackupTag string
@@ -341,9 +324,6 @@ type FoundationDBBackupStatusBackupDetails struct {
 // BackupGenerationStatus stores information on which generations have reached
 // different stages in reconciliation for the backup.
 type BackupGenerationStatus struct {
-	// NeedsBackupExpiration records the generation waiting for its expiration policy to succeed
-	NeedsBackupExpiration int64 `json:"needsBackupExpiration,omitempty"`
-
 	// Reconciled provides the last generation that was fully reconciled.
 	Reconciled int64 `json:"reconciled,omitempty"`
 
@@ -580,10 +560,6 @@ func (backup *FoundationDBBackup) NeedsBackupReconfiguration() bool {
 // reconciliation is complete.
 func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 	var reconciled = true
-	if backup.NeedsBackupExpiration() {
-		backup.Status.Generations.NeedsBackupExpiration = backup.Generation
-		reconciled = false
-	}
 
 	desiredAgentCount := backup.GetDesiredAgentCount()
 	if backup.Status.AgentCount != desiredAgentCount || !backup.Status.DeploymentConfigured {

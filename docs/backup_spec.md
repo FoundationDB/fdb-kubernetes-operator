@@ -72,7 +72,6 @@ BackupGenerationStatus stores information on which generations have reached diff
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| needsBackupExpiration | NeedsBackupExpiration records the generation waiting for its expiration policy to succeed | int64 | false |
 | reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. | int64 | false |
 | needsBackupStart | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to start a backup. | int64 | false |

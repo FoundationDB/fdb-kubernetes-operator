@@ -73,7 +73,6 @@ var backupSubReconcilers = []backupSubReconciler{
 	stopBackup{},
 	toggleBackupPaused{},
 	modifyBackup{},
-	expireBackup{},
 	updateBackupStatus{},
 }
 
@@ -134,7 +133,6 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 
 	var delayedRequeueDuration time.Duration
 	var delayedRequeue bool
-	var delayedBackupRequeue bool
 
 	for _, subReconciler := range backupSubReconcilers {
 		req := subReconciler.reconcile(ctx, r, backup)
@@ -146,27 +144,21 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 			backupLog.Info("Delaying requeue for sub-reconciler",
 				"reconciler", fmt.Sprintf("%T", subReconciler),
 				"message", req.message,
-				"delayedRequeueDuration", delayedRequeueDuration.String(),
+				"delayedRequeueDuration", req.delay.String(),
 				"error", req.curError)
 			if !delayedRequeue || req.delay < delayedRequeueDuration {
 				delayedRequeueDuration = req.delay
 			}
 
 			delayedRequeue = true
-			if _, isExpiration := subReconciler.(expireBackup); !isExpiration {
-				delayedBackupRequeue = true
-			}
 			continue
 		}
 
 		return processRequeue(req, subReconciler, backup, r.Recorder, backupLog)
 	}
 
-	generations := backup.Status.Generations
-	pendingBackupWork := generations.NeedsBackupAgentUpdate != 0 ||
-		generations.NeedsBackupStart != 0 || generations.NeedsBackupStop != 0 ||
-		generations.NeedsBackupPauseToggle != 0 || generations.NeedsBackupReconfiguration != 0
-	if generations.Reconciled < originalGeneration || pendingBackupWork || delayedRequeue {
+	reconciled := backup.Status.Generations == (fdbv1beta2.BackupGenerationStatus{Reconciled: originalGeneration})
+	if !reconciled || delayedRequeue {
 		backupLog.Info("Backup was not fully reconciled by reconciliation process",
 			"status",
 			backup.Status.Generations,
@@ -177,18 +169,23 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 			"DelayedRequeue",
 			delayedRequeueDuration.String())
 
-		// Expiration backoff must not postpone reconciliation of the backup itself
-		if delayedRequeueDuration == 0 ||
-			(pendingBackupWork && !delayedBackupRequeue && delayedRequeueDuration > 5*time.Second) {
+		if delayedRequeueDuration == 0 {
 			delayedRequeueDuration = 5 * time.Second
 		}
-
-		return ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
+	} else {
+		backupLog.Info("Reconciliation complete")
 	}
 
-	backupLog.Info("Reconciliation complete")
+	if req := (expireBackup{}).reconcile(ctx, r, backup); req != nil {
+		if !req.delayedRequeue {
+			return processRequeue(req, expireBackup{}, backup, r.Recorder, backupLog)
+		}
+		if delayedRequeueDuration == 0 || req.delay < delayedRequeueDuration {
+			delayedRequeueDuration = req.delay
+		}
+	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
 }
 
 // getDatabaseClientProvider gets the client provider for a reconciler.

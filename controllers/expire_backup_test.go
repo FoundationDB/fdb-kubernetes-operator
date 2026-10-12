@@ -95,8 +95,7 @@ var _ = Describe("backup expiration", func() {
 			Expect(
 				backup.Status.Expiration.Phase,
 			).To(Equal(fdbv1beta2.BackupExpirationPhaseRunning))
-			Expect(backup.Status.Generations.NeedsBackupExpiration).To(Equal(backup.Generation))
-			Expect(backup.Status.Generations.Reconciled).To(BeNumerically("<", backup.Generation))
+			Expect(backup.Status.Generations.Reconciled).To(Equal(backup.Generation))
 		},
 		Entry("running", fdbv1beta2.BackupStateRunning, 2),
 		Entry("paused", fdbv1beta2.BackupStatePaused, 2),
@@ -137,7 +136,7 @@ var _ = Describe("backup expiration", func() {
 
 	DescribeTable(
 		"keeps expiration timing separate from pending agent updates",
-		func(condition batchv1.JobConditionType, agentsReady bool, expectedDelay time.Duration) {
+		func(condition batchv1.JobConditionType, agentsReady, changeGeneration bool, expectedDelay time.Duration) {
 			backup.Spec.Expiration.IntervalSeconds = ptr.To(int64(86400))
 			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 			reconcile()
@@ -147,9 +146,11 @@ var _ = Describe("backup expiration", func() {
 				reconcile()
 			}
 			nextRun := backup.Status.Expiration.NextRunTime.DeepCopy()
-			backup.Spec.AgentCount = ptr.To(3)
-			backup.Generation++
-			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+			if changeGeneration {
+				backup.Spec.AgentCount = ptr.To(3)
+				backup.Generation++
+				Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+			}
 			reconciler := *backupReconciler
 			reconciler.InSimulation = agentsReady
 			reconciler.BackupExpirationPollInterval = 3 * time.Minute
@@ -161,6 +162,13 @@ var _ = Describe("backup expiration", func() {
 			_, err = reloadBackup(backup)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(backup.Status.Generations.NeedsBackupAgentUpdate != 0).To(Equal(!agentsReady))
+			if agentsReady {
+				Expect(backup.Status.Generations.Reconciled).To(Equal(backup.Generation))
+			} else if changeGeneration {
+				Expect(
+					backup.Status.Generations.Reconciled,
+				).To(BeNumerically("<", backup.Generation))
+			}
 			Expect(result.RequeueAfter).To(BeNumerically("~", expectedDelay, time.Second))
 			Expect(backup.Status.Expiration.NextRunTime).To(Equal(nextRun))
 			Expect(jobs()).To(HaveLen(1))
@@ -170,23 +178,51 @@ var _ = Describe("backup expiration", func() {
 			"pending agents with active expiration",
 			batchv1.JobConditionType(""),
 			false,
+			true,
 			5*time.Second,
 		),
 		Entry(
 			"pending agents after successful expiration",
 			batchv1.JobComplete,
 			false,
+			true,
 			5*time.Second,
 		),
-		Entry("pending agents during expiration backoff", batchv1.JobFailed, false, 5*time.Second),
+		Entry(
+			"pending agents during expiration backoff",
+			batchv1.JobFailed,
+			false,
+			true,
+			5*time.Second,
+		),
 		Entry(
 			"ready agents with active expiration",
 			batchv1.JobConditionType(""),
 			true,
+			true,
 			3*time.Minute,
 		),
-		Entry("ready agents after successful expiration", batchv1.JobComplete, true, 24*time.Hour),
-		Entry("ready agents during expiration backoff", batchv1.JobFailed, true, 24*time.Hour),
+		Entry(
+			"ready agents after successful expiration",
+			batchv1.JobComplete,
+			true,
+			true,
+			24*time.Hour,
+		),
+		Entry(
+			"ready agents during expiration backoff",
+			batchv1.JobFailed,
+			true,
+			true,
+			24*time.Hour,
+		),
+		Entry(
+			"unready agents without a spec change",
+			batchv1.JobComplete,
+			false,
+			false,
+			5*time.Second,
+		),
 	)
 
 	DescribeTable(
@@ -268,11 +304,13 @@ var _ = Describe("backup expiration", func() {
 		job := jobs()[0]
 		originalCutoff := backup.Status.Expiration.BeforeTimestamp
 		backup.Spec.Expiration.ExpireAfterSeconds *= 2
+		backup.Generation++
 		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 		reconcile()
 		Expect(jobs()).To(HaveLen(1))
 		Expect(jobs()[0].Name).To(Equal(job.Name))
 		Expect(backup.Status.Expiration.BeforeTimestamp).To(Equal(originalCutoff))
+		Expect(backup.Status.Generations.Reconciled).To(Equal(backup.Generation))
 		finish(&job, batchv1.JobComplete)
 		reconcile()
 		Expect(jobs()[0].Name).To(Equal(job.Name))
@@ -352,6 +390,7 @@ var _ = Describe("backup expiration", func() {
 		_, err := reloadBackup(backup)
 		Expect(err).NotTo(HaveOccurred())
 		*backup.Spec.Expiration.RestorableAfterVersion = 987654321
+		backup.Generation++
 		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 		reconcile()
 		Expect(jobs()).To(HaveLen(1))
@@ -364,7 +403,7 @@ var _ = Describe("backup expiration", func() {
 		job := jobs()[0]
 		finish(&job, batchv1.JobComplete)
 		reconcile()
-		Expect(backup.NeedsBackupExpiration()).To(BeTrue())
+		Expect(backup.Status.Generations.Reconciled).To(Equal(backup.Generation))
 	})
 
 	It("uses the configured polling interval", func() {

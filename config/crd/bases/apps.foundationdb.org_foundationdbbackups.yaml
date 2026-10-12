@@ -4173,9 +4173,6 @@ spec:
                   needsBackupAgentUpdate:
                     format: int64
                     type: integer
-                  needsBackupExpiration:
-                    format: int64
-                    type: integer
                   needsBackupModification:
                     format: int64
                     type: integer

@@ -361,8 +361,9 @@ The backup reconciler runs the following subreconcilers:
 1. StopBackup
 1. ToggleBackupPaused
 1. ModifyBackup
-1. ExpireBackup
 1. UpdateBackupStatus (again)
+
+After these steps, the controller runs `ExpireBackup` and requeues at the earlier of the backup retry and expiration deadlines. Expiration progress is tracked separately from backup generation reconciliation.
 
 ### UpdateBackupStatus
 
