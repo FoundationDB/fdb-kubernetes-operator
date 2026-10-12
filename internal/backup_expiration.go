@@ -21,7 +21,7 @@
 package internal
 
 import (
-	"fmt"
+	"errors"
 	"maps"
 	"strconv"
 	"strings"
@@ -33,11 +33,13 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+const backupTimestampLayout = "2006/01/02.15:04:05-0700"
+
 // GetBackupExpirationJob builds a Job using the policy and target pinned in backup status
 func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job, error) {
 	currentStatus := backup.Status.Expiration
 	if currentStatus == nil {
-		return nil, fmt.Errorf("backup has no expiration status")
+		return nil, errors.New("backup has no expiration status")
 	}
 
 	// Build the same runtime configuration even when the backup has no agent deployment
@@ -60,11 +62,14 @@ func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job
 		container.Command = []string{"fdbbackup"}
 		container.Args = []string{
 			"expire", "-d", currentStatus.DestinationURL,
-			"--expire-before-timestamp", currentStatus.BeforeTimestamp.UTC().Format("2006/01/02.15:04:05-0700"),
+			"--expire-before-timestamp", currentStatus.BeforeTimestamp.UTC().Format(backupTimestampLayout),
 		}
 		if currentStatus.RestorableAfterTimestamp != nil {
-			container.Args = append(container.Args, "--restorable-after-timestamp",
-				currentStatus.RestorableAfterTimestamp.UTC().Format("2006/01/02.15:04:05-0700"))
+			container.Args = append(
+				container.Args,
+				"--restorable-after-timestamp",
+				currentStatus.RestorableAfterTimestamp.UTC().Format(backupTimestampLayout),
+			)
 		}
 		if currentStatus.Policy.RestorableAfterVersion != nil {
 			container.Args = append(container.Args, "--restorable-after-version",

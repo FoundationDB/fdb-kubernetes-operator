@@ -248,14 +248,8 @@ func (backup *FoundationDBBackup) NeedsBackupExpiration() bool {
 	}
 	applied := currentStatus.Policy
 	return desired.ExpireAfterSeconds != applied.ExpireAfterSeconds ||
-		ptr.Deref(desired.RestorableForSeconds, 0) != ptr.Deref(applied.RestorableForSeconds, 0) ||
-		ptr.Deref(
-			desired.RestorableAfterVersion,
-			0,
-		) != ptr.Deref(
-			applied.RestorableAfterVersion,
-			0,
-		) ||
+		!ptr.Equal(desired.RestorableForSeconds, applied.RestorableForSeconds) ||
+		!ptr.Equal(desired.RestorableAfterVersion, applied.RestorableAfterVersion) ||
 		desired.Interval() != applied.Interval()
 }
 

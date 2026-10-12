@@ -144,7 +144,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 				"message", req.message,
 				"delayedRequeueDuration", delayedRequeueDuration.String(),
 				"error", req.curError)
-			if delayedRequeueDuration < req.delay {
+			if !delayedRequeue || req.delay < delayedRequeueDuration {
 				delayedRequeueDuration = req.delay
 			}
 

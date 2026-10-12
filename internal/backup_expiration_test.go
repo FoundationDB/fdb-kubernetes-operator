@@ -32,15 +32,37 @@ import (
 )
 
 var _ = Describe("backup expiration Job", func() {
+	type restoreRequirementTestCase struct {
+		restorableAfterTimestamp *metav1.Time
+		restorableAfterVersion   *int64
+		expectedArgs             []string
+	}
+	restoreWindow := restoreRequirementTestCase{
+		restorableAfterTimestamp: ptr.To(
+			metav1.NewTime(time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC)),
+		),
+		expectedArgs: []string{
+			"--restorable-after-timestamp",
+			"2026/09/02.00:00:00+0000",
+		},
+	}
+	protectedVersion := restoreRequirementTestCase{
+		restorableAfterVersion: ptr.To(int64(123456789)),
+		expectedArgs:           []string{"--restorable-after-version", "123456789"},
+	}
 	DescribeTable(
 		"inherits backup runtime configuration without running backup agents or sidecars",
-		func(imageType fdbv1beta2.ImageType, restoreWindow bool, protectedVersion bool) {
+		func(imageType fdbv1beta2.ImageType, testCase restoreRequirementTestCase) {
 			backup := CreateDefaultBackup(CreateDefaultCluster())
 			backup.Labels = map[string]string{"operator-instance": "test"}
 			backup.Spec.ImageType = ptr.To(imageType)
 			backup.Spec.AgentCount = ptr.To(0)
 			backup.Spec.Version = "7.4.6"
 			backup.Spec.EncryptionKeyPath = "/keys/backup.key"
+			backup.Spec.Expiration = &fdbv1beta2.BackupExpiration{
+				ExpireAfterSeconds:     2592000,
+				RestorableAfterVersion: ptr.To(int64(987654321)),
+			}
 			backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 				"knob_backup_concurrent_deletes=4", "force", "expire-before-version=123", "locality_custom=test",
 				"encryption-key-file=/keys/custom.key", "legacy-encryption-format", "restorable-after-version=999999",
@@ -75,24 +97,17 @@ var _ = Describe("backup expiration Job", func() {
 				},
 			}
 			backup.Status.Expiration = &fdbv1beta2.BackupExpirationStatus{
+				Policy: fdbv1beta2.BackupExpiration{
+					RestorableAfterVersion: testCase.restorableAfterVersion,
+				},
 				BeforeTimestamp: metav1.NewTime(
 					time.Date(2026, 9, 1, 8, 0, 0, 0, time.FixedZone("SGT", 8*3600)),
 				),
-				DestinationURL: "blobstore://test@store:443/pinned-backup?bucket=backups",
-				ClusterName:    "original-cluster",
-				JobName:        "expiration-job",
-				Phase:          fdbv1beta2.BackupExpirationPhaseRunning,
-			}
-			if restoreWindow {
-				backup.Status.Expiration.RestorableAfterTimestamp = ptr.To(
-					metav1.NewTime(time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC)),
-				)
-			}
-			if protectedVersion {
-				backup.Status.Expiration.Policy.RestorableAfterVersion = ptr.To(int64(123456789))
-				backup.Spec.Expiration = &fdbv1beta2.BackupExpiration{
-					RestorableAfterVersion: ptr.To(int64(987654321)),
-				}
+				DestinationURL:           "blobstore://test@store:443/pinned-backup?bucket=backups",
+				ClusterName:              "original-cluster",
+				JobName:                  "expiration-job",
+				Phase:                    fdbv1beta2.BackupExpirationPhaseRunning,
+				RestorableAfterTimestamp: testCase.restorableAfterTimestamp,
 			}
 			original := backup.DeepCopy()
 			job, err := GetBackupExpirationJob(backup)
@@ -132,16 +147,7 @@ var _ = Describe("backup expiration Job", func() {
 				"expire", "-d", backup.Status.Expiration.DestinationURL,
 				"--expire-before-timestamp", "2026/09/01.00:00:00+0000",
 			}
-			if restoreWindow {
-				expectedArgs = append(
-					expectedArgs,
-					"--restorable-after-timestamp",
-					"2026/09/02.00:00:00+0000",
-				)
-			}
-			if protectedVersion {
-				expectedArgs = append(expectedArgs, "--restorable-after-version", "123456789")
-			}
+			expectedArgs = append(expectedArgs, testCase.expectedArgs...)
 			expectedArgs = append(expectedArgs, "--knob_backup_concurrent_deletes=4")
 			Expect(container.Args).To(Equal(expectedArgs))
 			Expect(
@@ -158,11 +164,15 @@ var _ = Describe("backup expiration Job", func() {
 			Expect(container.StartupProbe).To(BeNil())
 			Expect(container.Lifecycle).To(BeNil())
 		},
-		Entry("split image", fdbv1beta2.ImageTypeSplit, false, false),
-		Entry("split image with restore window", fdbv1beta2.ImageTypeSplit, true, false),
-		Entry("unified image", fdbv1beta2.ImageTypeUnified, false, false),
-		Entry("unified image with restore window", fdbv1beta2.ImageTypeUnified, true, false),
-		Entry("split image with protected version", fdbv1beta2.ImageTypeSplit, false, true),
-		Entry("unified image with protected version", fdbv1beta2.ImageTypeUnified, false, true),
+		Entry("split image", fdbv1beta2.ImageTypeSplit, restoreRequirementTestCase{}),
+		Entry("split image with restore window", fdbv1beta2.ImageTypeSplit, restoreWindow),
+		Entry("unified image", fdbv1beta2.ImageTypeUnified, restoreRequirementTestCase{}),
+		Entry("unified image with restore window", fdbv1beta2.ImageTypeUnified, restoreWindow),
+		Entry("split image with protected version", fdbv1beta2.ImageTypeSplit, protectedVersion),
+		Entry(
+			"unified image with protected version",
+			fdbv1beta2.ImageTypeUnified,
+			protectedVersion,
+		),
 	)
 })

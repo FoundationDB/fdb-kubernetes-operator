@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -134,6 +135,37 @@ var _ = Describe("backup expiration", func() {
 		Expect(backup.Status.Expiration.Phase).To(Equal(fdbv1beta2.BackupExpirationPhaseSucceeded))
 	})
 
+	DescribeTable(
+		"requeues at the earlier backup maintenance deadline",
+		func(podCleanupDelay, expirationInterval time.Duration) {
+			backup.Spec.Expiration.IntervalSeconds = ptr.To(int64(expirationInterval.Seconds()))
+			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
+			reconcile()
+			job := jobs()[0]
+			finish(&job, batchv1.JobComplete)
+			reconcile()
+			nextRun := backup.Status.Expiration.NextRunTime.DeepCopy()
+			backupReconciler.MinimumAgeForTerminalPodDeletion = podCleanupDelay
+			setupUnreadyDeploymentWithTerminalPod(ctx, backup, corev1.PodFailed)
+
+			result, err := backupReconciler.Reconcile(ctx, ctrl.Request{
+				NamespacedName: client.ObjectKeyFromObject(backup),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+			Expect(
+				result.RequeueAfter,
+			).To(BeNumerically("<=", min(podCleanupDelay, expirationInterval)))
+			_, err = reloadBackup(backup)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(backup.Status.Expiration.NextRunTime).To(Equal(nextRun))
+			Expect(jobs()).To(HaveLen(1))
+			Expect(jobs()[0].UID).To(Equal(job.UID))
+		},
+		Entry("agent cleanup is due first", time.Minute, 24*time.Hour),
+		Entry("expiration is due first", 2*time.Hour, time.Hour),
+	)
+
 	It("backs off failed runs even after policy changes or Job deletion", func() {
 		reconcile()
 		for attempt := 1; attempt <= 3; attempt++ {
@@ -159,7 +191,8 @@ var _ = Describe("backup expiration", func() {
 			Expect(k8sClient.Status().Update(ctx, backup)).To(Succeed())
 			reconcile()
 			Expect(jobs()).To(HaveLen(1))
-			Expect(jobs()[0].Name).NotTo(Equal(job.Name))
+			Expect(jobs()[0].UID).NotTo(Equal(job.UID))
+			Expect(jobs()[0].Status.Conditions).To(BeEmpty())
 			Expect(
 				backup.Status.Expiration.Phase,
 			).To(Equal(fdbv1beta2.BackupExpirationPhaseRunning))

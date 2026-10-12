@@ -52,13 +52,9 @@ func (s expireBackup) reconcile(
 	}
 	currentStatus := backup.Status.Expiration
 	// Spec changes and deletion of a terminal Job must not bypass the persisted schedule
-	if backup.Spec.Expiration != nil && currentStatus != nil && currentStatus.NextRunTime != nil {
-		if delay := time.Until(currentStatus.NextRunTime.Time); delay > 0 {
-			return &requeue{
-				delay:          delay,
-				delayedRequeue: true,
-				message:        "waiting for scheduled backup expiration",
-			}
+	if backup.Spec.Expiration != nil {
+		if req := requeueUntilBackupExpiration(currentStatus); req != nil {
+			return req
 		}
 	}
 
@@ -92,14 +88,8 @@ func (s expireBackup) reconcile(
 	}
 
 	currentStatus = backup.Status.Expiration
-	if currentStatus != nil && currentStatus.NextRunTime != nil {
-		if delay := time.Until(currentStatus.NextRunTime.Time); delay > 0 {
-			return &requeue{
-				delay:          delay,
-				delayedRequeue: true,
-				message:        "waiting for scheduled backup expiration",
-			}
-		}
+	if req := requeueUntilBackupExpiration(currentStatus); req != nil {
+		return req
 	}
 	// Remove the previous Job and its Pods before accepting another run
 	if job != nil {
@@ -126,6 +116,21 @@ func (s expireBackup) reconcile(
 		return &requeue{curError: err}
 	}
 	return pending
+}
+
+func requeueUntilBackupExpiration(currentStatus *fdbv1beta2.BackupExpirationStatus) *requeue {
+	if currentStatus == nil || currentStatus.NextRunTime == nil {
+		return nil
+	}
+	delay := time.Until(currentStatus.NextRunTime.Time)
+	if delay <= 0 {
+		return nil
+	}
+	return &requeue{
+		delay:          delay,
+		delayedRequeue: true,
+		message:        "waiting for scheduled backup expiration",
+	}
 }
 
 func (r *FoundationDBBackupReconciler) backupExpirationPollInterval() time.Duration {
@@ -225,10 +230,7 @@ func (r *FoundationDBBackupReconciler) deleteBackupExpirationJob(
 		return nil
 	}
 	err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationForeground))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return err
+	return client.IgnoreNotFound(err)
 }
 
 // getBackupExpirationJob fetches the recorded Job and verifies that this backup controls it
