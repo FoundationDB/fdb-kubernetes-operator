@@ -585,7 +585,7 @@ func (factory *Factory) GetAdditionalSidecarVersions() []fdbv1beta2.Version {
 	compactVersionMap := map[string]fdbv1beta2.Version{}
 	baseVersion := factory.GetFDBVersion()
 
-	additionalVersions := make([]fdbv1beta2.Version, 0)
+	additionalVersions := make([]fdbv1beta2.Version, 0, len(compactVersionMap))
 	for _, version := range getUpgradeVersions(factory.options.upgradeString) {
 		updateVersionMapIfVersionIsMissingOrNewer(
 			baseVersion,
@@ -740,19 +740,18 @@ func (factory *Factory) DumpStateWithLogsSince(
 	buffer.WriteString(cluster.GetNamespace())
 	buffer.WriteString(" ----------\n")
 
-	buffer.WriteString(
-		fmt.Sprintf(
-			"%s\tGENERATION: %d\tRECONCILED: %d\tAVAILABLE: %t\tFULLREPLICATION: %t\tRUNNING_VERSION: %s\tDESIRED_VERSION: %s\t Age: %s\nConnection String: %s\n",
-			cluster.GetName(),
-			cluster.Generation,
-			cluster.Status.Generations.Reconciled,
-			cluster.Status.Health.Available,
-			cluster.Status.Health.FullReplication,
-			cluster.Status.RunningVersion,
-			cluster.Spec.Version,
-			duration.HumanDuration(time.Since(cluster.CreationTimestamp.Time)),
-			cluster.Status.ConnectionString,
-		),
+	fmt.Fprintf(
+		&buffer,
+		"%s\tGENERATION: %d\tRECONCILED: %d\tAVAILABLE: %t\tFULLREPLICATION: %t\tRUNNING_VERSION: %s\tDESIRED_VERSION: %s\t Age: %s\nConnection String: %s\n",
+		cluster.GetName(),
+		cluster.Generation,
+		cluster.Status.Generations.Reconciled,
+		cluster.Status.Health.Available,
+		cluster.Status.Health.FullReplication,
+		cluster.Status.RunningVersion,
+		cluster.Spec.Version,
+		duration.HumanDuration(time.Since(cluster.CreationTimestamp.Time)),
+		cluster.Status.ConnectionString,
 	)
 	// Printout all Pods for this namespace
 	pods := &corev1.PodList{}

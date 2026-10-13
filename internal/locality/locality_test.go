@@ -54,7 +54,6 @@ import (
 	"github.com/onsi/gomega/gmeasure"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -1971,7 +1970,7 @@ var _ = Describe("Localities", func() {
 							)
 						}
 
-						cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+						cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 					})
 
 					It("should return that the coordinators are invalid", func() {

@@ -26,8 +26,6 @@ import (
 	"math"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"k8s.io/apimachinery/pkg/types"
@@ -1509,7 +1507,7 @@ var _ = Describe("update_status", func() {
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.RequeueAfter).To(BeZero())
-				cluster.Spec.UseExplicitListenAddress = ptr.To(false)
+				cluster.Spec.UseExplicitListenAddress = new(false)
 			})
 
 			Context("when the cluster has not been reconciled", func() {

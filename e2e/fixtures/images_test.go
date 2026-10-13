@@ -24,7 +24,6 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("image setup", func() {
@@ -269,7 +268,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    false,
-				UseUnifiedImage: ptr.To(false),
+				UseUnifiedImage: new(false),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -297,7 +296,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    false,
-				UseUnifiedImage: ptr.To(false),
+				UseUnifiedImage: new(false),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -326,7 +325,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(false),
+				UseUnifiedImage: new(false),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -354,7 +353,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    false,
-				UseUnifiedImage: ptr.To(false),
+				UseUnifiedImage: new(false),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -382,7 +381,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(false),
+				UseUnifiedImage: new(false),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -410,7 +409,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(false),
+				UseUnifiedImage: new(false),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -438,7 +437,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(false),
+				UseUnifiedImage: new(false),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -466,7 +465,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(false),
+				UseUnifiedImage: new(false),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -495,7 +494,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    false,
-				UseUnifiedImage: ptr.To(true),
+				UseUnifiedImage: new(true),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -523,7 +522,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    false,
-				UseUnifiedImage: ptr.To(true),
+				UseUnifiedImage: new(true),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -552,7 +551,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(true),
+				UseUnifiedImage: new(true),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -580,7 +579,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    false,
-				UseUnifiedImage: ptr.To(true),
+				UseUnifiedImage: new(true),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -608,7 +607,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(true),
+				UseUnifiedImage: new(true),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -636,7 +635,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(true),
+				UseUnifiedImage: new(true),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -664,7 +663,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(true),
+				UseUnifiedImage: new(true),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -692,7 +691,7 @@ var _ = Describe("image setup", func() {
 			},
 			&ClusterConfig{
 				DebugSymbols:    true,
-				UseUnifiedImage: ptr.To(true),
+				UseUnifiedImage: new(true),
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{

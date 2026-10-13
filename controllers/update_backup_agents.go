@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
-	"k8s.io/utils/ptr"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -153,7 +152,7 @@ func (u updateBackupAgents) reconcile(
 					"pod", pod.Name,
 					"phase", phase,
 					"reason", reason)
-				err = r.Delete(ctx, ptr.To(pod))
+				err = r.Delete(ctx, new(pod))
 				if err != nil {
 					return &requeue{curError: err}
 				}

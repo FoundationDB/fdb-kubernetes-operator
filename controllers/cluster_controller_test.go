@@ -45,7 +45,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/net"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
@@ -376,7 +375,7 @@ var _ = Describe("cluster_controller", func() {
 				BeforeEach(func() {
 					generationGap = 2
 					// There is a bug in the fake client that when updating the status the spec is updated.
-					cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+					cluster.Spec.Routing.PodIPFamily = new(6)
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
@@ -396,7 +395,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("disabling the DNS names in the cluster file", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
@@ -1888,7 +1887,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when enabling explicit listen addresses", func() {
 			BeforeEach(func() {
-				cluster.Spec.UseExplicitListenAddress = ptr.To(false)
+				cluster.Spec.UseExplicitListenAddress = new(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1899,7 +1898,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(cluster), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.UseExplicitListenAddress = ptr.To(true)
+				cluster.Spec.UseExplicitListenAddress = new(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2091,7 +2090,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a conversion to IPv6", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+				cluster.Spec.Routing.PodIPFamily = new(6)
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
@@ -2115,7 +2114,7 @@ var _ = Describe("cluster_controller", func() {
 				mock.ClearMockLockClients()
 
 				cluster = internal.CreateDefaultCluster()
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+				cluster.Spec.Routing.PodIPFamily = new(6)
 
 				Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
 
@@ -2820,7 +2819,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("enabling a headless service", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.HeadlessService = ptr.To(true)
+				cluster.Spec.Routing.HeadlessService = new(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2841,7 +2840,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("disabling a headless service", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.HeadlessService = ptr.To(true)
+				cluster.Spec.Routing.HeadlessService = new(true)
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 
 				_, err := reconcileCluster(cluster)
@@ -2851,8 +2850,8 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(generation).To(Equal(originalVersion + 1))
 
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
-				cluster.Spec.Routing.HeadlessService = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
+				cluster.Spec.Routing.HeadlessService = new(false)
 				generationGap = 2
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
@@ -2875,7 +2874,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.LockOptions.DenyList,
 					fdbv1beta2.LockDenyListEntry{ID: "dc2"},
 				)
-				cluster.Spec.LockOptions.DisableLocks = ptr.To(false)
+				cluster.Spec.LockOptions.DisableLocks = new(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -4119,7 +4118,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v6 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+				cluster.Spec.Routing.PodIPFamily = new(6)
 				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 					ProcessGroupID: "storage-1",
@@ -4160,7 +4159,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v4 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
-				cluster.Spec.Routing.PodIPFamily = ptr.To(4)
+				cluster.Spec.Routing.PodIPFamily = new(4)
 				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 					ProcessGroupID: "storage-1",

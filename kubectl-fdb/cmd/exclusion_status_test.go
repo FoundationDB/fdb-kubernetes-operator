@@ -28,7 +28,6 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("[plugin] exclusion status", func() {
@@ -659,7 +658,7 @@ var _ = Describe("[plugin] exclusion status", func() {
 		})
 
 		It("should include team tracker info for primary and remote regions", func() {
-			unhealthyServers := ptr.To(int64(1))
+			unhealthyServers := new(int64(1))
 			status := &fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Data: fdbv1beta2.FoundationDBStatusDataStatistics{

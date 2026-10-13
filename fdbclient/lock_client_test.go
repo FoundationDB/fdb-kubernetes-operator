@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
 // newTestCluster returns a minimal FoundationDBCluster with locking explicitly enabled via LockOptions.
@@ -41,7 +40,7 @@ func newTestCluster() *fdbv1beta2.FoundationDBCluster {
 		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			ProcessGroupIDPrefix: "test-operator",
 			LockOptions: fdbv1beta2.LockOptions{
-				DisableLocks: ptr.To(false),
+				DisableLocks: new(false),
 			},
 		},
 	}

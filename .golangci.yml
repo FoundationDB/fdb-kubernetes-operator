@@ -108,7 +108,7 @@ linters:
       - path: (.+)\.go$
         linters:
           - staticcheck
-        text: 'SA1019: mgr.GetEventRecorderFor is deprecated'
+        text: 'SA1019: .*GetEventRecorderFor is deprecated'
     paths:
       - zz_generated.*\.go$
       - third_party$

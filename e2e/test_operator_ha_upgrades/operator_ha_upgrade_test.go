@@ -35,8 +35,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
@@ -76,7 +74,7 @@ func clusterSetupWithTestConfig(ctx context.Context, config testConfig) {
 		)
 	}
 
-	config.clusterConfig.Version = ptr.To(config.beforeVersion)
+	config.clusterConfig.Version = new(config.beforeVersion)
 	fdbCluster = factory.CreateFdbHaCluster(ctx, config.clusterConfig)
 
 	if config.enableHealthCheck {
@@ -633,7 +631,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				fixtures.HaFourZoneSingleSat,
 				false,
 			)
-			clusterConfig.UseLocalityBasedExclusions = ptr.To(true)
+			clusterConfig.UseLocalityBasedExclusions = new(true)
 
 			clusterSetupWithTestConfig(
 				ctx,

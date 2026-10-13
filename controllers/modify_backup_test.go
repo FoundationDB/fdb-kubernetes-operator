@@ -63,7 +63,7 @@ var _ = Describe("modifyBackup reconciler", func() {
 		It("should skip ModifyBackup even when the snapshot period changed", func() {
 			backup.Status.BackupDetails = buildBackupDetails(fdbv1beta2.DefaultBackupTagBackupTag)
 			backup.Spec.BackupMode = ptr.To(fdbv1beta2.BackupModeOneTime)
-			backup.Spec.SnapshotPeriodSeconds = ptr.To(100000)
+			backup.Spec.SnapshotPeriodSeconds = new(100000)
 
 			req := modifyBackup{}.reconcile(context.TODO(), backupReconciler, backup)
 

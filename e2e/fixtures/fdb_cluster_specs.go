@@ -96,18 +96,18 @@ func (factory *Factory) createFDBClusterSpec(
 			FaultDomain: faultDomain,
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 				// We have to wait long enough to ensure the operator is not recreating too many Pods at the same time.
-				WaitBetweenRemovalsSeconds: ptr.To(0),
+				WaitBetweenRemovalsSeconds: new(0),
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{
-					Enabled: ptr.To(true),
+					Enabled: new(true),
 					// Setting this to 10 minutes is reasonable to prevent the operator recreating Pods when they wait for
 					// new ec2 instances.
-					FailureDetectionTimeSeconds: ptr.To(600),
+					FailureDetectionTimeSeconds: new(600),
 					// Setting TaintReplacementTimeSeconds as half of FailureDetectionTimeSeconds to make taint replacement faster
-					TaintReplacementTimeSeconds: ptr.To(150),
-					MaxConcurrentReplacements:   ptr.To(2),
+					TaintReplacementTimeSeconds: new(150),
+					MaxConcurrentReplacements:   new(2),
 				},
 				MaintenanceModeOptions: fdbv1beta2.MaintenanceModeOptions{
-					UseMaintenanceModeChecker: ptr.To(config.UseMaintenanceMode),
+					UseMaintenanceModeChecker: new(config.UseMaintenanceMode),
 				},
 				// Allow the operator to remove all Pods that are excluded and marked for deletion to remove at once.
 				RemovalMode: fdbv1beta2.PodUpdateModeAll,
@@ -115,12 +115,12 @@ func (factory *Factory) createFDBClusterSpec(
 					"fdb-kubernetes-operator",
 				},
 				UseLocalitiesForExclusion: config.UseLocalityBasedExclusions,
-				SynchronizationMode:       ptr.To(string(config.SynchronizationMode)),
+				SynchronizationMode:       new(string(config.SynchronizationMode)),
 				DatabaseInteractionMode:   databaseInteractionMode,
 			},
 			Routing: fdbv1beta2.RoutingConfig{
 				UseDNSInClusterFile: config.UseDNS,
-				HeadlessService: ptr.To(
+				HeadlessService: new(
 					true,
 				), // to make switching between hostname <-> IP smooth
 			},
@@ -230,9 +230,9 @@ func (factory *Factory) createPodTemplate(
 					ImagePullPolicy: factory.getImagePullPolicy(),
 					Resources:       mainContainerResources,
 					SecurityContext: &corev1.SecurityContext{
-						Privileged:               ptr.To(true),
-						AllowPrivilegeEscalation: ptr.To(true), // for performance profiling
-						ReadOnlyRootFilesystem: ptr.To(
+						Privileged:               new(true),
+						AllowPrivilegeEscalation: new(true), // for performance profiling
+						ReadOnlyRootFilesystem: new(
 							false,
 						), // to allow I/O chaos to succeed
 					},
@@ -276,7 +276,7 @@ func (factory *Factory) createPodTemplate(
 					SecurityContext: &corev1.SecurityContext{
 						//Privileged:               ptr.To(true),
 						//AllowPrivilegeEscalation: ptr.To(true), // for performance profiling
-						ReadOnlyRootFilesystem: ptr.To(
+						ReadOnlyRootFilesystem: new(
 							false,
 						), // to allow I/O chaos to succeed
 					},

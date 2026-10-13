@@ -28,8 +28,6 @@ This test suite includes tests for migrating between the different image types.
 import (
 	"log"
 
-	"k8s.io/utils/ptr"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
@@ -61,7 +59,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from split to unified", func() {
 		BeforeEach(func(ctx SpecContext) {
 			config := fixtures.DefaultClusterConfig(false)
-			config.UseUnifiedImage = ptr.To(false)
+			config.UseUnifiedImage = new(false)
 			fdbCluster = factory.CreateFdbCluster(ctx,
 				config,
 			)
@@ -109,14 +107,14 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from split to unified with Pod IP family set", func() {
 		BeforeEach(func(ctx SpecContext) {
 			config := fixtures.DefaultClusterConfig(false)
-			config.UseUnifiedImage = ptr.To(false)
+			config.UseUnifiedImage = new(false)
 			fdbCluster = factory.CreateFdbCluster(ctx,
 				config,
 			)
 
 			// Set the Pod IP Family
 			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-			spec.Routing.PodIPFamily = ptr.To(4)
+			spec.Routing.PodIPFamily = new(4)
 			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
 
@@ -163,7 +161,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from unified to split", func() {
 		BeforeEach(func(ctx SpecContext) {
 			config := fixtures.DefaultClusterConfig(false)
-			config.UseUnifiedImage = ptr.To(true)
+			config.UseUnifiedImage = new(true)
 			fdbCluster = factory.CreateFdbCluster(ctx,
 				config,
 			)

@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
@@ -73,7 +71,7 @@ var _ = Describe("update_database_configuration", func() {
 
 		When("the operator is not allowed to configure the database", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.ConfigureDatabase = ptr.To(false)
+				cluster.Spec.AutomationOptions.ConfigureDatabase = new(false)
 			})
 
 			It("should perform the initial configuration", func() {

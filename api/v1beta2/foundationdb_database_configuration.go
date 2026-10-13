@@ -952,8 +952,8 @@ var roleNames = fieldNames(RoleCounts{})
 func fieldNames(value any) []ProcessClass {
 	countType := reflect.TypeOf(value)
 	names := make([]ProcessClass, 0, countType.NumField())
-	for index := 0; index < countType.NumField(); index++ {
-		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
+	for field := range countType.Fields() {
+		tag := strings.Split(field.Tag.Get("json"), ",")
 		names = append(names, ProcessClass(tag[0]))
 	}
 	return names

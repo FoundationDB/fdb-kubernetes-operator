@@ -49,7 +49,7 @@ var _ = Describe("exclude_processes", func() {
 	When("validating if processes can be excluded", func() {
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
+			cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = new(false)
 			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
@@ -582,7 +582,7 @@ var _ = Describe("exclude_processes", func() {
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseLocalitiesForExclusion: ptr.To(true),
+						UseLocalitiesForExclusion: new(true),
 					},
 				},
 			}
@@ -1737,7 +1737,7 @@ var _ = Describe("exclude_processes", func() {
 
 				When("using localities", func() {
 					BeforeEach(func() {
-						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
+						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = new(
 							true,
 						)
 					})
@@ -1926,7 +1926,7 @@ var _ = Describe("exclude_processes", func() {
 
 				When("using localities", func() {
 					BeforeEach(func() {
-						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
+						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = new(
 							true,
 						)
 					})
@@ -2017,7 +2017,7 @@ var _ = Describe("exclude_processes", func() {
 
 					When("localities are used for exclusion", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = new(
 								true,
 							)
 						})
@@ -2038,7 +2038,7 @@ var _ = Describe("exclude_processes", func() {
 
 					When("localities for exclusion are disabled", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = new(
 								false,
 							)
 							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)

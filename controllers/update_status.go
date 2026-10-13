@@ -1004,7 +1004,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 					"TaintValue", taint.Value,
 					"TaintEffect", taint.Effect)
 				// Update nodeTaintDetectedTime here to make sure we are not hitting a nil pointer below.
-				nodeTaintDetectedTime = ptr.To(time.Now().Unix())
+				nodeTaintDetectedTime = new(time.Now().Unix())
 			}
 
 			// Use node taint's timestamp as the NodeTaintDetected condition's starting time.
@@ -1020,7 +1020,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 					taint.TimeAdded.Unix(),
 				)
 				// Update the current timestamp with the new value.
-				nodeTaintDetectedTime = ptr.To(taint.TimeAdded.Unix())
+				nodeTaintDetectedTime = new(taint.TimeAdded.Unix())
 			}
 
 			// If the process group already has the NodeTaintReplacing condition we can skip any further work.
