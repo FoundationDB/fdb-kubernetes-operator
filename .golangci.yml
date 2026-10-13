@@ -40,7 +40,7 @@ linters:
             - k8s.io/kubectl
             - k8s.io/apimachinery
             - k8s.io/client-go
-            - k8s.io/cli-runtim
+            - k8s.io/cli-runtime
             - k8s.io/api
             - k8s.io/klog
             - k8s.io/utils
@@ -51,7 +51,6 @@ linters:
             - github.com/spf13/viper
             - github.com/spf13/pflag
             - github.com/fatih/color
-            - github.com/chaos-mesh
             - github.com/prometheus
             - github.com/go-logr
             - golang.org/x/sync/errgroup
@@ -61,7 +60,6 @@ linters:
       exclude-functions:
         - (io.Closer).Close
         - (*os.File).Close
-        - (github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient.AdminClient).Close
     govet:
       enable:
         - shadow
@@ -78,14 +76,6 @@ linters:
       - linters:
           - revive
         text: 'package-comments: should have a package comment'
-      - linters:
-          - staticcheck
-        text: 'ST1003: const StorageEngineRocksDbExperimental'
-      - linters:
-          - staticcheck
-        text: 'ST1003: const StorageEngineRocksDbV1'
-      - path: (.+)\.go$
-        text: 'ST1000: at least one file in a package should have a package comment'
       # TODO (johscheuer): Enable those linter exclusions again and fix them in a new PR.
       - path: (.+)\.go$
         linters:
@@ -103,17 +93,9 @@ linters:
       - path: (.+)\.go$
         linters:
           - staticcheck
-        text: 'SA1019: client.Apply is deprecated'
-      # TODO (j-scheuermann): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2428
-      - path: (.+)\.go$
-        linters:
-          - staticcheck
         text: 'SA1019: .*GetEventRecorderFor is deprecated'
     paths:
       - zz_generated.*\.go$
-      - third_party$
-      - builtin$
-      - examples$
       # Ignore the chaos-mesh setup in linting for now.
       - e2e/chaos-mesh/
 formatters:
@@ -123,6 +105,3 @@ formatters:
     generated: lax
     paths:
       - zz_generated.*\.go$
-      - third_party$
-      - builtin$
-      - examples$
