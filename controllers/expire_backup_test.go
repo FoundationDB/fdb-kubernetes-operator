@@ -507,7 +507,7 @@ var _ = Describe("backup expiration", func() {
 	)
 
 	DescribeTable(
-		"uses expiration polling while backup deletion waits for a Job",
+		"cancels expiration and waits for its Pods before backup deletion",
 		func(condition batchv1.JobConditionType, policy fdbv1beta2.BackupDeletionPolicy) {
 			backup.Spec.DeletionPolicy = ptr.To(policy)
 			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
@@ -523,11 +523,22 @@ var _ = Describe("backup expiration", func() {
 			reconciler.BackupExpirationPollInterval = 3 * time.Minute
 			adminClient.MockError(errors.New("cleanup reached admin client"))
 
-			result, err := reconciler.Reconcile(ctx, ctrl.Request{
+			request := ctrl.Request{
 				NamespacedName: client.ObjectKeyFromObject(backup),
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(3 * time.Minute))
+			}
+			for range 2 {
+				result, err := reconciler.Reconcile(ctx, request)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(jobs()).To(HaveLen(1))
+				job = jobs()[0]
+				Expect(job.DeletionTimestamp).NotTo(BeNil())
+				Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+			}
+			job.Finalizers = nil
+			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
+			Expect(jobs()).To(BeEmpty())
+			_, err := reconciler.Reconcile(ctx, request)
+			Expect(err).To(MatchError("cleanup reached admin client"))
 		},
 		Entry(
 			"active Job with cleanup",
@@ -558,41 +569,4 @@ var _ = Describe("backup expiration", func() {
 		reconcile()
 		Expect(jobs()).To(BeEmpty())
 	})
-
-	DescribeTable(
-		"defers deletion cleanup until the expiration Job is gone",
-		func(condition batchv1.JobConditionType, policy fdbv1beta2.BackupDeletionPolicy) {
-			reconcile()
-			backup.Spec.DeletionPolicy = ptr.To(policy)
-			backup.DeletionTimestamp = ptr.To(metav1.Now())
-			adminClient.MockError(errors.New("cleanup reached admin client"))
-			_, err := backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)
-			Expect(err).NotTo(HaveOccurred())
-			job := jobs()[0]
-			// Hold the Job until its dependents have been removed by garbage collection
-			job.Finalizers = []string{metav1.FinalizerDeleteDependents}
-			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
-			finish(&job, condition)
-			_, err = backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(jobs()).To(HaveLen(1))
-			job = jobs()[0]
-			Expect(job.DeletionTimestamp).NotTo(BeNil())
-			_, err = backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)
-			Expect(err).NotTo(HaveOccurred())
-			job.Finalizers = nil
-			Expect(k8sClient.Update(ctx, &job)).To(Succeed())
-			Expect(jobs()).To(BeEmpty())
-			_, err = backupReconciler.updateFinalizerIfNeeded(ctx, testLogger, backup)
-			Expect(err).To(MatchError("cleanup reached admin client"))
-		},
-		Entry(
-			"completed Job with cleanup",
-			batchv1.JobComplete,
-			fdbv1beta2.BackupDeletionPolicyCleanup,
-		),
-		Entry("failed Job with cleanup", batchv1.JobFailed, fdbv1beta2.BackupDeletionPolicyCleanup),
-		Entry("completed Job with stop", batchv1.JobComplete, fdbv1beta2.BackupDeletionPolicyStop),
-		Entry("failed Job with stop", batchv1.JobFailed, fdbv1beta2.BackupDeletionPolicyStop),
-	)
 })

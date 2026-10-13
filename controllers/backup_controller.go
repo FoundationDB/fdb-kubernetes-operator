@@ -106,7 +106,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 
 	// Check if the finalizer is added or should be removed. If the FoundationDBBackup resource is being deleted (has
 	// a deletion timestamp set) perform the required actions to allow the finalizer to be removed.
-	finalizerDelay, err := r.updateFinalizerIfNeeded(ctx, backupLog, backup)
+	err = r.updateFinalizerIfNeeded(ctx, backupLog, backup)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -114,10 +114,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 	// If the resource is being deleted, we don't want to perform any work, besides the work to remove the
 	// finalizer.
 	if backup.DeletionTimestamp != nil {
-		if finalizerDelay == 0 {
-			finalizerDelay = 5 * time.Second
-		}
-		return ctrl.Result{RequeueAfter: finalizerDelay}, nil
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 	}
 
 	err = backup.Validate(r.AllowedPodModifications)
@@ -144,9 +141,9 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 			backupLog.Info("Delaying requeue for sub-reconciler",
 				"reconciler", fmt.Sprintf("%T", subReconciler),
 				"message", req.message,
-				"delayedRequeueDuration", req.delay.String(),
+				"delayedRequeueDuration", delayedRequeueDuration.String(),
 				"error", req.curError)
-			if !delayedRequeue || req.delay < delayedRequeueDuration {
+			if delayedRequeueDuration < req.delay {
 				delayedRequeueDuration = req.delay
 			}
 
@@ -169,7 +166,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 			"DelayedRequeue",
 			delayedRequeueDuration.String())
 
-		if delayedRequeueDuration == 0 {
+		if delayedRequeueDuration == time.Duration(0) {
 			delayedRequeueDuration = 5 * time.Second
 		}
 	} else {
@@ -309,11 +306,13 @@ func (r *FoundationDBBackupReconciler) updateOrApplySpec(
 	return r.Update(ctx, backup)
 }
 
-// updateFinalizerIfNeeded manages backup deletion and returns a delay while waiting for expiration
+// updateFinalizerIfNeeded will check if the finalizes must be updated. In case that they must be updated, they will
+// be either added or removed. In case that the resource has a deletion timestamp, the operator will perform the
+// according cleanup operation based on the fdbv1beta2.BackupDeletionPolicy.
 func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Context,
 	logger logr.Logger,
 	backup *fdbv1beta2.FoundationDBBackup,
-) (time.Duration, error) {
+) error {
 	deletionPolicy := backup.GetDeletionPolicy()
 	logger.V(1).Info("checking finalizer state", "deletionPolicy", deletionPolicy)
 
@@ -322,10 +321,10 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 		backup.GetBackupType() == fdbv1beta2.BackupTypeUnmanaged {
 		if controllerutil.RemoveFinalizer(backup, fdbv1beta2.FoundationDBBackupFinalizerName) {
 			logger.V(1).Info("removing the finalizer for backup resource")
-			return 0, r.updateOrApplySpec(ctx, backup)
+			return r.updateOrApplySpec(ctx, backup)
 		}
 
-		return 0, nil
+		return nil
 	}
 
 	if deletionPolicy == fdbv1beta2.BackupDeletionPolicyCleanup ||
@@ -335,44 +334,37 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 		if backup.DeletionTimestamp == nil {
 			if controllerutil.AddFinalizer(backup, fdbv1beta2.FoundationDBBackupFinalizerName) {
 				logger.V(1).Info("adding the finalizer for backup resource")
-				return 0, r.updateOrApplySpec(ctx, backup)
+				return r.updateOrApplySpec(ctx, backup)
 			}
 
-			return 0, nil
+			return nil
 		}
 
 		job, err := r.getBackupExpirationJob(ctx, backup)
 		if err != nil {
-			return 0, err
+			return err
 		}
 		if job != nil {
-			phase, _ := backupExpirationJobResult(job)
-			if phase == fdbv1beta2.BackupExpirationPhaseRunning {
-				return r.backupExpirationPollInterval(), nil
-			}
-			// Kubernetes 1.30 can report a terminal Job while its Pods are still terminating
-			if err = r.deleteBackupExpirationJob(ctx, job); err != nil {
-				return 0, err
-			}
-			return r.backupExpirationPollInterval(), nil
+			// Wait for expiration Pods to terminate before touching backup data
+			return r.deleteBackupExpirationJob(ctx, job)
 		}
 
 		// This part of the code will be executed when the backup resource has a deletion timestamp and is waiting
 		// for the cleanup of external resources.
 		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
-			return 0, err
+			return err
 		}
 
 		backupStatus, err := adminClient.GetBackupStatus(backup)
 		if err != nil {
-			return 0, err
+			return err
 		}
 
 		if backupStatus.Status.Running {
 			err = adminClient.AbortBackup(backup)
 			if err != nil {
-				return 0, err
+				return err
 			}
 		}
 
@@ -383,10 +375,10 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 				backup,
 				fdbv1beta2.FoundationDBBackupFinalizerName,
 			) {
-				return 0, r.updateOrApplySpec(ctx, backup)
+				return r.updateOrApplySpec(ctx, backup)
 			}
 
-			return 0, nil
+			return nil
 		}
 
 		logger.V(1).Info("deleting backup data")
@@ -400,17 +392,17 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 					backup,
 					fdbv1beta2.FoundationDBBackupFinalizerName,
 				) {
-					return 0, r.updateOrApplySpec(ctx, backup)
+					return r.updateOrApplySpec(ctx, backup)
 				}
 
-				return 0, nil
+				return nil
 			}
 
-			return 0, err
+			return err
 		}
 
-		return 0, nil
+		return nil
 	}
 
-	return 0, fmt.Errorf("unknown backup deletion policy: %s", deletionPolicy)
+	return fmt.Errorf("unknown backup deletion policy: %s", deletionPolicy)
 }

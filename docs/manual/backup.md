@@ -360,7 +360,7 @@ kubectl logs job/<status.expiration.jobName>
 
 Jobs have a one-hour deadline and at most three Pod retries. When the operator observes completion, it uses the current policy's interval to schedule the next run. Consecutive failed Jobs double the interval between runs, capped at one day; success resets the backoff. The latest Job remains available for inspection until the next run. Policy changes and manual deletion of a terminal Job do not bypass the recorded schedule. Fix the cause of a failure or adjust the retention policy, then allow the scheduled retry to run.
 
-The operator keeps one Job per backup, deleting the previous Job and waiting for its Pods before starting another. Removing `expiration` prevents new work, lets an active Job finish, then deletes its Job and clears expiration status. Removing the field or increasing retention cannot recover deleted data. Deletion policies that stop or clean up the backup also wait for expiration and its Pods to finish.
+The operator keeps one Job per backup, deleting the previous Job and waiting for its Pods before starting another. Removing `expiration` prevents new work, lets an active Job finish, then deletes its Job and clears expiration status. Removing the field or increasing retention cannot recover deleted data. Deleting the backup with the `stop` or `cleanup` policy cancels its expiration Job and waits for its Pods to terminate before proceeding.
 
 Active Jobs are polled once per minute by default. Set the operator flag `--backup-expiration-poll-interval` to adjust this frequency, for example `5m` when managing many backups. Idle backups requeue at their recorded next run time.
 
