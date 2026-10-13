@@ -192,6 +192,13 @@ var _ = Describe("backup expiration", func() {
 			if condition != "" {
 				finish(&job, condition)
 				reconcile()
+				backup.Status.Expiration.CompletionTime.Time = backup.Status.Expiration.CompletionTime.Add(
+					-time.Minute,
+				)
+				backup.Status.Expiration.NextRunTime.Time = backup.Status.Expiration.NextRunTime.Add(
+					-time.Minute,
+				)
+				Expect(k8sClient.Status().Update(ctx, backup)).To(Succeed())
 			}
 			nextRun := backup.Status.Expiration.NextRunTime.DeepCopy()
 			if changeGeneration {
@@ -203,9 +210,11 @@ var _ = Describe("backup expiration", func() {
 			reconciler.InSimulation = agentsReady
 			reconciler.BackupExpirationPollInterval = 3 * time.Minute
 
+			before := time.Now()
 			result, err := reconciler.Reconcile(ctx, ctrl.Request{
 				NamespacedName: client.ObjectKeyFromObject(backup),
 			})
+			after := time.Now()
 			Expect(err).NotTo(HaveOccurred())
 			_, err = reloadBackup(backup)
 			Expect(err).NotTo(HaveOccurred())
@@ -217,7 +226,13 @@ var _ = Describe("backup expiration", func() {
 					backup.Status.Generations.Reconciled,
 				).To(BeNumerically("<", backup.Generation))
 			}
-			Expect(result.RequeueAfter).To(BeNumerically("~", expectedDelay, time.Second))
+			if agentsReady && nextRun != nil {
+				deadline := backup.Status.Expiration.CompletionTime.Add(expectedDelay)
+				Expect(result.RequeueAfter).To(BeNumerically(">=", deadline.Sub(after)))
+				Expect(result.RequeueAfter).To(BeNumerically("<=", deadline.Sub(before)))
+			} else {
+				Expect(result.RequeueAfter).To(Equal(expectedDelay))
+			}
 			Expect(backup.Status.Expiration.NextRunTime).To(Equal(nextRun))
 			Expect(jobs()).To(HaveLen(1))
 			Expect(jobs()[0].UID).To(Equal(job.UID))
@@ -282,20 +297,36 @@ var _ = Describe("backup expiration", func() {
 			job := jobs()[0]
 			finish(&job, batchv1.JobComplete)
 			reconcile()
+			backup.Status.Expiration.CompletionTime.Time = backup.Status.Expiration.CompletionTime.Add(
+				-time.Minute,
+			)
+			backup.Status.Expiration.NextRunTime.Time = backup.Status.Expiration.NextRunTime.Add(
+				-time.Minute,
+			)
+			Expect(k8sClient.Status().Update(ctx, backup)).To(Succeed())
 			nextRun := backup.Status.Expiration.NextRunTime.DeepCopy()
 			reconciler := *backupReconciler
 			reconciler.MinimumAgeForTerminalPodDeletion = podCleanupDelay
 			reconciler.InSimulation = false
 			setupUnreadyDeploymentWithTerminalPod(ctx, backup, corev1.PodFailed)
+			pod := &corev1.Pod{}
+			Expect(k8sClient.Get(ctx, client.ObjectKey{
+				Namespace: backup.Namespace, Name: "terminal-backup-agent",
+			}, pod)).To(Succeed())
+			deadline := pod.CreationTimestamp.Add(podCleanupDelay)
+			if nextRun.Time.Before(deadline) {
+				deadline = nextRun.Time
+			}
 
+			before := time.Now()
 			result, err := reconciler.Reconcile(ctx, ctrl.Request{
 				NamespacedName: client.ObjectKeyFromObject(backup),
 			})
+			after := time.Now()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.RequeueAfter).To(BeNumerically(">", 0))
-			Expect(
-				result.RequeueAfter,
-			).To(BeNumerically("~", min(podCleanupDelay, expirationInterval), time.Second))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", deadline.Sub(after)))
+			Expect(result.RequeueAfter).To(BeNumerically("<=", deadline.Sub(before)))
 			_, err = reloadBackup(backup)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(backup.Status.Generations.NeedsBackupAgentUpdate).To(Equal(backup.Generation))
