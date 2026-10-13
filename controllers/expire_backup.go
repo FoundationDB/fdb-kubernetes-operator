@@ -89,19 +89,19 @@ func (s expireBackup) reconcile(
 		}
 		return nil
 	}
+	if backup.Status.BackupDetails == nil || backup.Status.BackupDetails.URL == "" {
+		pending.message = "waiting for backup destination before expiration"
+		return pending
+	}
 	currentStatus := backup.Status.Expiration
 	if currentStatus != nil && currentStatus.Phase == fdbv1beta2.BackupExpirationPhaseRunning {
-		job, err = internal.GetBackupExpirationJob(backup)
+		job, err = internal.GetBackupExpirationJob(backup, time.Now())
 		if err != nil {
 			return &requeue{curError: err}
 		}
 		if err = r.Create(ctx, job); err != nil {
 			return &requeue{curError: err}
 		}
-		return pending
-	}
-	if backup.Status.BackupDetails == nil || backup.Status.BackupDetails.URL == "" {
-		pending.message = "waiting for backup destination before expiration"
 		return pending
 	}
 	if err = r.scheduleBackupExpiration(ctx, backup); err != nil {
@@ -132,33 +132,22 @@ func (r *FoundationDBBackupReconciler) backupExpirationPollInterval() time.Durat
 	return r.BackupExpirationPollInterval
 }
 
-// scheduleBackupExpiration persists the cutoffs and target before Job creation so restarts cannot redirect deletion
+// scheduleBackupExpiration records the Job name before creation so restarts cannot create duplicate Jobs
 func (r *FoundationDBBackupReconciler) scheduleBackupExpiration(
 	ctx context.Context,
 	backup *fdbv1beta2.FoundationDBBackup,
 ) error {
-	now := time.Now().UTC().Truncate(time.Second)
-	policy := backup.Spec.Expiration.DeepCopy()
-	cutoff := metav1.NewTime(now.Add(-time.Duration(policy.ExpireAfterSeconds) * time.Second))
-	hash := sha256.Sum256([]byte(string(backup.UID) + "/" + cutoff.Format(time.RFC3339Nano)))
+	hash := sha256.Sum256(
+		[]byte(string(backup.UID) + "/" + time.Now().UTC().Format(time.RFC3339Nano)),
+	)
 	failureCount := 0
 	if backup.Status.Expiration != nil {
 		failureCount = backup.Status.Expiration.FailureCount
 	}
 	backup.Status.Expiration = &fdbv1beta2.BackupExpirationStatus{
-		Policy:          *policy,
-		BeforeTimestamp: cutoff,
-		DestinationURL:  backup.Status.BackupDetails.URL,
-		ClusterName:     backup.Spec.ClusterName,
-		JobName:         fmt.Sprintf("fdbbackup-expire-%x", hash[:16]),
-		Phase:           fdbv1beta2.BackupExpirationPhaseRunning,
-		FailureCount:    failureCount,
-	}
-	if policy.RestorableForSeconds != nil {
-		restorableAfter := metav1.NewTime(
-			now.Add(-time.Duration(*policy.RestorableForSeconds) * time.Second),
-		)
-		backup.Status.Expiration.RestorableAfterTimestamp = &restorableAfter
+		JobName:      fmt.Sprintf("fdbbackup-expire-%x", hash[:16]),
+		Phase:        fdbv1beta2.BackupExpirationPhaseRunning,
+		FailureCount: failureCount,
 	}
 	return r.updateOrApply(ctx, backup)
 }
@@ -184,8 +173,12 @@ func (r *FoundationDBBackupReconciler) updateBackupExpirationStatus(
 		} else {
 			backup.Status.Expiration.FailureCount = 0
 		}
-		nextRun := metav1.NewTime(now.Add(backupExpirationNextRunDelay(backup.Status.Expiration)))
-		backup.Status.Expiration.NextRunTime = &nextRun
+		if backup.Spec.Expiration != nil {
+			nextRun := metav1.NewTime(now.Add(backupExpirationNextRunDelay(
+				backup.Spec.Expiration.Interval(), backup.Status.Expiration.FailureCount,
+			)))
+			backup.Status.Expiration.NextRunTime = &nextRun
+		}
 	}
 	if err := r.updateOrApply(ctx, backup); err != nil {
 		return err
@@ -205,9 +198,8 @@ func (r *FoundationDBBackupReconciler) updateBackupExpirationStatus(
 	return nil
 }
 
-func backupExpirationNextRunDelay(currentStatus *fdbv1beta2.BackupExpirationStatus) time.Duration {
-	interval := currentStatus.Policy.Interval()
-	for failures := 1; failures < currentStatus.FailureCount && interval < 24*time.Hour; failures++ {
+func backupExpirationNextRunDelay(interval time.Duration, failureCount int) time.Duration {
+	for failures := 1; failures < failureCount && interval < 24*time.Hour; failures++ {
 		interval *= 2
 	}
 	return min(interval, 24*time.Hour)

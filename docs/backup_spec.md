@@ -33,9 +33,9 @@ BackupExpiration configures recurring backup retention
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| expireAfterSeconds | ExpireAfterSeconds expires data older than this duration, measured when each Job is scheduled. The source cluster must be available to convert timestamps to FDB versions | int64 | true |
+| expireAfterSeconds | ExpireAfterSeconds expires data older than this duration, measured when each Job is created. The source cluster must be available to convert timestamps to FDB versions | int64 | true |
 | restorableForSeconds | RestorableForSeconds requires restorability from this many seconds ago onward. Mutually exclusive with RestorableAfterVersion | *int64 | false |
-| restorableAfterVersion | RestorableAfterVersion protects the oldest database version still required by an external checkpoint. Omitting both restore requirements uses FDB's default check, which does not protect a specific checkpoint | *int64 | false |
+| restorableAfterVersion | RestorableAfterVersion is the oldest database version that must remain restorable after expiration. Mutually exclusive with RestorableForSeconds | *int64 | false |
 | intervalSeconds | IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour. Failed Jobs use exponential backoff up to one day | *int64 | false |
 
 [Back to TOC](#table-of-contents)
@@ -52,11 +52,6 @@ BackupExpirationStatus records the most recent expiration Job and its schedule
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| policy | Policy is the retention policy used to calculate this Job's cutoffs | [BackupExpiration](#backupexpiration) | true |
-| beforeTimestamp | BeforeTimestamp is the requested cutoff, not a guarantee that every older file was removed | metav1.Time | true |
-| restorableAfterTimestamp | RestorableAfterTimestamp is the minimum restorable point requested from FDB | *metav1.Time | false |
-| destinationURL | DestinationURL pins the target across restarts and Job creation, even if the backup URL changes | string | true |
-| clusterName | ClusterName identifies the source cluster used to resolve the timestamps | string | true |
 | jobName | JobName identifies the Job executing this expiration | string | true |
 | phase | Phase is Running from scheduling until the Job reaches a terminal condition | [BackupExpirationPhase](#backupexpirationphase) | true |
 | message | Message provides the Job's failure reason, if any | string | false |

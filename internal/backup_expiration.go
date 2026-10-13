@@ -25,6 +25,7 @@ import (
 	"maps"
 	"strconv"
 	"strings"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	batchv1 "k8s.io/api/batch/v1"
@@ -35,8 +36,11 @@ import (
 
 const backupTimestampLayout = "2006/01/02.15:04:05-0700"
 
-// GetBackupExpirationJob builds a Job using the policy and target pinned in backup status
-func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job, error) {
+// GetBackupExpirationJob builds a Job using the current expiration policy and backup destination
+func GetBackupExpirationJob(
+	backup *fdbv1beta2.FoundationDBBackup,
+	now time.Time,
+) (*batchv1.Job, error) {
 	currentStatus := backup.Status.Expiration
 	if currentStatus == nil {
 		return nil, errors.New("backup has no expiration status")
@@ -44,7 +48,6 @@ func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job
 
 	// Build the same runtime configuration even when the backup has no agent deployment
 	configuration := backup.DeepCopy()
-	configuration.Spec.ClusterName = currentStatus.ClusterName
 	configuration.Spec.AgentCount = ptr.To(1)
 	deployment, err := GetBackupDeployment(configuration)
 	if err != nil {
@@ -54,6 +57,9 @@ func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job
 	delete(template.Labels, fdbv1beta2.BackupDeploymentPodLabel)
 	template.Spec.RestartPolicy = corev1.RestartPolicyNever
 	template.Spec.EphemeralContainers = nil
+	policy := backup.Spec.Expiration
+	now = now.UTC()
+	cutoff := now.Add(-time.Duration(policy.ExpireAfterSeconds) * time.Second)
 
 	for _, container := range template.Spec.Containers {
 		if container.Name != fdbv1beta2.MainContainerName {
@@ -61,19 +67,20 @@ func GetBackupExpirationJob(backup *fdbv1beta2.FoundationDBBackup) (*batchv1.Job
 		}
 		container.Command = []string{"fdbbackup"}
 		container.Args = []string{
-			"expire", "-d", currentStatus.DestinationURL,
-			"--expire-before-timestamp", currentStatus.BeforeTimestamp.UTC().Format(backupTimestampLayout),
+			"expire", "-d", backup.Status.BackupDetails.URL,
+			"--expire-before-timestamp", cutoff.Format(backupTimestampLayout),
 		}
-		if currentStatus.RestorableAfterTimestamp != nil {
+		if policy.RestorableForSeconds != nil {
+			restorableAfter := now.Add(-time.Duration(*policy.RestorableForSeconds) * time.Second)
 			container.Args = append(
 				container.Args,
 				"--restorable-after-timestamp",
-				currentStatus.RestorableAfterTimestamp.UTC().Format(backupTimestampLayout),
+				restorableAfter.Format(backupTimestampLayout),
 			)
 		}
-		if currentStatus.Policy.RestorableAfterVersion != nil {
+		if policy.RestorableAfterVersion != nil {
 			container.Args = append(container.Args, "--restorable-after-version",
-				strconv.FormatInt(*currentStatus.Policy.RestorableAfterVersion, 10))
+				strconv.FormatInt(*policy.RestorableAfterVersion, 10))
 		}
 		// Only knobs can be inherited: other CLI options could override the destination or disable safety checks
 		for _, parameter := range backup.Spec.CustomParameters.GetKnobsForBackupRestoreCLI() {

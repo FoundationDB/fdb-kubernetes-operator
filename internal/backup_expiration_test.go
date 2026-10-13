@@ -33,14 +33,12 @@ import (
 
 var _ = Describe("backup expiration Job", func() {
 	type restoreRequirementTestCase struct {
-		restorableAfterTimestamp *metav1.Time
-		restorableAfterVersion   *int64
-		expectedArgs             []string
+		restorableForSeconds   *int64
+		restorableAfterVersion *int64
+		expectedArgs           []string
 	}
 	restoreWindow := restoreRequirementTestCase{
-		restorableAfterTimestamp: ptr.To(
-			metav1.NewTime(time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC)),
-		),
+		restorableForSeconds: ptr.To(int64(86400)),
 		expectedArgs: []string{
 			"--restorable-after-timestamp",
 			"2026/09/02.00:00:00+0000",
@@ -58,10 +56,12 @@ var _ = Describe("backup expiration Job", func() {
 			backup.Spec.ImageType = ptr.To(imageType)
 			backup.Spec.AgentCount = ptr.To(0)
 			backup.Spec.Version = "7.4.6"
+			backup.Spec.ClusterName = "source-cluster"
 			backup.Spec.EncryptionKeyPath = "/keys/backup.key"
 			backup.Spec.Expiration = &fdbv1beta2.BackupExpiration{
-				ExpireAfterSeconds:     2592000,
-				RestorableAfterVersion: ptr.To(int64(987654321)),
+				ExpireAfterSeconds:     172800,
+				RestorableForSeconds:   testCase.restorableForSeconds,
+				RestorableAfterVersion: testCase.restorableAfterVersion,
 			}
 			backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 				"knob_backup_concurrent_deletes=4", "force", "expire-before-version=123", "locality_custom=test",
@@ -97,20 +97,15 @@ var _ = Describe("backup expiration Job", func() {
 				},
 			}
 			backup.Status.Expiration = &fdbv1beta2.BackupExpirationStatus{
-				Policy: fdbv1beta2.BackupExpiration{
-					RestorableAfterVersion: testCase.restorableAfterVersion,
-				},
-				BeforeTimestamp: metav1.NewTime(
-					time.Date(2026, 9, 1, 8, 0, 0, 0, time.FixedZone("SGT", 8*3600)),
-				),
-				DestinationURL:           "blobstore://test@store:443/pinned-backup?bucket=backups",
-				ClusterName:              "original-cluster",
-				JobName:                  "expiration-job",
-				Phase:                    fdbv1beta2.BackupExpirationPhaseRunning,
-				RestorableAfterTimestamp: testCase.restorableAfterTimestamp,
+				JobName: "expiration-job",
+			}
+			backup.Status.BackupDetails = &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
+				URL: "blobstore://test@store:443/test-backup?bucket=backups",
 			}
 			original := backup.DeepCopy()
-			job, err := GetBackupExpirationJob(backup)
+			job, err := GetBackupExpirationJob(
+				backup, time.Date(2026, 9, 3, 8, 0, 0, 0, time.FixedZone("SGT", 8*3600)),
+			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(backup).To(Equal(original))
 			Expect(job.Name).To(Equal("expiration-job"))
@@ -129,7 +124,7 @@ var _ = Describe("backup expiration Job", func() {
 				Name: "config-map",
 				VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "original-cluster-config",
+						Name: "source-cluster-config",
 					},
 					Items: []corev1.KeyToPath{
 						{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
@@ -144,7 +139,7 @@ var _ = Describe("backup expiration Job", func() {
 			Expect(container.Image).To(HaveSuffix(":7.4.6"))
 			Expect(container.Command).To(Equal([]string{"fdbbackup"}))
 			expectedArgs := []string{
-				"expire", "-d", backup.Status.Expiration.DestinationURL,
+				"expire", "-d", backup.Status.BackupDetails.URL,
 				"--expire-before-timestamp", "2026/09/01.00:00:00+0000",
 			}
 			expectedArgs = append(expectedArgs, testCase.expectedArgs...)

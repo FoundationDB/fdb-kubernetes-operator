@@ -12,16 +12,6 @@ import (
 //
 // BackupExpirationStatus records the most recent expiration Job and its schedule
 type BackupExpirationStatusApplyConfiguration struct {
-	// Policy is the retention policy used to calculate this Job's cutoffs
-	Policy *BackupExpirationApplyConfiguration `json:"policy,omitempty"`
-	// BeforeTimestamp is the requested cutoff, not a guarantee that every older file was removed
-	BeforeTimestamp *v1.Time `json:"beforeTimestamp,omitempty"`
-	// RestorableAfterTimestamp is the minimum restorable point requested from FDB
-	RestorableAfterTimestamp *v1.Time `json:"restorableAfterTimestamp,omitempty"`
-	// DestinationURL pins the target across restarts and Job creation, even if the backup URL changes
-	DestinationURL *string `json:"destinationURL,omitempty"`
-	// ClusterName identifies the source cluster used to resolve the timestamps
-	ClusterName *string `json:"clusterName,omitempty"`
 	// JobName identifies the Job executing this expiration
 	JobName *string `json:"jobName,omitempty"`
 	// Phase is Running from scheduling until the Job reaches a terminal condition
@@ -40,46 +30,6 @@ type BackupExpirationStatusApplyConfiguration struct {
 // apply.
 func BackupExpirationStatus() *BackupExpirationStatusApplyConfiguration {
 	return &BackupExpirationStatusApplyConfiguration{}
-}
-
-// WithPolicy sets the Policy field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Policy field is set to the value of the last call.
-func (b *BackupExpirationStatusApplyConfiguration) WithPolicy(value *BackupExpirationApplyConfiguration) *BackupExpirationStatusApplyConfiguration {
-	b.Policy = value
-	return b
-}
-
-// WithBeforeTimestamp sets the BeforeTimestamp field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the BeforeTimestamp field is set to the value of the last call.
-func (b *BackupExpirationStatusApplyConfiguration) WithBeforeTimestamp(value v1.Time) *BackupExpirationStatusApplyConfiguration {
-	b.BeforeTimestamp = &value
-	return b
-}
-
-// WithRestorableAfterTimestamp sets the RestorableAfterTimestamp field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the RestorableAfterTimestamp field is set to the value of the last call.
-func (b *BackupExpirationStatusApplyConfiguration) WithRestorableAfterTimestamp(value v1.Time) *BackupExpirationStatusApplyConfiguration {
-	b.RestorableAfterTimestamp = &value
-	return b
-}
-
-// WithDestinationURL sets the DestinationURL field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the DestinationURL field is set to the value of the last call.
-func (b *BackupExpirationStatusApplyConfiguration) WithDestinationURL(value string) *BackupExpirationStatusApplyConfiguration {
-	b.DestinationURL = &value
-	return b
-}
-
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *BackupExpirationStatusApplyConfiguration) WithClusterName(value string) *BackupExpirationStatusApplyConfiguration {
-	b.ClusterName = &value
-	return b
 }
 
 // WithJobName sets the JobName field in the declarative configuration to the given value

@@ -7,14 +7,14 @@ package v1beta2
 //
 // BackupExpiration configures recurring backup retention
 type BackupExpirationApplyConfiguration struct {
-	// ExpireAfterSeconds expires data older than this duration, measured when each Job is scheduled.
+	// ExpireAfterSeconds expires data older than this duration, measured when each Job is created.
 	// The source cluster must be available to convert timestamps to FDB versions
 	ExpireAfterSeconds *int64 `json:"expireAfterSeconds,omitempty"`
 	// RestorableForSeconds requires restorability from this many seconds ago onward.
 	// Mutually exclusive with RestorableAfterVersion
 	RestorableForSeconds *int64 `json:"restorableForSeconds,omitempty"`
-	// RestorableAfterVersion protects the oldest database version still required by an external checkpoint.
-	// Omitting both restore requirements uses FDB's default check, which does not protect a specific checkpoint
+	// RestorableAfterVersion is the oldest database version that must remain restorable after expiration.
+	// Mutually exclusive with RestorableForSeconds
 	RestorableAfterVersion *int64 `json:"restorableAfterVersion,omitempty"`
 	// IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour.
 	// Failed Jobs use exponential backoff up to one day

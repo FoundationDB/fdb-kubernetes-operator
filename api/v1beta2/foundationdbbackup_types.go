@@ -173,7 +173,7 @@ type FoundationDBBackupSpec struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || self.restorableForSeconds <= self.expireAfterSeconds",message="restorableForSeconds must not exceed expireAfterSeconds"
 // +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || !has(self.restorableAfterVersion)",message="restorableForSeconds and restorableAfterVersion are mutually exclusive"
 type BackupExpiration struct {
-	// ExpireAfterSeconds expires data older than this duration, measured when each Job is scheduled.
+	// ExpireAfterSeconds expires data older than this duration, measured when each Job is created.
 	// The source cluster must be available to convert timestamps to FDB versions
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=315360000
@@ -183,8 +183,8 @@ type BackupExpiration struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=315360000
 	RestorableForSeconds *int64 `json:"restorableForSeconds,omitempty"`
-	// RestorableAfterVersion protects the oldest database version still required by an external checkpoint.
-	// Omitting both restore requirements uses FDB's default check, which does not protect a specific checkpoint
+	// RestorableAfterVersion is the oldest database version that must remain restorable after expiration.
+	// Mutually exclusive with RestorableForSeconds
 	// +kubebuilder:validation:Minimum=1
 	RestorableAfterVersion *int64 `json:"restorableAfterVersion,omitempty"`
 	// IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour.
@@ -212,16 +212,6 @@ const (
 
 // BackupExpirationStatus records the most recent expiration Job and its schedule
 type BackupExpirationStatus struct {
-	// Policy is the retention policy used to calculate this Job's cutoffs
-	Policy BackupExpiration `json:"policy"`
-	// BeforeTimestamp is the requested cutoff, not a guarantee that every older file was removed
-	BeforeTimestamp metav1.Time `json:"beforeTimestamp"`
-	// RestorableAfterTimestamp is the minimum restorable point requested from FDB
-	RestorableAfterTimestamp *metav1.Time `json:"restorableAfterTimestamp,omitempty"`
-	// DestinationURL pins the target across restarts and Job creation, even if the backup URL changes
-	DestinationURL string `json:"destinationURL"`
-	// ClusterName identifies the source cluster used to resolve the timestamps
-	ClusterName string `json:"clusterName"`
 	// JobName identifies the Job executing this expiration
 	JobName string `json:"jobName"`
 	// Phase is Running from scheduling until the Job reaches a terminal condition

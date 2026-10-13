@@ -397,7 +397,7 @@ Once we have completed all other steps in reconciliation, we run the `UpdateBack
 
 ### ExpireBackup
 
-The `ExpireBackup` subreconciler pins the destination from backup status and computes cutoffs from `spec.expiration`, then creates a Job to keep deletion work outside reconciliation workers. It records completion and the next run time, backs off failures, and waits for the previous Job and its Pods to disappear before starting another. Removing the policy lets active work finish before deleting the Job and clearing status. See [Expiring Backup Data](backup.md#expiring-backup-data) for configuration and failure diagnosis.
+The `ExpireBackup` subreconciler creates a Job using the current destination from backup status and cutoffs computed from `spec.expiration` to keep deletion work outside reconciliation workers. The Job retains its command arguments, while backup status tracks completion and the next run time. The subreconciler backs off failures and waits for the previous Job and its Pods to disappear before starting another. Removing the policy lets active work finish before deleting the Job and clearing status. See [Expiring Backup Data](backup.md#expiring-backup-data) for configuration and failure diagnosis.
 
 ## Restore Reconciliation
 
