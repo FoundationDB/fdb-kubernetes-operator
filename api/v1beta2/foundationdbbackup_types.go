@@ -340,6 +340,15 @@ type BackupGenerationStatus struct {
 	NeedsBackupReconfiguration int64 `json:"needsBackupModification,omitempty"`
 }
 
+// NeedsPendingWork reports whether any backup reconciliation step is pending
+func (status BackupGenerationStatus) NeedsPendingWork() bool {
+	return status.NeedsBackupAgentUpdate != 0 ||
+		status.NeedsBackupStart != 0 ||
+		status.NeedsBackupStop != 0 ||
+		status.NeedsBackupPauseToggle != 0 ||
+		status.NeedsBackupReconfiguration != 0
+}
+
 // BackupState defines the desired state of a backup
 type BackupState string
 

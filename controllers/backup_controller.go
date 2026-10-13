@@ -154,8 +154,8 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		return processRequeue(req, subReconciler, backup, r.Recorder, backupLog)
 	}
 
-	reconciled := backup.Status.Generations == (fdbv1beta2.BackupGenerationStatus{Reconciled: originalGeneration})
-	if !reconciled || delayedRequeue {
+	if backup.Status.Generations.Reconciled != originalGeneration ||
+		backup.Status.Generations.NeedsPendingWork() || delayedRequeue {
 		backupLog.Info("Backup was not fully reconciled by reconciliation process",
 			"status",
 			backup.Status.Generations,
