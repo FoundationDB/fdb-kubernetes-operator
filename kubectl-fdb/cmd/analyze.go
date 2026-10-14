@@ -39,7 +39,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -126,7 +125,7 @@ func newAnalyzeCmd(streams genericiooptions.IOStreams) *cobra.Command {
 				}
 
 				for _, cluster := range clusterList.Items {
-					clusters = append(clusters, ptr.To(cluster))
+					clusters = append(clusters, new(cluster))
 				}
 			} else {
 				for _, clusterName := range args {

@@ -32,7 +32,6 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
@@ -272,7 +271,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 		DescribeTableSubtree("should recover the coordinators", func(shouldUseDNS bool) {
 			JustBeforeEach(func(ctx SpecContext) {
 				clusterConfig = fixtures.DefaultClusterConfig(false)
-				clusterConfig.UseDNS = ptr.To(shouldUseDNS)
+				clusterConfig.UseDNS = new(shouldUseDNS)
 				fdbCluster = factory.CreateFdbCluster(ctx, clusterConfig)
 				coordinators := fdbCluster.GetCoordinators(ctx)
 				minimumFaultDomains := fdbCluster.GetCluster(ctx).MinimumFaultDomains()

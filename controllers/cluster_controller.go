@@ -30,8 +30,6 @@ import (
 	"syscall"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -587,7 +585,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(
 	if err != nil {
 		currentPodIPFamily = nil
 	} else {
-		currentPodIPFamily = ptr.To(currentIPFamily)
+		currentPodIPFamily = new(currentIPFamily)
 	}
 
 	var expectedConf string

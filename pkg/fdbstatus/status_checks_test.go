@@ -25,8 +25,6 @@ import (
 	"net"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -2259,7 +2257,7 @@ var _ = Describe("status_checks", func() {
 					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						BounceImpact: fdbv1beta2.FoundationDBBounceImpact{
-							CanCleanBounce: ptr.To(true),
+							CanCleanBounce: new(true),
 						},
 						RecoveryState: fdbv1beta2.RecoveryState{
 							ActiveGenerations: 1,
@@ -2354,7 +2352,7 @@ var _ = Describe("status_checks", func() {
 					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						BounceImpact: fdbv1beta2.FoundationDBBounceImpact{
-							CanCleanBounce: ptr.To(false),
+							CanCleanBounce: new(false),
 						},
 						RecoveryState: fdbv1beta2.RecoveryState{
 							ActiveGenerations: 1,

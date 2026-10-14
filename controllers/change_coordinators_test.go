@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("Change coordinators", func() {
@@ -92,7 +91,7 @@ var _ = Describe("Change coordinators", func() {
 
 		When("the connection string shouldn't be using DNS entries", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 				pods := &corev1.PodList{}
 				Expect(k8sClient.List(context.TODO(), pods)).NotTo(HaveOccurred())
 
@@ -207,7 +206,7 @@ var _ = Describe("Change coordinators", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.ActiveGenerations = ptr.To(11)
+						adminClient.ActiveGenerations = new(11)
 					})
 
 					AfterEach(func() {
@@ -231,7 +230,7 @@ var _ = Describe("Change coordinators", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.SecondsSinceLastRecovered = ptr.To(10.0)
+						adminClient.SecondsSinceLastRecovered = new(10.0)
 					})
 
 					AfterEach(func() {
@@ -292,7 +291,7 @@ var _ = Describe("Change coordinators", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.ActiveGenerations = ptr.To(11)
+						adminClient.ActiveGenerations = new(11)
 					})
 
 					AfterEach(func() {
@@ -313,7 +312,7 @@ var _ = Describe("Change coordinators", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.SecondsSinceLastRecovered = ptr.To(10.0)
+						adminClient.SecondsSinceLastRecovered = new(10.0)
 					})
 
 					AfterEach(func() {

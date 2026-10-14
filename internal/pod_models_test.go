@@ -1006,7 +1006,7 @@ var _ = Describe("pod_models", func() {
 				var podName string
 
 				BeforeEach(func() {
-					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
+					cluster.Spec.Routing.UseDNSInClusterFile = new(true)
 					Expect(
 						NormalizeClusterSpec(cluster, DeprecationOptions{}),
 					).NotTo(HaveOccurred())
@@ -1163,7 +1163,7 @@ var _ = Describe("pod_models", func() {
 
 		When("enabling DNS in the cluster file", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(true)
 				spec, err = GetPodSpec(
 					cluster,
 					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -1256,7 +1256,7 @@ var _ = Describe("pod_models", func() {
 
 		When("enabling DNS in the locality fields", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.DefineDNSLocalityFields = ptr.To(true)
+				cluster.Spec.Routing.DefineDNSLocalityFields = new(true)
 				spec, err = GetPodSpec(
 					cluster,
 					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -2050,8 +2050,8 @@ var _ = Describe("pod_models", func() {
 
 		Context("with no headless service", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
-				cluster.Spec.Routing.HeadlessService = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
+				cluster.Spec.Routing.HeadlessService = new(false)
 				spec, err = GetPodSpec(
 					cluster,
 					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -3276,7 +3276,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with podIPFamily 6", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+				cluster.Spec.Routing.PodIPFamily = new(6)
 				service, err = GetService(
 					cluster,
 					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -3619,8 +3619,8 @@ var _ = Describe("pod_models", func() {
 
 		Context("with IPFamily", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
+				cluster.Spec.Routing.PodIPFamily = new(6)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(true)
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3669,7 +3669,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with the headless service disabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 				enabled = false
 			})
 
@@ -3680,7 +3680,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a nil headless flag", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 				cluster.Spec.Routing.HeadlessService = nil
 			})
 
@@ -4138,7 +4138,7 @@ var _ = Describe("pod_models", func() {
 
 		When("AllowTagOverride is set to true", func() {
 			BeforeEach(func() {
-				backup.Spec.AllowTagOverride = ptr.To(true)
+				backup.Spec.AllowTagOverride = new(true)
 				templateSpec := corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
@@ -4453,7 +4453,7 @@ var _ = Describe("pod_models", func() {
 
 	Describe("GetPodDNSName", func() {
 		It("builds the DNS name based on the cluster spec", func() {
-			cluster.Spec.Routing.DNSDomain = ptr.To("cluster.example")
+			cluster.Spec.Routing.DNSDomain = new("cluster.example")
 			Expect(
 				GetPodDNSName(cluster, "operator-test-storage-1"),
 			).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))

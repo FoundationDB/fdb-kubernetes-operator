@@ -30,7 +30,6 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("admin_client_test", func() {
@@ -40,7 +39,7 @@ var _ = Describe("admin_client_test", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+		cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
@@ -87,7 +86,7 @@ var _ = Describe("admin_client_test", func() {
 							LogSpill: 2,
 						},
 						PerpetualStorageWiggleEngine:   &noneEngine,
-						PerpetualStorageWiggleLocality: ptr.To("0"),
+						PerpetualStorageWiggleLocality: new("0"),
 						StorageMigrationType:           &migrationTypeDisabled,
 					}))
 
@@ -130,7 +129,7 @@ var _ = Describe("admin_client_test", func() {
 			var processID, podName string
 
 			BeforeEach(func() {
-				cluster.Spec.Routing.DefineDNSLocalityFields = ptr.To(true)
+				cluster.Spec.Routing.DefineDNSLocalityFields = new(true)
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				pickedProcessGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 				podName = pickedProcessGroup.GetPodName(cluster)
@@ -199,7 +198,7 @@ var _ = Describe("admin_client_test", func() {
 							BackupName:  "test-backup",
 							AccountName: "@test",
 						},
-						SnapshotPeriodSeconds: ptr.To(10),
+						SnapshotPeriodSeconds: new(10),
 					},
 				}
 
@@ -215,8 +214,8 @@ var _ = Describe("admin_client_test", func() {
 				).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 					"default": {
 						CurrentContainer: backupURL,
-						RunningBackup:    ptr.To(true),
-						Restorable:       ptr.To(true),
+						RunningBackup:    new(true),
+						Restorable:       new(true),
 					},
 				}))
 			})
@@ -255,8 +254,8 @@ var _ = Describe("admin_client_test", func() {
 					).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 						"default": {
 							CurrentContainer: backupURL,
-							RunningBackup:    ptr.To(false),
-							Restorable:       ptr.To(true),
+							RunningBackup:    new(false),
+							Restorable:       new(true),
 						},
 					}))
 				})
@@ -280,7 +279,7 @@ var _ = Describe("admin_client_test", func() {
 						BackupName:  "test-backup",
 						AccountName: "@test",
 					},
-					SnapshotPeriodSeconds: ptr.To(10),
+					SnapshotPeriodSeconds: new(10),
 				},
 			}
 		})
@@ -340,7 +339,7 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a modification to the snapshot time", func() {
 				BeforeEach(func() {
-					backup.Spec.SnapshotPeriodSeconds = ptr.To(20)
+					backup.Spec.SnapshotPeriodSeconds = new(20)
 					backup.Spec.BlobStoreConfiguration = &fdbv1beta2.BlobStoreConfiguration{
 						BackupName:  "test-backup",
 						AccountName: "@test",

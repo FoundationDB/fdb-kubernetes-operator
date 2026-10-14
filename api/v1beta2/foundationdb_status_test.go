@@ -63,8 +63,8 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 				VersionFlags:                   VersionFlags{LogSpill: 2, LogVersion: 0},
 				StorageMigrationType:           &migrationType,
-				PerpetualStorageWiggle:         ptr.To(0),
-				PerpetualStorageWiggleLocality: ptr.To("0"),
+				PerpetualStorageWiggle:         new(0),
+				PerpetualStorageWiggleLocality: new("0"),
 			},
 			Processes: map[ProcessGroupID]FoundationDBStatusProcessInfo{
 				"eb48ada3a682e86363f06aa89e1041fa": {
@@ -90,14 +90,14 @@ var _ = Describe("FoundationDBStatus", func() {
 							ID:   "0de7f5c5e549cad1",
 							GRVLatencyStatistics: FoundationDBStatusGRVStatistics{
 								Batch: FoundationDBStatusPerfStatistics{
-									Count:  ptr.To(6),
-									Median: ptr.To(0.000531435),
-									P99:    ptr.To(0.00130677),
+									Count:  new(6),
+									Median: new(0.000531435),
+									P99:    new(0.00130677),
 								},
 								Default: FoundationDBStatusPerfStatistics{
-									Count:  ptr.To(225),
-									Median: ptr.To(0.00062561),
-									P99:    ptr.To(0.010715200000000001),
+									Count:  new(225),
+									Median: new(0.00062561),
+									P99:    new(0.010715200000000001),
 								},
 							},
 						},
@@ -113,9 +113,9 @@ var _ = Describe("FoundationDBStatus", func() {
 							KVStoreFreeBytes:      ptr.To[int64](84178223104),
 							KVStoreAvailableBytes: ptr.To[int64](84178223104),
 							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  ptr.To(297),
-								Median: ptr.To(0.000116825),
-								P99:    ptr.To(0.000711441),
+								Count:  new(297),
+								Median: new(0.000116825),
+								P99:    new(0.000711441),
 							},
 						},
 					},
@@ -152,12 +152,12 @@ var _ = Describe("FoundationDBStatus", func() {
 							KVStoreFreeBytes:      ptr.To[int64](84178239488),
 							KVStoreAvailableBytes: ptr.To[int64](84178239488),
 							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  ptr.To(334),
-								Median: ptr.To(0.000102282),
-								P99:    ptr.To(0.000386477),
+								Count:  new(334),
+								Median: new(0.000102282),
+								P99:    new(0.000386477),
 							},
 							StorageMetadata: FoundationDBStatusStorageMetadata{
-								StorageEngine: ptr.To(StorageEngineSSD2),
+								StorageEngine: new(StorageEngineSSD2),
 							},
 						},
 						{
@@ -190,9 +190,9 @@ var _ = Describe("FoundationDBStatus", func() {
 							Role: string(ProcessRoleCommitProxy),
 							ID:   "0eb90e4a0ece85b3",
 							CommitLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  ptr.To(31),
-								Median: ptr.To(0.00794888),
-								P99:    ptr.To(0.09054090000000001),
+								Count:  new(31),
+								Median: new(0.00794888),
+								P99:    new(0.09054090000000001),
 							},
 						},
 						{
@@ -207,9 +207,9 @@ var _ = Describe("FoundationDBStatus", func() {
 							KVStoreFreeBytes:      ptr.To[int64](84178112512),
 							KVStoreAvailableBytes: ptr.To[int64](84178112512),
 							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  ptr.To(0),
-								Median: ptr.To(0.0),
-								P99:    ptr.To(0.0),
+								Count:  new(0),
+								Median: new(0.0),
+								P99:    new(0.0),
 							},
 						},
 					},
@@ -509,15 +509,15 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 			},
 			Layers: FoundationDBStatusLayerInfo{
-				Valid: ptr.To(true),
+				Valid: new(true),
 				Backup: FoundationDBStatusBackupInfo{
 					Paused: false,
 					Tags: map[string]FoundationDBStatusBackupTag{
 						"default": {
 							CurrentContainer:            "blobstore://backup@host:443/test-backup",
-							RunningBackup:               ptr.To(true),
-							Restorable:                  ptr.To(true),
-							LastRestorableSecondsBehind: ptr.To(3.5),
+							RunningBackup:               new(true),
+							Restorable:                  new(true),
+							LastRestorableSecondsBehind: new(3.5),
 							LastRestorableVersion:       ptr.To[int64](12345678),
 							MutationLogBytesWritten:     ptr.To[int64](1048576),
 							RangeBytesWritten:           ptr.To[int64](2097152),
@@ -564,12 +564,12 @@ var _ = Describe("FoundationDBStatus", func() {
 			},
 			Generation: 2,
 			BounceImpact: FoundationDBBounceImpact{
-				CanCleanBounce: ptr.To(true),
+				CanCleanBounce: new(true),
 			},
-			DatabaseAvailable: ptr.To(true),
-			ActivePrimaryDC:   ptr.To(""),
+			DatabaseAvailable: new(true),
+			ActivePrimaryDC:   new(""),
 			DatabaseLockState: FoundationDBStatusLockState{
-				Locked: ptr.To(false),
+				Locked: new(false),
 			},
 		}
 

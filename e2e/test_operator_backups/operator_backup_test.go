@@ -169,7 +169,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 				// Delete the data and restore it again.
 				fdbCluster.ClearRange(ctx, []byte{prefix}, 60)
 				if useRestorableVersion {
-					currentRestorableVersion = ptr.To(restorableVersion)
+					currentRestorableVersion = new(restorableVersion)
 				}
 				if !skipRestore {
 					restore = factory.CreateRestoreForCluster(ctx, backup, currentRestorableVersion)
@@ -426,7 +426,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 					JustBeforeEach(func(ctx SpecContext) {
 						currentBackup := backup.GetBackup(ctx)
 						backupSpec := currentBackup.Spec.DeepCopy()
-						backupSpec.AgentCount = ptr.To(currentBackup.GetDesiredAgentCount() * 2)
+						backupSpec.AgentCount = new(currentBackup.GetDesiredAgentCount() * 2)
 						backup.UpdateBackupSpecWithSpec(backupSpec)
 					})
 
@@ -483,7 +483,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 
 							Expect(
 								factory.GetControllerRuntimeClient().
-									Delete(ctx, ptr.To(backupAgentPod)),
+									Delete(ctx, new(backupAgentPod)),
 							).To(Succeed())
 						}
 					})

@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 )
 
 var (
@@ -299,7 +298,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			}
 
 			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-			spec.Routing.PodIPFamily = ptr.To(podIPFamily)
+			spec.Routing.PodIPFamily = new(podIPFamily)
 			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 			Expect(fdbCluster.WaitForReconciliation(ctx)).To(Succeed())
 		})
@@ -390,9 +389,9 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			).Spec.ReplaceInstancesWhenResourcesChange
 			// Allow to replacement of 3 pods concurrently, as there are 5 storage servers, there need to be at least 2 rounds of replacements to replace all.
 			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-			spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(3)
+			spec.AutomationOptions.MaxConcurrentReplacements = new(3)
 			spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
-			spec.ReplaceInstancesWhenResourcesChange = ptr.To(true)
+			spec.ReplaceInstancesWhenResourcesChange = new(true)
 			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 		})
 
@@ -600,7 +599,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			migrationType := fdbv1beta2.StorageMigrationTypeGradual
 			spec.DatabaseConfiguration.PerpetualStorageWiggleLocality = nil
 			spec.DatabaseConfiguration.StorageMigrationType = &migrationType
-			spec.DatabaseConfiguration.PerpetualStorageWiggle = ptr.To(1)
+			spec.DatabaseConfiguration.PerpetualStorageWiggle = new(1)
 			spec.DatabaseConfiguration.StorageEngine = newStorageEngine
 			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 		})

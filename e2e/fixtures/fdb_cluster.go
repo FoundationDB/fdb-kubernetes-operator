@@ -557,8 +557,8 @@ func (fdbCluster *FdbCluster) GetPods(ctx context.Context) *corev1.PodList {
 
 // GetPodsNames GetS all Running Pods and return their names.
 func (fdbCluster *FdbCluster) GetPodsNames(ctx context.Context) []string {
-	results := make([]string, 0)
 	podList := fdbCluster.GetPods(ctx)
+	results := make([]string, 0, len(podList.Items))
 
 	for _, pod := range podList.Items {
 		results = append(results, pod.Name)
@@ -1308,7 +1308,7 @@ func (fdbCluster *FdbCluster) SetUseDNSInClusterFile(
 	ctx context.Context,
 	useDNSInClusterFile bool,
 ) error {
-	fdbCluster.cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(useDNSInClusterFile)
+	fdbCluster.cluster.Spec.Routing.UseDNSInClusterFile = new(useDNSInClusterFile)
 	fdbCluster.UpdateClusterSpec(ctx)
 	return fdbCluster.WaitForReconciliation(ctx)
 }
@@ -1353,7 +1353,7 @@ func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(
 	ctx context.Context,
 	duration time.Duration,
 ) {
-	fdbCluster.cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds = ptr.To(
+	fdbCluster.cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds = new(
 		int(duration.Seconds()),
 	)
 	fdbCluster.UpdateClusterSpec(ctx)
@@ -1361,7 +1361,7 @@ func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(
 
 // SetKillProcesses sets the automation option to allow the operator to restart processes or not.
 func (fdbCluster *FdbCluster) SetKillProcesses(ctx context.Context, allowKill bool, wait bool) {
-	fdbCluster.cluster.Spec.AutomationOptions.KillProcesses = ptr.To(allowKill)
+	fdbCluster.cluster.Spec.AutomationOptions.KillProcesses = new(allowKill)
 	fdbCluster.UpdateClusterSpec(ctx)
 
 	if !wait {
@@ -1695,7 +1695,7 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(
 			Labels:    deploymentLabels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To(int32(replicas)),
+			Replicas: new(int32(replicas)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": deploymentName,
@@ -1719,11 +1719,11 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(
 							ImagePullPolicy: fdbCluster.factory.getImagePullPolicy(),
 							Image:           sidecarImage,
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: ptr.To(true),
-								AllowPrivilegeEscalation: ptr.To(
+								Privileged: new(true),
+								AllowPrivilegeEscalation: new(
 									true,
 								), // for performance profiling
-								ReadOnlyRootFilesystem: ptr.To(
+								ReadOnlyRootFilesystem: new(
 									false,
 								), // to allow I/O chaos to succeed
 							},
@@ -1746,11 +1746,11 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(
 							ImagePullPolicy: fdbCluster.factory.getImagePullPolicy(),
 							Image:           mainImage,
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: ptr.To(true),
-								AllowPrivilegeEscalation: ptr.To(
+								Privileged: new(true),
+								AllowPrivilegeEscalation: new(
 									true,
 								), // for performance profiling
-								ReadOnlyRootFilesystem: ptr.To(
+								ReadOnlyRootFilesystem: new(
 									false,
 								), // to allow I/O chaos to succeed
 							},

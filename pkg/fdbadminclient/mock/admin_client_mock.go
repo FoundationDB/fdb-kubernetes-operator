@@ -513,7 +513,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		}
 
 		if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality == nil {
-			status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = ptr.To(
+			status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = new(
 				"0",
 			)
 		}
@@ -584,7 +584,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			status.Cluster.Layers.Backup.Tags[tag] = fdbv1beta2.FoundationDBStatusBackupTag{
 				CurrentContainer: tagStatus.URL,
 				RunningBackup:    &tagStatus.Running,
-				Restorable:       ptr.To(true),
+				Restorable:       new(true),
 			}
 			status.Cluster.Layers.Backup.Paused = tagStatus.Paused
 		}
@@ -685,7 +685,7 @@ func (client *AdminClient) ConfigureDatabase(
 	}
 
 	if configuration.PerpetualStorageWiggleLocality == nil {
-		client.DatabaseConfiguration.PerpetualStorageWiggleLocality = ptr.To("0")
+		client.DatabaseConfiguration.PerpetualStorageWiggleLocality = new("0")
 	}
 
 	return nil
@@ -1011,7 +1011,7 @@ func (client *AdminClient) GetBackupStatus(
 		status.Status.Running = currentBackupState.Running
 		status.BackupAgentsPaused = currentBackupState.Paused
 		status.SnapshotIntervalSeconds = currentBackupState.SnapshotPeriodSeconds
-		status.Tag = ptr.To(currentBackupState.Tag)
+		status.Tag = new(currentBackupState.Tag)
 	}
 
 	return status, nil

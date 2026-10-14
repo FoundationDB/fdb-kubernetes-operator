@@ -35,8 +35,6 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -295,14 +293,14 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			initialUseLocalitiesForExclusion = fdbCluster.GetRemote().
 				GetCluster(ctx).
 				UseLocalitiesForExclusion()
-			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
+			spec.AutomationOptions.UseLocalitiesForExclusion = new(true)
 			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(ctx, spec)
 			Expect(fdbCluster.GetRemote().GetCluster(ctx).UseLocalitiesForExclusion()).To(BeTrue())
 		})
 
 		AfterEach(func(ctx SpecContext) {
 			spec := fdbCluster.GetRemote().GetCluster(ctx).Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
+			spec.AutomationOptions.UseLocalitiesForExclusion = new(
 				initialUseLocalitiesForExclusion,
 			)
 			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(ctx, spec)
