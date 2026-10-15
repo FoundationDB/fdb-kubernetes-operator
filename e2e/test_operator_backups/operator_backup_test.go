@@ -25,6 +25,8 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -204,6 +206,107 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						BackupType: ptr.To(fdbv1beta2.BackupTypeDefault),
 						BackupMode: ptr.To(fdbv1beta2.BackupModeContinuous),
 					}
+				})
+
+				When("expiration is requested through the backup resource", func() {
+					BeforeEach(func() {
+						skipRestore = true
+						shouldPauseBackup = true
+					})
+
+					DescribeTable(
+						"preserves the requested checkpoint during expiration",
+						func(ctx SpecContext, protectOlderCheckpoint bool) {
+							status := backup.RunStatusCommand(ctx)
+							Expect(status.LatestRestorablePoint).NotTo(BeNil())
+							Expect(status.LatestRestorablePoint.Version).NotTo(BeNil())
+							olderCheckpoint := *status.LatestRestorablePoint.Version
+							snapshots := describeBackupSnapshots(ctx, backup)
+							Expect(snapshots).NotTo(BeEmpty())
+							oldSnapshot := snapshots[0]
+							Expect(oldSnapshot.Restorable).To(BeTrue())
+							Expect(oldSnapshot.End.EpochSeconds).To(BeNumerically(">", 0))
+							cutoff := metav1.NewTime(
+								time.Unix(oldSnapshot.End.EpochSeconds, 0).Add(time.Minute),
+							)
+
+							// Restore the test data cleared by setup before resuming the paused backup
+							fdbCluster.WriteKeyValues(ctx, keyValues)
+							backup.Start(ctx)
+							backup.SetSnapshotInterval(ctx, 30)
+							var retainedSnapshot backupSnapshot
+							Eventually(func() bool {
+								for _, candidate := range describeBackupSnapshots(ctx, backup) {
+									if candidate.Restorable &&
+										candidate.Start.EpochSeconds > cutoff.Add(time.Minute).
+											Unix() {
+										retainedSnapshot = candidate
+										return true
+									}
+								}
+								return false
+							}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+							backup.Stop(ctx)
+							before := backup.RunDescribeCommand(ctx)
+							Expect(before.TotalSnapshotBytes).NotTo(BeNil())
+							Expect(*before.TotalSnapshotBytes).To(BeNumerically(">", 0))
+							protectedVersion := retainedSnapshot.End.Version
+							expectedPhase := fdbv1beta2.BackupExpirationPhaseSucceeded
+							if protectOlderCheckpoint {
+								protectedVersion = olderCheckpoint
+								expectedPhase = fdbv1beta2.BackupExpirationPhaseFailed
+							}
+							spec := backup.GetBackup(ctx).Spec.DeepCopy()
+							spec.Expiration = &fdbv1beta2.BackupExpiration{
+								ExpireAfterSeconds:     int64(time.Since(cutoff.Time).Seconds()),
+								RestorableAfterVersion: ptr.To(int64(protectedVersion)),
+							}
+							backup.UpdateBackupSpecWithSpec(spec)
+							Eventually(func(g Gomega) {
+								currentStatus := backup.GetBackup(ctx).Status.Expiration
+								g.Expect(currentStatus).NotTo(BeNil())
+								g.Expect(currentStatus.Phase).To(Equal(expectedPhase))
+							}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+							after := backup.RunDescribeCommand(ctx)
+							Expect(ptr.Deref(after.Restorable, false)).To(BeTrue())
+							Expect(after.TotalSnapshotBytes).NotTo(BeNil())
+							snapshots = describeBackupSnapshots(ctx, backup)
+							if protectOlderCheckpoint {
+								Expect(
+									*after.TotalSnapshotBytes,
+								).To(Equal(*before.TotalSnapshotBytes))
+								Expect(
+									snapshots,
+								).To(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
+								expectExpirationRefused(ctx, factory, backup)
+							} else {
+								Expect(
+									*after.TotalSnapshotBytes,
+								).To(BeNumerically("<", *before.TotalSnapshotBytes))
+								Expect(
+									snapshots,
+								).NotTo(ContainElement(HaveField("Start.Version", oldSnapshot.Start.Version)))
+							}
+							Expect(snapshots).To(ContainElement(And(
+								HaveField("Start.Version", retainedSnapshot.Start.Version),
+								HaveField("Restorable", true),
+							)))
+							fdbCluster.ClearRange(ctx, []byte{prefix}, 60)
+							restore = factory.CreateRestoreForCluster(
+								ctx,
+								backup,
+								&protectedVersion,
+							)
+							Expect(
+								fdbCluster.GetRange(ctx, []byte{prefix}, 25, 60),
+							).To(Equal(keyValues))
+						},
+						Entry("expires old data when the newer checkpoint is protected", false),
+						Entry(
+							"refuses expiration when an older checkpoint is protected despite a newer snapshot",
+							true,
+						),
+					)
 				})
 
 				When("no restorable version is specified", func() {
@@ -658,3 +761,49 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 		})
 	})
 })
+
+type backupSnapshotVersion struct {
+	Version      uint64
+	EpochSeconds int64
+}
+
+type backupSnapshot struct {
+	Start      backupSnapshotVersion
+	End        backupSnapshotVersion
+	Restorable bool
+}
+
+func describeBackupSnapshots(ctx SpecContext, backup *fixtures.FdbBackup) []backupSnapshot {
+	GinkgoHelper()
+	var description struct{ Snapshots []backupSnapshot }
+	url, err := backup.GetBackup(ctx).BackupURL()
+	Expect(err).NotTo(HaveOccurred())
+	output := backup.RunCommandOnBackupPod(
+		ctx,
+		fmt.Sprintf("fdbbackup describe -d %q --json --version-timestamps", url),
+	)
+	Expect(json.Unmarshal([]byte(output), &description)).To(Succeed())
+	return description.Snapshots
+}
+
+func expectExpirationRefused(
+	ctx SpecContext,
+	factory *fixtures.Factory,
+	backup *fixtures.FdbBackup,
+) {
+	GinkgoHelper()
+	currentBackup := backup.GetBackup(ctx)
+	pods := &corev1.PodList{}
+	Expect(factory.GetControllerRuntimeClient().List(ctx, pods,
+		ctrlClient.InNamespace(currentBackup.Namespace),
+		ctrlClient.MatchingLabels{"job-name": currentBackup.Status.Expiration.JobName},
+	)).To(Succeed())
+	Expect(pods.Items).NotTo(BeEmpty())
+	for idx := range pods.Items {
+		Expect(factory.GetLogsForPod(ctx, &pods.Items[idx], fdbv1beta2.MainContainerName, nil)).To(
+			ContainSubstring(
+				"Requested expiration would be unsafe.  Backup would not meet minimum restorability.",
+			),
+		)
+	}
+}
