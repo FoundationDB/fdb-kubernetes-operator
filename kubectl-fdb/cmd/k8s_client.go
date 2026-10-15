@@ -32,7 +32,6 @@ import (
 	applyfdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2/applyconfiguration/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/ptr"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
@@ -558,7 +557,7 @@ func chooseRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {
 	for range 10 {
 		candidate := items[rand.IntN(len(items))]
 		if candidate.GetDeletionTimestamp().IsZero() {
-			return ptr.To(candidate), nil
+			return new(candidate), nil
 		}
 	}
 

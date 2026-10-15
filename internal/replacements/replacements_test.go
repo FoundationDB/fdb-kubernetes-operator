@@ -52,7 +52,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		cluster = internal.CreateDefaultCluster()
 		deprecationOptions = internal.DeprecationOptions{UseFutureDefaults: false}
 		Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
-		cluster.Spec.LabelConfig.FilterOnOwnerReferences = ptr.To(false)
+		cluster.Spec.LabelConfig.FilterOnOwnerReferences = new(false)
 	})
 
 	When("checking process groups for replacements", func() {
@@ -353,7 +353,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("replacement for resource changes is activated", func() {
 				BeforeEach(func() {
-					cluster.Spec.ReplaceInstancesWhenResourcesChange = ptr.To(true)
+					cluster.Spec.ReplaceInstancesWhenResourcesChange = new(true)
 				})
 
 				When("the memory is increased", func() {
@@ -449,7 +449,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("replacement for resource changes is deactivated", func() {
 				BeforeEach(func() {
-					cluster.Spec.ReplaceInstancesWhenResourcesChange = ptr.To(false)
+					cluster.Spec.ReplaceInstancesWhenResourcesChange = new(false)
 				})
 
 				When("the memory is increased", func() {
@@ -584,7 +584,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("the pod ip family is v4", func() {
 						BeforeEach(func() {
-							cluster.Spec.Routing.PodIPFamily = ptr.To(
+							cluster.Spec.Routing.PodIPFamily = new(
 								fdbv1beta2.PodIPFamilyIPv4,
 							)
 						})
@@ -644,7 +644,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("the pod ip family is v6", func() {
 						BeforeEach(func() {
-							cluster.Spec.Routing.PodIPFamily = ptr.To(
+							cluster.Spec.Routing.PodIPFamily = new(
 								fdbv1beta2.PodIPFamilyIPv6,
 							)
 						})
@@ -707,7 +707,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					When("the pod ip family at the pod is nil", func() {
 						When("the pod ip family at cluster level is v4", func() {
 							BeforeEach(func() {
-								cluster.Spec.Routing.PodIPFamily = ptr.To(
+								cluster.Spec.Routing.PodIPFamily = new(
 									fdbv1beta2.PodIPFamilyIPv4,
 								)
 							})
@@ -720,7 +720,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 						When("the pod ip family at cluster level is v6", func() {
 							BeforeEach(func() {
-								cluster.Spec.Routing.PodIPFamily = ptr.To(
+								cluster.Spec.Routing.PodIPFamily = new(
 									fdbv1beta2.PodIPFamilyIPv4,
 								)
 							})
@@ -763,7 +763,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v6", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = ptr.To(
+									cluster.Spec.Routing.PodIPFamily = new(
 										fdbv1beta2.PodIPFamilyIPv6,
 									)
 								})
@@ -814,7 +814,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v6", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = ptr.To(
+									cluster.Spec.Routing.PodIPFamily = new(
 										fdbv1beta2.PodIPFamilyIPv6,
 									)
 								})
@@ -858,7 +858,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v4", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = ptr.To(
+									cluster.Spec.Routing.PodIPFamily = new(
 										fdbv1beta2.PodIPFamilyIPv4,
 									)
 								})
@@ -909,7 +909,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v4", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = ptr.To(
+									cluster.Spec.Routing.PodIPFamily = new(
 										fdbv1beta2.PodIPFamilyIPv4,
 									)
 								})
@@ -1055,7 +1055,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("No replacements are allowed", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(0)
+				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = new(0)
 			})
 
 			It("should not have a replacements", func() {
@@ -1085,7 +1085,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Two replacements are allowed", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(2)
+				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = new(2)
 			})
 
 			It("should have two replacements", func() {

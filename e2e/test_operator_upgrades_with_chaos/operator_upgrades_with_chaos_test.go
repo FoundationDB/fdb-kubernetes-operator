@@ -34,8 +34,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
@@ -63,7 +61,7 @@ func clusterSetup(ctx context.Context, beforeVersion string) {
 	fdbCluster = factory.CreateFdbCluster(ctx,
 		&fixtures.ClusterConfig{
 			DebugSymbols: false,
-			Version:      ptr.To(beforeVersion),
+			Version:      new(beforeVersion),
 		},
 	)
 

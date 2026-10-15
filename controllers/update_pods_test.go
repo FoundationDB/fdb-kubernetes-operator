@@ -25,8 +25,6 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -318,7 +316,7 @@ var _ = Describe("update_pods", func() {
 				cluster = &fdbv1beta2.FoundationDBCluster{
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
 						AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-							IgnoreTerminatingPodsSeconds: ptr.To(
+							IgnoreTerminatingPodsSeconds: new(
 								int(5 * time.Minute.Seconds()),
 							),
 						},
@@ -726,7 +724,7 @@ var _ = Describe("update_pods", func() {
 
 			When("max zones with unavailable pods is set to 3", func() {
 				BeforeEach(func() {
-					cluster.Spec.MaxZonesWithUnavailablePods = ptr.To(3)
+					cluster.Spec.MaxZonesWithUnavailablePods = new(3)
 					// Update all processes
 					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{
@@ -744,7 +742,7 @@ var _ = Describe("update_pods", func() {
 
 			When("max zones with unavailable pods is set to 2", func() {
 				BeforeEach(func() {
-					cluster.Spec.MaxZonesWithUnavailablePods = ptr.To(2)
+					cluster.Spec.MaxZonesWithUnavailablePods = new(2)
 					// Update all processes
 					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					if settings.PodTemplate == nil {
@@ -765,7 +763,7 @@ var _ = Describe("update_pods", func() {
 
 			When("max zones with unavailable pods is set to 1", func() {
 				BeforeEach(func() {
-					cluster.Spec.MaxZonesWithUnavailablePods = ptr.To(1)
+					cluster.Spec.MaxZonesWithUnavailablePods = new(1)
 					// Update all processes
 					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{

@@ -41,7 +41,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
 var (
@@ -66,7 +65,7 @@ func clusterSetupWithConfig(
 	availabilityCheck bool,
 	config *fixtures.ClusterConfig,
 ) {
-	config.Version = ptr.To(beforeVersion)
+	config.Version = new(beforeVersion)
 	fdbCluster = factory.CreateFdbCluster(ctx,
 		config,
 	)

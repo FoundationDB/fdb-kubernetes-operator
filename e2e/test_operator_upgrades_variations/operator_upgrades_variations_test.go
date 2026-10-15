@@ -31,8 +31,6 @@ import (
 	"log"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -65,7 +63,7 @@ type testConfig struct {
 }
 
 func clusterSetupWithConfig(ctx context.Context, config testConfig) *fixtures.FdbCluster {
-	config.clusterConfig.Version = ptr.To(config.beforeVersion)
+	config.clusterConfig.Version = new(config.beforeVersion)
 
 	cluster := factory.CreateFdbCluster(ctx, config.clusterConfig)
 
@@ -306,7 +304,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					targetVersion: targetVersion,
 					clusterConfig: &fixtures.ClusterConfig{
 						DebugSymbols:               false,
-						UseLocalityBasedExclusions: ptr.To(false),
+						UseLocalityBasedExclusions: new(false),
 					},
 					loadData: false,
 				}, func(cluster *fixtures.FdbCluster) {
@@ -326,7 +324,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					targetVersion: targetVersion,
 					clusterConfig: &fixtures.ClusterConfig{
 						DebugSymbols: false,
-						UseDNS:       ptr.To(false),
+						UseDNS:       new(false),
 					},
 					loadData: false,
 				}, func(cluster *fixtures.FdbCluster) {

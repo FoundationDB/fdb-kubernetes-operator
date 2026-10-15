@@ -125,7 +125,7 @@ func getIPFamilyFromPodIfPresent(pod *corev1.Pod) *int {
 	if pod != nil {
 		ipFamily, err := getIPFamilyFromPod(pod)
 		if err == nil {
-			return ptr.To(ipFamily)
+			return new(ipFamily)
 		}
 	}
 
@@ -253,7 +253,7 @@ func GetMonitorProcessConfiguration(
 	if cluster.Status.ConnectionString == "" {
 		// Return a placeholder configuration with the servers off until we
 		// have the initial connection string.
-		configuration.RunServers = ptr.To(false)
+		configuration.RunServers = new(false)
 	}
 
 	logGroup := cluster.GetLogGroup()

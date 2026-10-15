@@ -98,7 +98,7 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 			Namespace: fdbCluster.Namespace(),
 		},
 		Spec: fdbv1beta2.FoundationDBBackupSpec{
-			AllowTagOverride: ptr.To(true),
+			AllowTagOverride: new(true),
 			ClusterName:      fdbCluster.Name(),
 			Version:          fdbVersion.String(),
 			BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{

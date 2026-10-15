@@ -30,8 +30,6 @@ import (
 	"slices"
 	"strconv"
 
-	"k8s.io/utils/ptr"
-
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -176,7 +174,7 @@ func BuildOwnerReference(
 		Kind:       ownerType.Kind,
 		Name:       ownerMetadata.Name,
 		UID:        ownerMetadata.UID,
-		Controller: ptr.To(true),
+		Controller: new(true),
 	}}
 }
 

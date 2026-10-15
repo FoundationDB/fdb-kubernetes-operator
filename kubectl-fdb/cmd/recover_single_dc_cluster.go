@@ -408,8 +408,6 @@ func RecoverSingleDCCluster(ctx context.Context, opts RecoveryOpts) error {
 		for _, pod := range pods.Items {
 			loopPod := pod
 
-			command := []string{"/bin/bash", "-c"}
-
 			var curlStr strings.Builder
 			curlStr.WriteString("curl -X POST")
 			if internal.PodHasSidecarTLS(&loopPod) {
@@ -423,7 +421,7 @@ func RecoverSingleDCCluster(ctx context.Context, opts RecoveryOpts) error {
 			curlStr.WriteString(loopPod.Status.PodIP)
 			curlStr.WriteString(":8080/copy_files > /dev/null")
 
-			command = append(command, curlStr.String())
+			command := []string{"/bin/bash", "-c", curlStr.String()}
 
 			err = kubeHelper.ExecuteCommandRaw(
 				ctx,

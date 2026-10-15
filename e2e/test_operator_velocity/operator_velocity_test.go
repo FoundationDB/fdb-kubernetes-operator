@@ -74,7 +74,7 @@ func CheckKnobRollout(
 			factory.DumpStateHaClusterWithLogsSince(
 				ctx,
 				fdbCluster,
-				ptr.To[int64](int64(durationSinceLastStateDump.Seconds())+5),
+				new(int64(durationSinceLastStateDump.Seconds())+5),
 			)
 
 			lastStateDump = time.Now()

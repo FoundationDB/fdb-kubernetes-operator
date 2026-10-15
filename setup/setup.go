@@ -35,7 +35,6 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/go-logr/logr"
@@ -695,10 +694,10 @@ func newRESTMapper(config *rest.Config, httpClient *http.Client) (meta.RESTMappe
 // generateAllowedPodModifications will generate the *internal.AllowedPodModifications based on the provided configuration.
 func (o *Options) generateAllowedPodModifications() *fdbv1beta2.AllowedPodModifications {
 	allowedPodModifications := &fdbv1beta2.AllowedPodModifications{
-		AllowAutomountServiceAccountToken: ptr.To(o.AllowAutomountServiceAccountToken),
-		AllowHostNetwork:                  ptr.To(o.AllowHostNetwork),
-		AllowHostPID:                      ptr.To(o.AllowHostPID),
-		AllowHostIPC:                      ptr.To(o.AllowHostIPC),
+		AllowAutomountServiceAccountToken: new(o.AllowAutomountServiceAccountToken),
+		AllowHostNetwork:                  new(o.AllowHostNetwork),
+		AllowHostPID:                      new(o.AllowHostPID),
+		AllowHostIPC:                      new(o.AllowHostIPC),
 		AllowedServiceAccountNames:        map[string]fdbv1beta2.None{},
 		AllowedAdditionalVolumeSources:    map[string]fdbv1beta2.None{},
 		AllowedAdditionalVolumeMounts:     map[string]fdbv1beta2.None{},

@@ -47,7 +47,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			cluster.Spec.LockOptions.DisableLocks = ptr.To(false)
+			cluster.Spec.LockOptions.DisableLocks = new(false)
 			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
 			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
@@ -619,7 +619,7 @@ var _ = Describe("bounceProcesses", func() {
 
 				Context("with locks disabled", func() {
 					BeforeEach(func() {
-						cluster.Spec.LockOptions.DisableLocks = ptr.To(true)
+						cluster.Spec.LockOptions.DisableLocks = new(true)
 					})
 
 					It("should requeue", func() {

@@ -33,7 +33,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -200,7 +199,7 @@ func (factory *Factory) createNamespace(ctx context.Context, suffix string) stri
 						fetchedBackup := &fdbv1beta2.FoundationDBBackup{}
 						err = factory.controllerRuntimeClient.Get(
 							context.Background(),
-							client.ObjectKeyFromObject(ptr.To(backup)),
+							client.ObjectKeyFromObject(new(backup)),
 							fetchedBackup,
 						)
 						if k8serrors.IsNotFound(err) {

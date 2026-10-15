@@ -336,7 +336,7 @@ func ensureSecurityContextIsPresent(container *corev1.Container) {
 	}
 
 	if container.SecurityContext.ReadOnlyRootFilesystem == nil {
-		container.SecurityContext.ReadOnlyRootFilesystem = ptr.To(true)
+		container.SecurityContext.ReadOnlyRootFilesystem = new(true)
 	}
 }
 
@@ -1149,11 +1149,8 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}
 
 	if mainContainer == nil {
-		containers := []corev1.Container{
-			{
-				Name: fdbv1beta2.MainContainerName,
-			},
-		}
+		containers := make([]corev1.Container, 0, 1+len(podTemplate.Spec.Containers))
+		containers = append(containers, corev1.Container{Name: fdbv1beta2.MainContainerName})
 		containers = append(containers, podTemplate.Spec.Containers...)
 		mainContainer = &containers[0]
 		podTemplate.Spec.Containers = containers

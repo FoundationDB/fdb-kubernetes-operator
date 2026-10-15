@@ -210,27 +210,27 @@ func (config *ClusterConfig) SetDefaults(ctx context.Context, factory *Factory) 
 	}
 
 	if config.UseDNS == nil {
-		config.UseDNS = ptr.To(factory.options.featureOperatorDNS)
+		config.UseDNS = new(factory.options.featureOperatorDNS)
 	}
 
 	if config.UseLocalityBasedExclusions == nil {
-		config.UseLocalityBasedExclusions = ptr.To(factory.options.featureOperatorLocalities)
+		config.UseLocalityBasedExclusions = new(factory.options.featureOperatorLocalities)
 	}
 
 	if config.EnableTLS == nil {
-		config.EnableTLS = ptr.To(true)
+		config.EnableTLS = new(true)
 	}
 
 	if config.UseUnifiedImage == nil {
-		config.UseUnifiedImage = ptr.To(factory.UseUnifiedImage())
+		config.UseUnifiedImage = new(factory.UseUnifiedImage())
 	}
 
 	if config.Version == nil {
-		config.Version = ptr.To(factory.GetFDBVersion().String())
+		config.Version = new(factory.GetFDBVersion().String())
 	}
 
 	if config.ManagementAPI == nil {
-		config.ManagementAPI = ptr.To(factory.options.featureManagementAPI)
+		config.ManagementAPI = new(factory.options.featureManagementAPI)
 	}
 }
 

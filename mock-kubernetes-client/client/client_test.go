@@ -581,7 +581,7 @@ var _ = Describe("[mock client]", func() {
 					Name: "unicorn",
 				},
 				Spec: appsv1.ReplicaSetSpec{
-					Replicas: ptr.To[int32](expectedPods),
+					Replicas: new(expectedPods),
 				},
 			})).NotTo(HaveOccurred())
 		})
@@ -675,12 +675,12 @@ var _ = Describe("[mock client]", func() {
 					Name: "unicorn",
 				},
 				Spec: appsv1.ReplicaSetSpec{
-					Replicas: ptr.To[int32](expectedPods),
+					Replicas: new(expectedPods),
 				},
 			}
 			Expect(mockClient.Create(context.TODO(), replicaSet)).NotTo(HaveOccurred())
 
-			replicaSet.Spec.Replicas = ptr.To[int32](expectedPods + additionalPods)
+			replicaSet.Spec.Replicas = new(expectedPods + additionalPods)
 			Expect(mockClient.Update(context.TODO(), replicaSet)).NotTo(HaveOccurred())
 		})
 
