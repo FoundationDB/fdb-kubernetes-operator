@@ -275,8 +275,7 @@ func ChooseDistributedProcesses(
 
 		if !choseAny {
 			incrementedLimits := false
-			for indexOfField := len(fields) - 1; indexOfField >= 0; indexOfField-- {
-				field := fields[indexOfField]
+			for _, field := range slices.Backward(fields) {
 				if currentLimits[field] < hardLimits[field] {
 					currentLimits[field]++
 					incrementedLimits = true

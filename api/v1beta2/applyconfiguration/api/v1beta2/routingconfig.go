@@ -4,6 +4,7 @@ package v1beta2
 
 import (
 	apiv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	v1 "k8s.io/api/core/v1"
 )
 
 // RoutingConfigApplyConfiguration represents a declarative configuration of the RoutingConfig type for use
@@ -37,6 +38,14 @@ type RoutingConfigApplyConfiguration struct {
 	// service.
 	// The default is `cluster.local`.
 	DNSDomain *string `json:"dnsDomain,omitempty"`
+	// EnableGRPC controls whether the operator will add GRPC listeners and Service configuration for this cluster.
+	// GRPC support is experimental, and is only available in FDB 8.0 and later.
+	EnableGRPC *bool `json:"enableGRPC,omitempty"`
+	// GRPCPort controls the port that GRPC listeners listen on.
+	GRPCPort *int32 `json:"grpcPort,omitempty"`
+	// GRPCService allows customizing arbitrary aspects of the service that we put in front of the GRPC listeners.
+	// This is entirely optional, and any required fields that you do not provide will be filled in by the operator.
+	GRPCService *v1.Service `json:"grpcService,omitempty"`
 }
 
 // RoutingConfigApplyConfiguration constructs a declarative configuration of the RoutingConfig type for use with
@@ -90,5 +99,29 @@ func (b *RoutingConfigApplyConfiguration) WithDefineDNSLocalityFields(value bool
 // If called multiple times, the DNSDomain field is set to the value of the last call.
 func (b *RoutingConfigApplyConfiguration) WithDNSDomain(value string) *RoutingConfigApplyConfiguration {
 	b.DNSDomain = &value
+	return b
+}
+
+// WithEnableGRPC sets the EnableGRPC field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the EnableGRPC field is set to the value of the last call.
+func (b *RoutingConfigApplyConfiguration) WithEnableGRPC(value bool) *RoutingConfigApplyConfiguration {
+	b.EnableGRPC = &value
+	return b
+}
+
+// WithGRPCPort sets the GRPCPort field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GRPCPort field is set to the value of the last call.
+func (b *RoutingConfigApplyConfiguration) WithGRPCPort(value int32) *RoutingConfigApplyConfiguration {
+	b.GRPCPort = &value
+	return b
+}
+
+// WithGRPCService sets the GRPCService field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GRPCService field is set to the value of the last call.
+func (b *RoutingConfigApplyConfiguration) WithGRPCService(value v1.Service) *RoutingConfigApplyConfiguration {
+	b.GRPCService = &value
 	return b
 }

@@ -487,6 +487,9 @@ RoutingConfig allows configuring routing to our pods, and services that sit in f
 | useDNSInClusterFile | UseDNSInClusterFile determines whether to use DNS names rather than IP addresses to identify coordinators in the cluster file. This requires FoundationDB 7.0+. | *bool | false |
 | defineDNSLocalityFields | DefineDNSLocalityFields determines whether to define pod DNS names on pod specs and provide them in the locality arguments to fdbserver.  This is ignored if UseDNSInCluster is true. | *bool | false |
 | dnsDomain | DNSDomain defines the cluster domain used in a DNS name generated for a service. The default is `cluster.local`. | *string | false |
+| enableGRPC | EnableGRPC controls whether the operator will add GRPC listeners and Service configuration for this cluster. GRPC support is experimental, and is only available in FDB 8.0 and later. | *bool | false |
+| grpcPort | GRPCPort controls the port that GRPC listeners listen on. | *int32 | false |
+| grpcService | GRPCService allows customizing arbitrary aspects of the service that we put in front of the GRPC listeners. This is entirely optional, and any required fields that you do not provide will be filled in by the operator. | *corev1.Service | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -55,7 +55,7 @@ func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
 	osVariables := os.Environ()
 	cmdEnvironmentVariables := make([]string, 0, len(osVariables))
 	for _, env := range osVariables {
-		envKey := strings.Split(env, "=")[0]
+		envKey, _, _ := strings.Cut(env, "=")
 		if _, ok := excludedEnvironmentVariables[envKey]; ok {
 			continue
 		}

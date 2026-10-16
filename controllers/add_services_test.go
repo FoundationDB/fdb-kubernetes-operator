@@ -25,6 +25,7 @@ import (
 	"sort"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -273,6 +274,26 @@ var _ = Describe("add_services", func() {
 				Expect(newService.Spec.IPFamilies).To(HaveLen(1))
 				Expect(newService.Spec.IPFamilies[0]).To(Equal(corev1.IPv6Protocol))
 			}
+		})
+	})
+
+	When("enabling GRPC", func() {
+		BeforeEach(func() {
+			cluster.Spec.Routing.EnableGRPC = new(true)
+		})
+
+		It("should not requeue", func() {
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should create a service for the GRPC port", func() {
+			Expect(newServices.Items).To(HaveLen(len(initialServices.Items) + 1))
+			grpcService := newServices.Items[2]
+			Expect(grpcService.Name).To(Equal("operator-test-1-grpc"))
+			Expect(grpcService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+			Expect(
+				grpcService.Spec.Ports,
+			).To(HaveExactElements(corev1.ServicePort{Port: 8080, TargetPort: intstr.FromInt32(8080)}))
 		})
 	})
 })
