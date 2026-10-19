@@ -1581,7 +1581,9 @@ var _ = Describe("monitor_conf", func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(command).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4501,[%s]:8080:grpc", address, address)))
+				Expect(
+					command,
+				).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4501,[%s]:8080:grpc", address, address)))
 			})
 
 			When("running multiple processes in the pod", func() {
@@ -1603,7 +1605,9 @@ var _ = Describe("monitor_conf", func() {
 					)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(command).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4501,[%s]:8080:grpc", address, address)))
+					Expect(
+						command,
+					).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4501,[%s]:8080:grpc", address, address)))
 
 					command, err = GetStartCommandWithSubstitutions(
 						cluster,
@@ -1616,7 +1620,9 @@ var _ = Describe("monitor_conf", func() {
 					)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(command).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4503,[%s]:8082:grpc", address, address)))
+					Expect(
+						command,
+					).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4503,[%s]:8082:grpc", address, address)))
 				})
 			})
 		})
