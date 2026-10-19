@@ -286,12 +286,21 @@ func describeContainerState(pod *corev1.Pod) string {
 		return description
 	}
 
-	return fmt.Sprintf("phase: %s, no status found for container %s", pod.Status.Phase, fdbv1beta2.MainContainerName)
+	return fmt.Sprintf(
+		"phase: %s, no status found for container %s",
+		pod.Status.Phase,
+		fdbv1beta2.MainContainerName,
+	)
 }
 
 // logContainerStateOnRestartError logs the current state of the Pod if the error indicates a container restart. This
 // helps to understand whether the container is running again or is crash-looping.
-func logContainerStateOnRestartError(ctx context.Context, kubeClient client.Client, pod corev1.Pod, err error) {
+func logContainerStateOnRestartError(
+	ctx context.Context,
+	kubeClient client.Client,
+	pod corev1.Pod,
+	err error,
+) {
 	if !isContainerRestartError(err) {
 		return
 	}
@@ -303,7 +312,12 @@ func logContainerStateOnRestartError(ctx context.Context, kubeClient client.Clie
 		return
 	}
 
-	log.Println("state of pod", pod.Name, "after container restart error:", describeContainerState(currentPod))
+	log.Println(
+		"state of pod",
+		pod.Name,
+		"after container restart error:",
+		describeContainerState(currentPod),
+	)
 }
 
 // restartFdbserverInCluster will try to restart all fdbserver processes inside all the pods of the cluster. If the restart fails, it will be retried again two more times.

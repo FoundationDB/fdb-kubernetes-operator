@@ -224,6 +224,11 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 					return remote.GetStatus(ctx).Client.DatabaseStatus.Available
 				}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
 
+				// The plugin changed the spec (single region database configuration and unset skip), refresh the local
+				// cache of the cluster. Otherwise, the stale spec, including the multi-region database configuration,
+				// would be written back by SetSkipReconciliation and the operator would try to configure a multi-region
+				// setup again, while the primary and the satellites are still down.
+				remote.GetCluster(ctx)
 				remote.SetSkipReconciliation(ctx, false)
 				// Recreate the operator pods to ensure they get the new connection string.
 				factory.RecreateOperatorPods(ctx, remote.Namespace())

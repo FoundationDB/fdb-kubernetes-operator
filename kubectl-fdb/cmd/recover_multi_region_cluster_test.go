@@ -185,7 +185,10 @@ var _ = Describe("[plugin] describing the container state of a pod", func() {
 							Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"},
 						},
 						LastTerminationState: corev1.ContainerState{
-							Terminated: &corev1.ContainerStateTerminated{Reason: "Error", ExitCode: 137},
+							Terminated: &corev1.ContainerStateTerminated{
+								Reason:   "Error",
+								ExitCode: 137,
+							},
 						},
 					},
 				},
