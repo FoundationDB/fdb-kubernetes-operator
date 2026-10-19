@@ -183,18 +183,10 @@ func createOrUpdateService(
 	)
 	if err == nil {
 		err = updateService(ctx, logger, cluster, r, existingService, service)
-		if err != nil {
-			return err
-		}
 	} else if k8serrors.IsNotFound(err) {
 		logger.V(1).Info("Creating service", "name", service.Name)
 		err = r.Create(ctx, service)
-		if err != nil {
-			return err
-		}
-	} else {
-		return err
 	}
 
-	return nil
+	return err
 }

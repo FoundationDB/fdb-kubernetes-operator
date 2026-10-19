@@ -2430,6 +2430,7 @@ func (cluster *FoundationDBCluster) ShouldEnableGRPC() bool {
 }
 
 // GetGRPCPort returns the port GRPC listeners will run on.
+// By default, they will run on port 8080.
 func (cluster *FoundationDBCluster) GetGRPCPort() int32 {
 	return ptr.Deref(cluster.Spec.Routing.GRPCPort, 8080)
 }
@@ -3418,6 +3419,13 @@ func (cluster *FoundationDBCluster) Validate(
 				DatabaseInteractionModeFdbcli,
 				DatabaseInteractionModeMgmtAPI,
 			),
+		)
+	}
+
+	if cluster.ShouldEnableGRPC() && !version.SupportsGRPC() {
+		validations = append(
+			validations,
+			fmt.Sprintf("GRPC is not supported on version %s", version),
 		)
 	}
 

@@ -54,8 +54,9 @@ func GetGRPCService(
 ) (*corev1.Service, error) {
 	service := &corev1.Service{}
 	if cluster.Spec.Routing.GRPCService != nil {
-		*service = *cluster.Spec.Routing.GRPCService
+		service = cluster.Spec.Routing.GRPCService.DeepCopy()
 	}
+
 	service.ObjectMeta = GetObjectMetadata(
 		cluster,
 		&service.ObjectMeta,

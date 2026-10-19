@@ -67,6 +67,19 @@ func (u removeServices) reconcile(
 			return &requeue{curError: err}
 		}
 
+		ownedByCluster := false
+		for _, ownerReference := range existingService.OwnerReferences {
+			if ownerReference.UID == cluster.UID {
+				ownedByCluster = true
+			}
+		}
+
+		if !ownedByCluster {
+			logger.V(1).
+				Info("Ignoring service with no matching owner reference", "name", existingService.Name)
+			continue
+		}
+
 		logger.V(1).Info("Deleting service", "name", existingService.Name)
 		err = r.Delete(ctx, existingService)
 		if err != nil {
