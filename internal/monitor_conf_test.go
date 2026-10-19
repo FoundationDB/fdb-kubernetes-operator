@@ -1556,6 +1556,70 @@ var _ = Describe("monitor_conf", func() {
 				})
 			})
 		})
+
+		When("enabling GRPC", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.EnableGRPC = new(true)
+				cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+			})
+
+			It("adds an additional public address for GRPC", func() {
+				substitutions, err := GetSubstitutionsFromClusterAndPod(
+					logr.Discard(),
+					cluster,
+					pod,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				command, err = GetStartCommandWithSubstitutions(
+					cluster,
+					processClass,
+					substitutions,
+					1,
+					1,
+					cluster.DesiredImageType(),
+					nil,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(command).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4501,[%s]:8080:grpc", address, address)))
+			})
+
+			When("running multiple processes in the pod", func() {
+				It("gives the processes different GRPC addresses", func() {
+					substitutions, err := GetSubstitutionsFromClusterAndPod(
+						logr.Discard(),
+						cluster,
+						pod,
+					)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(
+						cluster,
+						processClass,
+						substitutions,
+						1,
+						2,
+						cluster.DesiredImageType(),
+						nil,
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(command).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4501,[%s]:8080:grpc", address, address)))
+
+					command, err = GetStartCommandWithSubstitutions(
+						cluster,
+						processClass,
+						substitutions,
+						2,
+						2,
+						cluster.DesiredImageType(),
+						nil,
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(command).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4503,[%s]:8082:grpc", address, address)))
+				})
+			})
+		})
 	})
 
 	Describe("GetMonitorConf", func() {
