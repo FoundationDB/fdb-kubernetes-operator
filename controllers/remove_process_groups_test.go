@@ -344,8 +344,8 @@ var _ = Describe("remove_process_groups", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHallFallback
-
 				})
+
 				When("storage have 2 replicas", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)

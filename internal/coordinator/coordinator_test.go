@@ -759,30 +759,32 @@ var _ = Describe("Change coordinators", func() {
 				})
 			})
 
-			When("when one storage process is marked for removal", func() {
-				removedProcess := fdbv1beta2.ProcessGroupID("storage-2")
+			When("one selected storage process is marked for removal", func() {
+				It("should not select the removed process", func() {
+					// The outer JustBeforeEach already selected without any removal.
+					Expect(candidates).NotTo(BeEmpty())
+					removedProcess := fdbv1beta2.ProcessGroupID(candidates[0].ID)
 
-				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
-						removedProcess,
-					}
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{removedProcess}
 					Expect(cluster.ProcessGroupIsBeingRemoved(removedProcess)).To(BeTrue())
-				})
 
-				It("should only select storage processes and exclude the removed process", func() {
-					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-					Expect(
-						len(candidates),
-					).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+					newCandidates, err := selectCoordinatorsLocalities(
+						logr.Discard(),
+						cluster,
+						status,
+						nil,
+					)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(newCandidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
-					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					dataHallCounts := map[string]int{}
-					for _, candidate := range candidates {
-						Expect(candidate.ID).NotTo(Equal(removedProcess))
+					for _, candidate := range newCandidates {
+						Expect(fdbv1beta2.ProcessGroupID(candidate.ID)).NotTo(Equal(removedProcess))
 						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 						dataHallCounts[candidate.LocalityData[fdbv1beta2.FDBLocalityDataHallKey]]++
 					}
 
+					Expect(dataHallCounts).To(HaveLen(3))
 					for _, dataHallCount := range dataHallCounts {
 						Expect(dataHallCount).To(BeNumerically("==", 3))
 					}
@@ -790,9 +792,14 @@ var _ = Describe("Change coordinators", func() {
 			})
 		})
 
-		When("using a FDB cluster with three_data_hall_fallback and missing data hall", func() {
+		When("using a FDB cluster with three_data_hall_fallback", func() {
 			var status *fdbv1beta2.FoundationDBStatus
 			var candidates []locality.Info
+			var dataHalls int
+
+			BeforeEach(func() {
+				dataHalls = 3
+			})
 
 			JustBeforeEach(func() {
 				cluster.Spec.DataHall = "az1"
@@ -803,7 +810,7 @@ var _ = Describe("Change coordinators", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				status.Cluster.Processes = generateProcessInfoForThreeDataHall(
-					2, // One data hall is missing
+					dataHalls,
 					nil,
 					cluster.GetRunningVersion(),
 				)
@@ -812,53 +819,82 @@ var _ = Describe("Change coordinators", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
+			// checkCoordinators verifies the selected coordinators are storage processes spread across the data halls.
+			checkCoordinators := func(selected []locality.Info, removedProcess fdbv1beta2.ProcessGroupID) {
+				Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 5))
+				Expect(selected).To(HaveLen(cluster.DesiredCoordinatorCount()))
+
+				dataHallCounts := map[string]int{}
+				for _, candidate := range selected {
+					Expect(fdbv1beta2.ProcessGroupID(candidate.ID)).NotTo(Equal(removedProcess))
+					Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+					dataHallCounts[candidate.LocalityData[fdbv1beta2.FDBLocalityDataHallKey]]++
+				}
+
+				Expect(dataHallCounts).To(HaveLen(dataHalls))
+				for _, dataHallCount := range dataHallCounts {
+					Expect(dataHallCount).To(BeNumerically("<=", 3))
+					// With all data halls available at most 2 coordinators are allowed per data hall.
+					if dataHalls == 3 {
+						Expect(dataHallCount).To(BeNumerically("<=", 2))
+					}
+				}
+			}
+
 			When("all processes are healthy", func() {
 				It("should only select storage processes", func() {
-					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-					Expect(
-						len(candidates),
-					).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
-
-					dataHallCounts := map[string]int{}
-					for _, candidate := range candidates {
-						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-						dataHallCounts[candidate.LocalityData[fdbv1beta2.FDBLocalityDataHallKey]]++
-					}
-
-					for _, dataHallCount := range dataHallCounts {
-						Expect(dataHallCount).To(BeNumerically("<=", 5))
-						Expect(dataHallCount).To(BeNumerically(">=", 4))
-					}
+					checkCoordinators(candidates, "")
 				})
 			})
 
-			When("when one storage process is marked for removal", func() {
-				removedProcess := fdbv1beta2.ProcessGroupID("storage-2")
+			When("one selected storage process is marked for removal", func() {
+				It("should not select the removed process", func() {
+					// The outer JustBeforeEach already selected without any removal.
+					Expect(candidates).NotTo(BeEmpty())
+					removedProcess := fdbv1beta2.ProcessGroupID(candidates[0].ID)
 
-				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
-						removedProcess,
-					}
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{removedProcess}
 					Expect(cluster.ProcessGroupIsBeingRemoved(removedProcess)).To(BeTrue())
+
+					newCandidates, err := selectCoordinatorsLocalities(
+						logr.Discard(),
+						cluster,
+						status,
+						nil,
+					)
+					Expect(err).NotTo(HaveOccurred())
+					checkCoordinators(newCandidates, removedProcess)
+				})
+			})
+
+			When("one data hall is missing", func() {
+				BeforeEach(func() {
+					dataHalls = 2
 				})
 
-				It("should only select storage processes and exclude the removed process", func() {
-					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-					Expect(
-						len(candidates),
-					).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+				When("all processes are healthy", func() {
+					It("should only select storage processes", func() {
+						checkCoordinators(candidates, "")
+					})
+				})
 
-					dataHallCounts := map[string]int{}
-					for _, candidate := range candidates {
-						Expect(candidate.ID).NotTo(Equal(removedProcess))
-						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-						dataHallCounts[candidate.LocalityData[fdbv1beta2.FDBLocalityDataHallKey]]++
-					}
+				When("one selected storage process is marked for removal", func() {
+					It("should not select the removed process", func() {
+						Expect(candidates).NotTo(BeEmpty())
+						removedProcess := fdbv1beta2.ProcessGroupID(candidates[0].ID)
 
-					for _, dataHallCount := range dataHallCounts {
-						Expect(dataHallCount).To(BeNumerically("<=", 5))
-						Expect(dataHallCount).To(BeNumerically(">=", 4))
-					}
+						cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{removedProcess}
+						Expect(cluster.ProcessGroupIsBeingRemoved(removedProcess)).To(BeTrue())
+
+						newCandidates, err := selectCoordinatorsLocalities(
+							logr.Discard(),
+							cluster,
+							status,
+							nil,
+						)
+						Expect(err).NotTo(HaveOccurred())
+						checkCoordinators(newCandidates, removedProcess)
+					})
 				})
 			})
 		})

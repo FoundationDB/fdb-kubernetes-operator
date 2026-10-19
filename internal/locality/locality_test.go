@@ -1107,7 +1107,7 @@ var _ = Describe("Localities", func() {
 				},
 			},
 			map[string]int{
-				fdbv1beta2.FDBLocalityDataHallKey: 5,
+				fdbv1beta2.FDBLocalityDataHallKey: 3,
 				fdbv1beta2.FDBLocalityZoneIDKey:   1,
 			},
 		),
