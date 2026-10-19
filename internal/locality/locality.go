@@ -210,13 +210,15 @@ func ChooseDistributedProcesses(
 	chosenIDs := make(map[string]bool, count)
 	primaryDC := cluster.DesiredDatabaseConfiguration().GetPrimaryDCID()
 
+	// Minimize the reuse of identical location keys with priority: Zone ID (most important), Data Hall, Data Center (least important)
 	fields := constraint.Fields
 	if len(fields) == 0 {
-		fields = []string{fdbv1beta2.FDBLocalityZoneIDKey, fdbv1beta2.FDBLocalityDCIDKey}
+		fields = []string{fdbv1beta2.FDBLocalityZoneIDKey}
 		if (cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall) ||
 			(cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback) {
 			fields = append(fields, fdbv1beta2.FDBLocalityDataHallKey)
 		}
+		fields = append(fields, fdbv1beta2.FDBLocalityDCIDKey)
 	}
 
 	chosenCounts := make(map[string]map[string]int, len(fields))
