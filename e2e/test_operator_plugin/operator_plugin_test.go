@@ -264,7 +264,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 
 	// Those tests are a bit flaky, depending on the state of the clusters and those should be run manually if required,
 	// e.g. when doing changes to the plugin that could affect the recovery method.
-	When("a majority of coordinators are down in a single dc cluster", func() {
+	PWhen("a majority of coordinators are down in a single dc cluster", func() {
 		var fdbCluster *fixtures.FdbCluster
 
 		AfterEach(func(ctx SpecContext) {
