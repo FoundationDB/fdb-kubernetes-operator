@@ -143,6 +143,18 @@ func (a addPods) reconcile(
 			pod.Annotations[fdbv1beta2.PublicIPAnnotation] = ip
 		}
 
+		createArgs := []any{
+			"processGroupID", processGroup.ProcessGroupID,
+			"processClass", processGroup.ProcessClass,
+		}
+		if cluster.ShouldIncludePodTemplateGenerationLabel() {
+			createArgs = append(createArgs,
+				"podTemplateGeneration",
+				pod.ObjectMeta.Labels[fdbv1beta2.PodTemplateGenerationLabel],
+			)
+		}
+		logger.Info("Creating pod", createArgs...)
+
 		err = r.PodLifecycleManager.CreatePod(logr.NewContext(ctx, logger), r, pod)
 		if err != nil {
 			if errors.IsQuotaExceeded(err) {

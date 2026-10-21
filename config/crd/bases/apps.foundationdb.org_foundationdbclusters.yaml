@@ -420,6 +420,8 @@ spec:
                 properties:
                   filterOnOwnerReference:
                     type: boolean
+                  includePodTemplateGenerationLabel:
+                    type: boolean
                   matchLabels:
                     additionalProperties:
                       type: string
