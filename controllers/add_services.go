@@ -45,31 +45,8 @@ func (a addServices) reconcile(
 	_ *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
-	headlessService := internal.GetHeadlessService(cluster)
-	if headlessService != nil {
-		existingService := &corev1.Service{}
-		err := r.Get(
-			ctx,
-			client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name},
-			existingService,
-		)
-		if err == nil {
-			err = updateService(ctx, logger, cluster, r, existingService, headlessService)
-			if err != nil {
-				return &requeue{curError: err, delayedRequeue: true}
-			}
-		} else {
-			if !k8serrors.IsNotFound(err) {
-				return &requeue{curError: err}
-			}
-			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-			headlessService.ObjectMeta.OwnerReferences = owner
-			logger.V(1).Info("Creating service", "name", headlessService.Name)
-			err = r.Create(ctx, headlessService)
-			if err != nil {
-				return &requeue{curError: err, delayedRequeue: true}
-			}
-		}
+	if req := reconcileHeadlessService(ctx, r, cluster, logger); req != nil {
+		return req
 	}
 
 	if cluster.GetPublicIPSource() == fdbv1beta2.PublicIPSourceService {
@@ -101,6 +78,42 @@ func (a addServices) reconcile(
 					return &requeue{curError: err, delayedRequeue: true}
 				}
 			} else {
+				return &requeue{curError: err, delayedRequeue: true}
+			}
+		}
+	}
+
+	return nil
+}
+
+func reconcileHeadlessService(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	logger logr.Logger,
+) *requeue {
+	headlessService := internal.GetHeadlessService(cluster)
+	if headlessService != nil {
+		existingService := &corev1.Service{}
+		err := r.Get(
+			ctx,
+			client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name},
+			existingService,
+		)
+		if err == nil {
+			err = updateService(ctx, logger, cluster, r, existingService, headlessService)
+			if err != nil {
+				return &requeue{curError: err, delayedRequeue: true}
+			}
+		} else {
+			if !k8serrors.IsNotFound(err) {
+				return &requeue{curError: err}
+			}
+			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+			headlessService.ObjectMeta.OwnerReferences = owner
+			logger.V(1).Info("Creating service", "name", headlessService.Name)
+			err = r.Create(ctx, headlessService)
+			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}
@@ -152,6 +165,7 @@ func updateService(
 	originalSpec := currentService.Spec.DeepCopy()
 
 	currentService.Spec.Selector = newService.Spec.Selector
+	currentService.Spec.PublishNotReadyAddresses = newService.Spec.PublishNotReadyAddresses
 
 	needsUpdate := !equality.Semantic.DeepEqual(currentService.Spec, *originalSpec)
 	metadata := currentService.ObjectMeta

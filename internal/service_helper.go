@@ -37,6 +37,10 @@ func GetHeadlessService(cluster *fdbv1beta2.FoundationDBCluster) *corev1.Service
 	service.ObjectMeta.Name = cluster.ObjectMeta.Name
 	service.Spec.ClusterIP = "None"
 	service.Spec.Selector = cluster.GetMatchLabels()
+	// An auxiliary restart must not remove the DNS record of a running FDB process
+	service.Spec.PublishNotReadyAddresses = len(
+		cluster.Spec.AutomationOptions.InPlaceImageUpdateContainers,
+	) > 0
 
 	if cluster.IsPodIPFamily6() {
 		service.Spec.IPFamilies = []corev1.IPFamily{corev1.IPv6Protocol}
