@@ -220,6 +220,16 @@ func uploadCoordinatorFile(
 // sigkillExitCode is the exit code reported when the exec session was killed with SIGKILL (128 + 9).
 const sigkillExitCode = 137
 
+const (
+	// containerNotFoundMessage is part of the error message returned by the Kubernetes API server when an exec
+	// session targets a container that is not running (anymore). There is no exported constant or typed error for it,
+	// the SPDY round tripper in apimachinery only wraps the response message into a plain error.
+	containerNotFoundMessage = "container not found"
+	// upgradeConnectionFailedMessage is the prefix of the error returned by the SPDY round tripper in apimachinery
+	// if the connection upgrade for the exec session failed, e.g. because the container was restarted.
+	upgradeConnectionFailedMessage = "unable to upgrade connection"
+)
+
 // isContainerRestartError returns true if the error indicates that the container was killed or restarted while the
 // command was running. Killing the fdbserver processes can take down the container (and the exec session with it),
 // so those errors mean the restart worked as intended.
@@ -233,8 +243,8 @@ func isContainerRestartError(err error) bool {
 		return true
 	}
 
-	return strings.Contains(err.Error(), "container not found") ||
-		strings.Contains(err.Error(), "unable to upgrade connection")
+	return strings.Contains(err.Error(), containerNotFoundMessage) ||
+		strings.Contains(err.Error(), upgradeConnectionFailedMessage)
 }
 
 // describeContainerState returns a human readable description of the state of the main container in the provided Pod.
