@@ -57,8 +57,7 @@ func IsNetworkError(err error) bool {
 
 // IsTimeoutError returns true if the observed error was a timeout error
 func IsTimeoutError(err error) bool {
-	var timeoutError fdbv1beta2.TimeoutError
-	if errors.As(err, &timeoutError) {
+	if _, ok := errors.AsType[fdbv1beta2.TimeoutError](err); ok {
 		return true
 	}
 
@@ -69,8 +68,7 @@ func IsTimeoutError(err error) bool {
 
 // IsSpecialKeysAPIFailureError returns true if the observed error was an error from the management API.
 func IsSpecialKeysAPIFailureError(err error) bool {
-	var specialKeysAPIFailureError fdbv1beta2.SpecialKeysAPIFailureError
-	if errors.As(err, &specialKeysAPIFailureError) {
+	if _, ok := errors.AsType[fdbv1beta2.SpecialKeysAPIFailureError](err); ok {
 		return true
 	}
 
