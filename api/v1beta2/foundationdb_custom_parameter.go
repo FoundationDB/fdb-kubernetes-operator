@@ -39,7 +39,7 @@ func (customParameters FoundationDBCustomParameters) GetKnobsForBackupRestoreCLI
 	args := make([]string, 0, len(customParameters))
 
 	for _, arg := range customParameters {
-		parameterName := strings.Split(string(arg), "=")[0]
+		parameterName, _, _ := strings.Cut(string(arg), "=")
 		parameterName = strings.TrimSpace(parameterName)
 
 		// Ignore all `locality` parameters, those can be used by the backup_agent but not the fabbackup command
@@ -87,7 +87,7 @@ func (customParameters FoundationDBCustomParameters) ValidateCustomParametersWit
 	violations := make([]string, 0)
 
 	for _, parameter := range customParameters {
-		parameterName := strings.Split(string(parameter), "=")[0]
+		parameterName, _, _ := strings.Cut(string(parameter), "=")
 		parameterName = strings.TrimSpace(parameterName)
 
 		if _, ok := parameters[parameterName]; !ok {
