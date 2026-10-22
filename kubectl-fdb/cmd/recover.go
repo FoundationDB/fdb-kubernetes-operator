@@ -22,11 +22,13 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -37,6 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
+	utilexec "k8s.io/client-go/util/exec"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -214,6 +217,119 @@ func uploadCoordinatorFile(
 	)
 }
 
+// sigkillExitCode is the exit code reported when the exec session was killed with SIGKILL (128 + 9).
+const sigkillExitCode = 137
+
+const (
+	// containerNotFoundMessage is part of the error message returned by the Kubernetes API server when an exec
+	// session targets a container that is not running (anymore). There is no exported constant or typed error for it,
+	// the SPDY round tripper in apimachinery only wraps the response message into a plain error.
+	containerNotFoundMessage = "container not found"
+	// upgradeConnectionFailedMessage is the prefix of the error returned by the SPDY round tripper in apimachinery
+	// if the connection upgrade for the exec session failed, e.g. because the container was restarted.
+	upgradeConnectionFailedMessage = "unable to upgrade connection"
+)
+
+// isContainerRestartError returns true if the error indicates that the container was killed or restarted while the
+// command was running. Killing the fdbserver processes can take down the container (and the exec session with it),
+// so those errors mean the restart worked as intended.
+func isContainerRestartError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var exitErr utilexec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitStatus() == sigkillExitCode {
+		return true
+	}
+
+	return strings.Contains(err.Error(), containerNotFoundMessage) ||
+		strings.Contains(err.Error(), upgradeConnectionFailedMessage)
+}
+
+// describeContainerState returns a human readable description of the state of the main container in the provided Pod.
+// This includes the current state, the restart count and the last termination state, which helps to identify
+// containers that are crash-looping.
+func describeContainerState(pod *corev1.Pod) string {
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name != fdbv1beta2.MainContainerName {
+			continue
+		}
+
+		var current string
+		switch {
+		case status.State.Running != nil:
+			current = fmt.Sprintf("running since %s", status.State.Running.StartedAt)
+		case status.State.Waiting != nil:
+			current = fmt.Sprintf(
+				"waiting, reason: %s, message: %s",
+				status.State.Waiting.Reason,
+				status.State.Waiting.Message,
+			)
+		case status.State.Terminated != nil:
+			current = fmt.Sprintf(
+				"terminated, reason: %s, exit code: %d",
+				status.State.Terminated.Reason,
+				status.State.Terminated.ExitCode,
+			)
+		default:
+			current = "unknown"
+		}
+
+		description := fmt.Sprintf(
+			"phase: %s, container %s: %s, ready: %t, restart count: %d",
+			pod.Status.Phase,
+			status.Name,
+			current,
+			status.Ready,
+			status.RestartCount,
+		)
+		if status.LastTerminationState.Terminated != nil {
+			description += fmt.Sprintf(
+				", last termination: reason: %s, exit code: %d, finished at: %s",
+				status.LastTerminationState.Terminated.Reason,
+				status.LastTerminationState.Terminated.ExitCode,
+				status.LastTerminationState.Terminated.FinishedAt,
+			)
+		}
+
+		return description
+	}
+
+	return fmt.Sprintf(
+		"phase: %s, no status found for container %s",
+		pod.Status.Phase,
+		fdbv1beta2.MainContainerName,
+	)
+}
+
+// logContainerStateOnRestartError logs the current state of the Pod if the error indicates a container restart. This
+// helps to understand whether the container is running again or is crash-looping.
+func logContainerStateOnRestartError(
+	ctx context.Context,
+	kubeClient client.Client,
+	pod corev1.Pod,
+	err error,
+) {
+	if !isContainerRestartError(err) {
+		return
+	}
+
+	currentPod := &corev1.Pod{}
+	getErr := kubeClient.Get(ctx, client.ObjectKeyFromObject(&pod), currentPod)
+	if getErr != nil {
+		log.Println("could not fetch pod", pod.Name, "to log the container state:", getErr.Error())
+		return
+	}
+
+	log.Println(
+		"state of pod",
+		pod.Name,
+		"after container restart error:",
+		describeContainerState(currentPod),
+	)
+}
+
 // restartFdbserverInCluster will try to restart all fdbserver processes inside all the pods of the cluster. If the restart fails, it will be retried again two more times.
 func restartFdbserverInCluster(
 	ctx context.Context,
@@ -230,7 +346,7 @@ func restartFdbserverInCluster(
 	retryRestart := make([]corev1.Pod, 0, len(pods.Items))
 	for _, pod := range pods.Items {
 		var stderr string
-		_, _, err = kubeHelper.ExecuteCommand(
+		_, stderr, err = kubeHelper.ExecuteCommand(
 			context.Background(),
 			kubeClient,
 			config,
@@ -247,6 +363,7 @@ func restartFdbserverInCluster(
 			}
 
 			time.Sleep(1 * time.Second)
+			logContainerStateOnRestartError(ctx, kubeClient, pod, err)
 			log.Println(
 				"error restarting process in pod",
 				pod.Name,
@@ -266,6 +383,7 @@ func restartFdbserverInCluster(
 				false,
 			)
 			if err != nil {
+				logContainerStateOnRestartError(ctx, kubeClient, pod, err)
 				log.Println(
 					"error restarting process in pod",
 					pod.Name,
@@ -310,6 +428,18 @@ func restartFdbserverInCluster(
 		if err != nil {
 			// If the pod doesn't exist anymore ignore the error. The pod will have the new configuration when recreated again.
 			if k8serrors.IsNotFound(err) {
+				continue
+			}
+
+			// The container was killed or restarted, this is expected when the fdbserver processes are killed.
+			if isContainerRestartError(err) {
+				logContainerStateOnRestartError(ctx, kubeClient, pod, err)
+				log.Println(
+					"ignoring error for pod",
+					pod.Name,
+					"as the container was restarted:",
+					err.Error(),
+				)
 				continue
 			}
 
