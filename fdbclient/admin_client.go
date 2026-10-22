@@ -273,8 +273,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 			return "", fdbv1beta2.BackupNotRunning{Err: err}
 		}
 
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) {
+		if exitError, ok := errors.AsType[*exec.ExitError](err); ok {
 			client.log.Error(
 				exitError,
 				"Error from FDB command",
