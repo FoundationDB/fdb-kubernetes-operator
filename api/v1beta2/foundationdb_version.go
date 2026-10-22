@@ -79,6 +79,11 @@ func (version Version) SupportsVersionChange(other Version) bool {
 	return version.IsProtocolCompatible(other) || other.IsAtLeast(version)
 }
 
+// SupportsGRPC returns true if the operator supports configuring GRPC APIs on the current version.
+func (version Version) SupportsGRPC() bool {
+	return version.IsAtLeast(Versions.SupportsGRPC)
+}
+
 // SupportsLocalityBasedExclusions returns true if the current version supports locality based exclusions.
 func (version Version) SupportsLocalityBasedExclusions() bool {
 	// If the version is 7.1.* we have to check if it supports locality based exclusions. For all newer versions
@@ -162,6 +167,7 @@ var Versions = struct {
 	SupportsLocalityBasedExclusions71,
 	SupportsLocalityBasedExclusions,
 	UsesMutationLogType,
+	SupportsGRPC,
 	Default Version
 }{
 	Default:                           Version{api.Version{Major: 7, Minor: 1, Patch: 57}},
@@ -179,4 +185,5 @@ var Versions = struct {
 	SupportsBackupEncryption:          Version{api.Version{Major: 7, Minor: 4, Patch: 6}},
 	SupportsBackupEncryption73:        Version{api.Version{Major: 7, Minor: 3, Patch: 73}},
 	UsesMutationLogType:               Version{api.Version{Major: 7, Minor: 4, Patch: 7}},
+	SupportsGRPC:                      Version{api.Version{Major: 8, Minor: 0, Patch: 0}},
 }

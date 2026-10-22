@@ -5402,6 +5402,32 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					"Forbidden PodSpec for storage: spec.Volumes has a secret volume, which is forbidden, allowed volume types: configmap",
 				),
 			),
+			Entry(
+				"GRPC on newer FDB version is allowed",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.SupportsGRPC.String(),
+						Routing: RoutingConfig{
+							EnableGRPC: new(true),
+						},
+					},
+				},
+				nil,
+				nil,
+			),
+			Entry(
+				"GRPC on older FDB version is forbidden",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.MinimumVersion.String(),
+						Routing: RoutingConfig{
+							EnableGRPC: new(true),
+						},
+					},
+				},
+				nil,
+				fmt.Errorf("GRPC is not supported on version %s", Versions.MinimumVersion),
+			),
 		)
 
 		When("multiple process classes have forbidden pod specs", func() {

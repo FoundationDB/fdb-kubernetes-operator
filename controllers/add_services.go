@@ -83,26 +83,22 @@ func (a addServices) reconcile(
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 
-			existingService := &corev1.Service{}
-			err = r.Get(
-				ctx,
-				client.ObjectKey{Namespace: cluster.Namespace, Name: service.Name},
-				existingService,
-			)
-			if err == nil {
-				err = updateService(ctx, logger, cluster, r, existingService, service)
-				if err != nil {
-					return &requeue{curError: err, delayedRequeue: true}
-				}
-			} else if k8serrors.IsNotFound(err) {
-				logger.V(1).Info("Creating service", "name", service.Name)
-				err = r.Create(ctx, service)
-				if err != nil {
-					return &requeue{curError: err, delayedRequeue: true}
-				}
-			} else {
+			err = createOrUpdateService(ctx, r, cluster, service, logger)
+			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
+		}
+	}
+
+	if cluster.ShouldEnableGRPC() {
+		service, err := internal.GetGRPCService(cluster)
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+
+		err = createOrUpdateService(ctx, r, cluster, service, logger)
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
@@ -168,4 +164,29 @@ func updateService(
 	}
 
 	return nil
+}
+
+// createOrUpdateService provides a basic helper for creating a service if it does not exist, or updating a service if
+// it does exist.
+func createOrUpdateService(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	service *corev1.Service,
+	logger logr.Logger,
+) error {
+	existingService := &corev1.Service{}
+	err := r.Get(
+		ctx,
+		client.ObjectKey{Namespace: cluster.Namespace, Name: service.Name},
+		existingService,
+	)
+	if err == nil {
+		err = updateService(ctx, logger, cluster, r, existingService, service)
+	} else if k8serrors.IsNotFound(err) {
+		logger.V(1).Info("Creating service", "name", service.Name)
+		err = r.Create(ctx, service)
+	}
+
+	return err
 }
