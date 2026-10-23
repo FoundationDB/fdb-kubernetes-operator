@@ -202,15 +202,26 @@ func generateRequest(
 	return nil, fmt.Errorf("unknown HTTP method %s", method)
 }
 
+// getRequestURL returns the URL for the provided path on the sidecar. The host is built with net.JoinHostPort to make
+// sure IPv6 addresses are wrapped in brackets, otherwise the URL is invalid.
+func (client *realFdbPodSidecarClient) getRequestURL(path string) string {
+	target := url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort(client.getListenIP(), "8080"),
+		Path:   path,
+	}
+
+	if client.useTLS {
+		target.Scheme = "https"
+	}
+
+	return target.String()
+}
+
 // makeRequest submits a request to the sidecar.
 func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string, int, error) {
 	var err error
 
-	target := url.URL{
-		Scheme: "http",
-		Host:   client.getListenIP() + ":8080",
-		Path:   path,
-	}
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
 	retryClient.RetryWaitMax = 1 * time.Second
@@ -220,12 +231,11 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 
 	if client.useTLS {
 		retryClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
-		target.Scheme = "https"
 	}
 
 	req, err := generateRequest(
 		retryClient,
-		target.String(),
+		client.getRequestURL(path),
 		method,
 		client.getTimeout,
 		client.postTimeout,
