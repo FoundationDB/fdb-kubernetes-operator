@@ -658,6 +658,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.DesiredFaultTolerance()).To(Equal(1))
 			Expect(cluster.MinimumFaultDomains()).To(Equal(2))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(9))
+
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeThreeDataHallFallback
+			Expect(cluster.DesiredFaultTolerance()).To(Equal(1))
+			Expect(cluster.MinimumFaultDomains()).To(Equal(2))
+			Expect(cluster.DesiredCoordinatorCount()).To(Equal(5))
+
+			cluster.Spec.DatabaseConfiguration.UsableRegions = 1
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeThreeDataHall
+			Expect(cluster.DesiredFaultTolerance()).To(Equal(2))
+			Expect(cluster.MinimumFaultDomains()).To(Equal(3))
+			Expect(cluster.DesiredCoordinatorCount()).To(Equal(9))
 		})
 	})
 
@@ -3793,6 +3804,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.ShouldUseLocks()).To(BeFalse())
 
 			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeThreeDataHall
+			Expect(cluster.ShouldUseLocks()).To(BeTrue())
+
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeThreeDataHallFallback
 			Expect(cluster.ShouldUseLocks()).To(BeTrue())
 
 			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeDouble
