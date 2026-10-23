@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -418,8 +419,9 @@ func RecoverSingleDCCluster(ctx context.Context, opts RecoveryOpts) error {
 				curlStr.WriteString(" http://")
 			}
 
-			curlStr.WriteString(loopPod.Status.PodIP)
-			curlStr.WriteString(":8080/copy_files > /dev/null")
+			// Use net.JoinHostPort to make sure IPv6 addresses are wrapped in brackets.
+			curlStr.WriteString(net.JoinHostPort(loopPod.Status.PodIP, "8080"))
+			curlStr.WriteString("/copy_files > /dev/null")
 
 			command := []string{"/bin/bash", "-c", curlStr.String()}
 
