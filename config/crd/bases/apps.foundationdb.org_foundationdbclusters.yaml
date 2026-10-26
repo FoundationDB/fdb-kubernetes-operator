@@ -95,6 +95,12 @@ spec:
                     type: integer
                   ignoreTerminatingPodsSeconds:
                     type: integer
+                  inPlaceImageUpdateContainers:
+                    items:
+                      type: string
+                    maxItems: 32
+                    type: array
+                    x-kubernetes-list-type: set
                   killProcesses:
                     type: boolean
                   maintenanceModeOptions:
