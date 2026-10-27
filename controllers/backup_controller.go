@@ -56,11 +56,14 @@ type FoundationDBBackupReconciler struct {
 	AllowedPodModifications *fdbv1beta2.AllowedPodModifications
 	// MinimumAgeForTerminalPodDeletion defines the minimum age of a terminal pod before it will be deleted.
 	MinimumAgeForTerminalPodDeletion time.Duration
+	// BackupExpirationPollInterval controls how often active expiration Jobs are observed
+	BackupExpirationPollInterval time.Duration
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 var backupSubReconcilers = []backupSubReconciler{
@@ -151,7 +154,8 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		return processRequeue(req, subReconciler, backup, r.Recorder, backupLog)
 	}
 
-	if backup.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
+	if backup.Status.Generations.Reconciled != originalGeneration ||
+		backup.Status.Generations.NeedsPendingWork() || delayedRequeue {
 		backupLog.Info("Backup was not fully reconciled by reconciliation process",
 			"status",
 			backup.Status.Generations,
@@ -165,13 +169,20 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		if delayedRequeueDuration == time.Duration(0) {
 			delayedRequeueDuration = 5 * time.Second
 		}
-
-		return ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
+	} else {
+		backupLog.Info("Reconciliation complete")
 	}
 
-	backupLog.Info("Reconciliation complete")
+	if req := (expireBackup{}).reconcile(ctx, r, backup); req != nil {
+		if !req.delayedRequeue {
+			return processRequeue(req, expireBackup{}, backup, r.Recorder, backupLog)
+		}
+		if delayedRequeueDuration == 0 || req.delay < delayedRequeueDuration {
+			delayedRequeueDuration = req.delay
+		}
+	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
 }
 
 // getDatabaseClientProvider gets the client provider for a reconciler.
@@ -327,6 +338,15 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 			}
 
 			return nil
+		}
+
+		job, err := r.getBackupExpirationJob(ctx, backup)
+		if err != nil {
+			return err
+		}
+		if job != nil {
+			// Wait for expiration Pods to terminate before touching backup data
+			return r.deleteBackupExpirationJob(ctx, job)
 		}
 
 		// This part of the code will be executed when the backup resource has a deletion timestamp and is waiting
