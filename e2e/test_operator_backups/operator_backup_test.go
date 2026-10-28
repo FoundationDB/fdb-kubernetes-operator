@@ -258,7 +258,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 							}
 							spec := backup.GetBackup(ctx).Spec.DeepCopy()
 							spec.Expiration = &fdbv1beta2.BackupExpiration{
-								ExpireAfterSeconds:     int64(time.Since(cutoff.Time).Seconds()),
+								ExpireAfterSeconds: ptr.To(
+									int64(time.Since(cutoff.Time).Seconds()),
+								),
 								RestorableAfterVersion: ptr.To(int64(protectedVersion)),
 							}
 							backup.UpdateBackupSpecWithSpec(spec)

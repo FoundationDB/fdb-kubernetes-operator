@@ -59,7 +59,12 @@ func GetBackupExpirationJob(
 	template.Spec.EphemeralContainers = nil
 	policy := backup.Spec.Expiration
 	now = now.UTC()
-	cutoff := now.Add(-time.Duration(policy.ExpireAfterSeconds) * time.Second)
+	var cutoff time.Time
+	if policy.BeforeTimestamp != nil {
+		cutoff = policy.BeforeTimestamp.UTC()
+	} else {
+		cutoff = now.Add(-time.Duration(*policy.ExpireAfterSeconds) * time.Second)
+	}
 
 	for _, container := range template.Spec.Containers {
 		if container.Name != fdbv1beta2.MainContainerName {
@@ -69,6 +74,10 @@ func GetBackupExpirationJob(
 		container.Args = []string{
 			"expire", "-d", backup.Status.BackupDetails.URL,
 			"--expire-before-timestamp", cutoff.Format(backupTimestampLayout),
+		}
+		if policy.RestorableAfterTimestamp != nil {
+			container.Args = append(container.Args, "--restorable-after-timestamp",
+				policy.RestorableAfterTimestamp.UTC().Format(backupTimestampLayout))
 		}
 		if policy.RestorableForSeconds != nil {
 			restorableAfter := now.Add(-time.Duration(*policy.RestorableForSeconds) * time.Second)

@@ -80,6 +80,51 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			`{"expiration":{"expireAfterSeconds":2592000,"restorableForSeconds":604800,"intervalSeconds":3600}}`,
 			true,
 		),
+		Entry(
+			"explicit timestamps",
+			`{"expiration":{"beforeTimestamp":"2020-01-01T00:00:00Z","restorableAfterTimestamp":"2020-01-02T00:00:00Z"}}`,
+			true,
+		),
+		Entry(
+			"missing recovery timestamp",
+			`{"expiration":{"beforeTimestamp":"2020-01-01T00:00:00Z"}}`,
+			false,
+		),
+		Entry(
+			"missing deletion timestamp",
+			`{"expiration":{"restorableAfterTimestamp":"2020-01-02T00:00:00Z"}}`,
+			false,
+		),
+		Entry(
+			"both expiration modes",
+			`{"expiration":{"beforeTimestamp":"2020-01-01T00:00:00Z","restorableAfterTimestamp":"2020-01-02T00:00:00Z","expireAfterSeconds":100}}`,
+			false,
+		),
+		Entry(
+			"timestamp and duration guard",
+			`{"expiration":{"beforeTimestamp":"2020-01-01T00:00:00Z","restorableAfterTimestamp":"2020-01-02T00:00:00Z","restorableForSeconds":100}}`,
+			false,
+		),
+		Entry(
+			"timestamp and version guard",
+			`{"expiration":{"beforeTimestamp":"2020-01-01T00:00:00Z","restorableAfterTimestamp":"2020-01-02T00:00:00Z","restorableAfterVersion":100}}`,
+			false,
+		),
+		Entry(
+			"reversed timestamps",
+			`{"expiration":{"beforeTimestamp":"2020-01-03T00:00:00Z","restorableAfterTimestamp":"2020-01-02T00:00:00Z"}}`,
+			false,
+		),
+		Entry(
+			"future timestamp",
+			`{"expiration":{"beforeTimestamp":"2020-01-01T00:00:00Z","restorableAfterTimestamp":"2999-01-01T00:00:00Z"}}`,
+			false,
+		),
+		Entry(
+			"zero timestamp",
+			`{"expiration":{"beforeTimestamp":"0001-01-01T00:00:00Z","restorableAfterTimestamp":"2020-01-02T00:00:00Z"}}`,
+			false,
+		),
 		Entry("missing retention", `{"expiration":{}}`, false),
 		Entry("negative retention", `{"expiration":{"expireAfterSeconds":-1}}`, false),
 		Entry(

@@ -33,7 +33,9 @@ BackupExpiration configures recurring backup retention
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| expireAfterSeconds | ExpireAfterSeconds expires data older than this duration, measured when each Job is created. The source cluster must be available to convert timestamps to FDB versions | int64 | true |
+| expireAfterSeconds | ExpireAfterSeconds expires data older than this duration, measured when each Job is created. The source cluster must be available to convert timestamps to FDB versions | *int64 | false |
+| beforeTimestamp | BeforeTimestamp expires data before this timestamp. Mutually exclusive with ExpireAfterSeconds. The caller must choose a cutoff early enough to retain a snapshot and logs needed for RestorableAfterTimestamp. FDB refuses unsafe expiration; the operator does not adjust the cutoff | *metav1.Time | false |
+| restorableAfterTimestamp | RestorableAfterTimestamp requires restorability from this timestamp onward. Required with BeforeTimestamp and mutually exclusive with other restore requirements. The source cluster must be available for FDB timestamp-to-version conversion | *metav1.Time | false |
 | restorableForSeconds | RestorableForSeconds requires restorability from this many seconds ago onward. Mutually exclusive with RestorableAfterVersion | *int64 | false |
 | restorableAfterVersion | RestorableAfterVersion is the oldest database version that must remain restorable after expiration. Mutually exclusive with RestorableForSeconds | *int64 | false |
 | intervalSeconds | IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour. Failed Jobs use exponential backoff up to one day | *int64 | false |

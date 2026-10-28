@@ -47,7 +47,7 @@ var _ = Describe("backup expiration", func() {
 		cluster := internal.CreateDefaultCluster()
 		backup = internal.CreateDefaultBackup(cluster)
 		backup.Spec.Expiration = &fdbv1beta2.BackupExpiration{
-			ExpireAfterSeconds:   86400,
+			ExpireAfterSeconds:   ptr.To(int64(86400)),
 			RestorableForSeconds: ptr.To(int64(3600)),
 		}
 		Expect(k8sClient.Create(ctx, cluster)).To(Succeed())
@@ -119,7 +119,7 @@ var _ = Describe("backup expiration", func() {
 			Expect(jobs()).To(BeEmpty())
 			backup.Spec.ClusterName = "replacement-cluster"
 			backup.Spec.Expiration = &fdbv1beta2.BackupExpiration{
-				ExpireAfterSeconds:     172800,
+				ExpireAfterSeconds:     ptr.To(int64(172800)),
 				RestorableAfterVersion: ptr.To(int64(123456789)),
 			}
 			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
@@ -352,7 +352,7 @@ var _ = Describe("backup expiration", func() {
 				currentStatus.NextRunTime.Sub(currentStatus.CompletionTime.Time),
 			).To(Equal(time.Hour * time.Duration(1<<(attempt-1))))
 			Expect(jobs()).To(HaveLen(1))
-			backup.Spec.Expiration.ExpireAfterSeconds++
+			(*backup.Spec.Expiration.ExpireAfterSeconds)++
 			Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 			Expect(k8sClient.Delete(ctx, &job)).To(Succeed())
 			reconcile()
@@ -386,7 +386,7 @@ var _ = Describe("backup expiration", func() {
 			job.Spec.Template.Spec.Containers[0].Args[4],
 		)
 		Expect(err).NotTo(HaveOccurred())
-		backup.Spec.Expiration.ExpireAfterSeconds *= 2
+		*backup.Spec.Expiration.ExpireAfterSeconds *= 2
 		backup.Generation++
 		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 		reconcile()
@@ -480,7 +480,7 @@ var _ = Describe("backup expiration", func() {
 		reconcile()
 		job := jobs()[0]
 		*backup.Spec.Expiration.RestorableAfterVersion = 987654321
-		backup.Spec.Expiration.ExpireAfterSeconds *= 2
+		*backup.Spec.Expiration.ExpireAfterSeconds *= 2
 		backup.Spec.ClusterName = "replacement-cluster"
 		Expect(k8sClient.Update(ctx, backup)).To(Succeed())
 		backup.Status.BackupDetails.URL = "blobstore://replacement-backup"

@@ -170,14 +170,26 @@ type FoundationDBBackupSpec struct {
 }
 
 // BackupExpiration configures recurring backup retention
-// +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || self.restorableForSeconds <= self.expireAfterSeconds",message="restorableForSeconds must not exceed expireAfterSeconds"
+// +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || (has(self.expireAfterSeconds) && self.restorableForSeconds <= self.expireAfterSeconds)",message="restorableForSeconds must not exceed expireAfterSeconds"
 // +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || !has(self.restorableAfterVersion)",message="restorableForSeconds and restorableAfterVersion are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="has(self.expireAfterSeconds) != has(self.beforeTimestamp)",message="exactly one of expireAfterSeconds and beforeTimestamp is required"
+// +kubebuilder:validation:XValidation:rule="has(self.beforeTimestamp) == has(self.restorableAfterTimestamp)",message="beforeTimestamp and restorableAfterTimestamp must be set together"
+// +kubebuilder:validation:XValidation:rule="!has(self.beforeTimestamp) || (!has(self.restorableForSeconds) && !has(self.restorableAfterVersion))",message="timestamp expiration cannot use duration or version restore requirements"
+// +kubebuilder:validation:XValidation:rule="!has(self.beforeTimestamp) || !has(self.restorableAfterTimestamp) || timestamp(self.beforeTimestamp) <= timestamp(self.restorableAfterTimestamp)",message="beforeTimestamp must not exceed restorableAfterTimestamp"
 type BackupExpiration struct {
 	// ExpireAfterSeconds expires data older than this duration, measured when each Job is created.
 	// The source cluster must be available to convert timestamps to FDB versions
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=315360000
-	ExpireAfterSeconds int64 `json:"expireAfterSeconds"`
+	ExpireAfterSeconds *int64 `json:"expireAfterSeconds,omitempty"`
+	// BeforeTimestamp expires data before this timestamp. Mutually exclusive with ExpireAfterSeconds.
+	// The caller must choose a cutoff early enough to retain a snapshot and logs needed for RestorableAfterTimestamp.
+	// FDB refuses unsafe expiration; the operator does not adjust the cutoff
+	BeforeTimestamp *metav1.Time `json:"beforeTimestamp,omitempty"`
+	// RestorableAfterTimestamp requires restorability from this timestamp onward.
+	// Required with BeforeTimestamp and mutually exclusive with other restore requirements.
+	// The source cluster must be available for FDB timestamp-to-version conversion
+	RestorableAfterTimestamp *metav1.Time `json:"restorableAfterTimestamp,omitempty"`
 	// RestorableForSeconds requires restorability from this many seconds ago onward.
 	// Mutually exclusive with RestorableAfterVersion
 	// +kubebuilder:validation:Minimum=1
@@ -661,14 +673,50 @@ func (backup *FoundationDBBackup) Validate(allowedPodModifications *AllowedPodMo
 				"expiration.restorableForSeconds and restorableAfterVersion are mutually exclusive",
 			)
 		}
-		if policy.ExpireAfterSeconds < 1 || policy.ExpireAfterSeconds > 315360000 {
+		if (policy.ExpireAfterSeconds == nil) == (policy.BeforeTimestamp == nil) {
+			validations = append(
+				validations,
+				"expiration requires exactly one of expireAfterSeconds and beforeTimestamp",
+			)
+		}
+		if (policy.BeforeTimestamp == nil) != (policy.RestorableAfterTimestamp == nil) {
+			validations = append(
+				validations,
+				"expiration.beforeTimestamp and restorableAfterTimestamp must be set together",
+			)
+		}
+		if policy.BeforeTimestamp != nil {
+			if policy.RestorableForSeconds != nil || policy.RestorableAfterVersion != nil {
+				validations = append(
+					validations,
+					"timestamp expiration cannot use duration or version restore requirements",
+				)
+			}
+			if policy.RestorableAfterTimestamp != nil &&
+				policy.BeforeTimestamp.After(policy.RestorableAfterTimestamp.Time) {
+				validations = append(
+					validations,
+					"expiration.beforeTimestamp must not exceed restorableAfterTimestamp",
+				)
+			}
+		}
+		for _, timestamp := range []*metav1.Time{policy.BeforeTimestamp, policy.RestorableAfterTimestamp} {
+			if timestamp != nil && (timestamp.IsZero() || timestamp.After(time.Now())) {
+				validations = append(
+					validations,
+					"expiration timestamps must be nonzero and not in the future",
+				)
+			}
+		}
+		if policy.ExpireAfterSeconds != nil &&
+			(*policy.ExpireAfterSeconds < 1 || *policy.ExpireAfterSeconds > 315360000) {
 			validations = append(
 				validations,
 				"expiration.expireAfterSeconds must be between 1 and 315360000",
 			)
 		}
 		if policy.RestorableForSeconds != nil &&
-			(*policy.RestorableForSeconds < 1 || *policy.RestorableForSeconds > policy.ExpireAfterSeconds) {
+			(policy.ExpireAfterSeconds == nil || *policy.RestorableForSeconds < 1 || *policy.RestorableForSeconds > *policy.ExpireAfterSeconds) {
 			validations = append(
 				validations,
 				"expiration.restorableForSeconds must be positive and not exceed expireAfterSeconds",

@@ -33,9 +33,11 @@ import (
 
 var _ = Describe("backup expiration Job", func() {
 	type restoreRequirementTestCase struct {
-		restorableForSeconds   *int64
-		restorableAfterVersion *int64
-		expectedArgs           []string
+		beforeTimestamp          *metav1.Time
+		restorableAfterTimestamp *metav1.Time
+		restorableForSeconds     *int64
+		restorableAfterVersion   *int64
+		expectedArgs             []string
 	}
 	restoreWindow := restoreRequirementTestCase{
 		restorableForSeconds: ptr.To(int64(86400)),
@@ -59,9 +61,14 @@ var _ = Describe("backup expiration Job", func() {
 			backup.Spec.ClusterName = "source-cluster"
 			backup.Spec.EncryptionKeyPath = "/keys/backup.key"
 			backup.Spec.Expiration = &fdbv1beta2.BackupExpiration{
-				ExpireAfterSeconds:     172800,
+				ExpireAfterSeconds:     ptr.To(int64(172800)),
 				RestorableForSeconds:   testCase.restorableForSeconds,
 				RestorableAfterVersion: testCase.restorableAfterVersion,
+			}
+			if testCase.beforeTimestamp != nil {
+				backup.Spec.Expiration.ExpireAfterSeconds = nil
+				backup.Spec.Expiration.BeforeTimestamp = testCase.beforeTimestamp
+				backup.Spec.Expiration.RestorableAfterTimestamp = testCase.restorableAfterTimestamp
 			}
 			backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 				"knob_backup_concurrent_deletes=4", "force", "expire-before-version=123", "locality_custom=test",
@@ -159,6 +166,18 @@ var _ = Describe("backup expiration Job", func() {
 			Expect(container.StartupProbe).To(BeNil())
 			Expect(container.Lifecycle).To(BeNil())
 		},
+		Entry("explicit timestamps", fdbv1beta2.ImageTypeUnified, restoreRequirementTestCase{
+			beforeTimestamp: ptr.To(
+				metav1.NewTime(time.Date(2026, 9, 1, 8, 0, 0, 0, time.FixedZone("SGT", 8*3600))),
+			),
+			restorableAfterTimestamp: ptr.To(
+				metav1.NewTime(time.Date(2026, 9, 2, 8, 0, 0, 0, time.FixedZone("SGT", 8*3600))),
+			),
+			expectedArgs: []string{
+				"--restorable-after-timestamp",
+				"2026/09/02.00:00:00+0000",
+			},
+		}),
 		Entry("split image", fdbv1beta2.ImageTypeSplit, restoreRequirementTestCase{}),
 		Entry("split image with restore window", fdbv1beta2.ImageTypeSplit, restoreWindow),
 		Entry("unified image", fdbv1beta2.ImageTypeUnified, restoreRequirementTestCase{}),

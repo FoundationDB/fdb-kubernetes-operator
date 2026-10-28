@@ -138,6 +138,9 @@ spec:
                 type: string
               expiration:
                 properties:
+                  beforeTimestamp:
+                    format: date-time
+                    type: string
                   expireAfterSeconds:
                     format: int64
                     maximum: 315360000
@@ -148,6 +151,9 @@ spec:
                     maximum: 86400
                     minimum: 60
                     type: integer
+                  restorableAfterTimestamp:
+                    format: date-time
+                    type: string
                   restorableAfterVersion:
                     format: int64
                     minimum: 1
@@ -157,16 +163,27 @@ spec:
                     maximum: 315360000
                     minimum: 1
                     type: integer
-                required:
-                - expireAfterSeconds
                 type: object
                 x-kubernetes-validations:
                 - message: restorableForSeconds must not exceed expireAfterSeconds
-                  rule: '!has(self.restorableForSeconds) || self.restorableForSeconds
-                    <= self.expireAfterSeconds'
+                  rule: '!has(self.restorableForSeconds) || (has(self.expireAfterSeconds)
+                    && self.restorableForSeconds <= self.expireAfterSeconds)'
                 - message: restorableForSeconds and restorableAfterVersion are mutually
                     exclusive
                   rule: '!has(self.restorableForSeconds) || !has(self.restorableAfterVersion)'
+                - message: exactly one of expireAfterSeconds and beforeTimestamp is
+                    required
+                  rule: has(self.expireAfterSeconds) != has(self.beforeTimestamp)
+                - message: beforeTimestamp and restorableAfterTimestamp must be set
+                    together
+                  rule: has(self.beforeTimestamp) == has(self.restorableAfterTimestamp)
+                - message: timestamp expiration cannot use duration or version restore
+                    requirements
+                  rule: '!has(self.beforeTimestamp) || (!has(self.restorableForSeconds)
+                    && !has(self.restorableAfterVersion))'
+                - message: beforeTimestamp must not exceed restorableAfterTimestamp
+                  rule: '!has(self.beforeTimestamp) || !has(self.restorableAfterTimestamp)
+                    || timestamp(self.beforeTimestamp) <= timestamp(self.restorableAfterTimestamp)'
               imageType:
                 default: split
                 enum:
