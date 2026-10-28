@@ -942,6 +942,69 @@ var _ = Describe("monitor_conf", func() {
 				).To(ContainElement(monitorapi.Argument{Value: "--locality_data_hall=dh01"}))
 			})
 		})
+
+		When("enabling GRPC", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.EnableGRPC = new(true)
+				cluster.Status.HasListenIPsForAllPods = true
+			})
+
+			It("adds an address for GRPC", func() {
+				config, err := GetMonitorProcessConfiguration(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					1,
+					fdbv1beta2.ImageTypeUnified,
+					nil,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
+				Expect(
+					config.Arguments[2].ArgumentType,
+				).To(Equal(monitorapi.ArgumentType(monitorapi.ConcatenateArgumentType)))
+				Expect(config.Arguments[2].Values).To(HaveExactElements(
+					monitorapi.Argument{Value: "--public_address=["},
+					monitorapi.Argument{
+						ArgumentType: monitorapi.EnvironmentArgumentType,
+						Source:       fdbv1beta2.EnvNamePublicIP,
+					},
+					monitorapi.Argument{Value: "]:"},
+					monitorapi.Argument{
+						ArgumentType: monitorapi.ProcessNumberArgumentType,
+						Offset:       4499,
+						Multiplier:   2,
+					},
+					monitorapi.Argument{Value: ",["},
+					monitorapi.Argument{
+						ArgumentType: monitorapi.EnvironmentArgumentType,
+						Source:       fdbv1beta2.EnvNamePodIP,
+					},
+					monitorapi.Argument{Value: "]:"},
+					monitorapi.Argument{
+						ArgumentType: monitorapi.ProcessNumberArgumentType,
+						Offset:       8078,
+						Multiplier:   2,
+					},
+					monitorapi.Argument{Value: ":grpc"},
+				))
+				Expect(
+					config.Arguments[10].ArgumentType,
+				).To(Equal(monitorapi.ArgumentType(monitorapi.ConcatenateArgumentType)))
+				Expect(config.Arguments[10].Values).To(HaveExactElements(
+					monitorapi.Argument{Value: "--listen_address=["},
+					monitorapi.Argument{
+						ArgumentType: monitorapi.EnvironmentArgumentType,
+						Source:       fdbv1beta2.EnvNamePodIP,
+					},
+					monitorapi.Argument{Value: "]:"},
+					monitorapi.Argument{
+						ArgumentType: monitorapi.ProcessNumberArgumentType,
+						Offset:       4499,
+						Multiplier:   2,
+					},
+				))
+			})
+		})
 	})
 
 	Describe("GetStartCommand", func() {
@@ -1490,6 +1553,76 @@ var _ = Describe("monitor_conf", func() {
 							substitutions[fdbv1beta2.EnvNameDNSName],
 						),
 					}, " ")))
+				})
+			})
+		})
+
+		When("enabling GRPC", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.EnableGRPC = new(true)
+				cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+			})
+
+			It("adds an additional public address for GRPC", func() {
+				substitutions, err := GetSubstitutionsFromClusterAndPod(
+					logr.Discard(),
+					cluster,
+					pod,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				command, err = GetStartCommandWithSubstitutions(
+					cluster,
+					processClass,
+					substitutions,
+					1,
+					1,
+					cluster.DesiredImageType(),
+					nil,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(
+					command,
+				).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4501,[%s]:8080:grpc", address, address)))
+			})
+
+			When("running multiple processes in the pod", func() {
+				It("gives the processes different GRPC addresses", func() {
+					substitutions, err := GetSubstitutionsFromClusterAndPod(
+						logr.Discard(),
+						cluster,
+						pod,
+					)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(
+						cluster,
+						processClass,
+						substitutions,
+						1,
+						2,
+						cluster.DesiredImageType(),
+						nil,
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(
+						command,
+					).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4501,[%s]:8080:grpc", address, address)))
+
+					command, err = GetStartCommandWithSubstitutions(
+						cluster,
+						processClass,
+						substitutions,
+						2,
+						2,
+						cluster.DesiredImageType(),
+						nil,
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(
+						command,
+					).To(ContainSubstring(fmt.Sprintf("--public_address=[%s]:4503,[%s]:8082:grpc", address, address)))
 				})
 			})
 		})
