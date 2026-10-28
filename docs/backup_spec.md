@@ -5,6 +5,8 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 
 ## Table of Contents
 
+* [BackupExpiration](#backupexpiration)
+* [BackupExpirationStatus](#backupexpirationstatus)
 * [BackupGenerationStatus](#backupgenerationstatus)
 * [BlobStoreConfiguration](#blobstoreconfiguration)
 * [FoundationDBBackup](#foundationdbbackup)
@@ -22,6 +24,42 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 ## BackupDeletionPolicy
 
 BackupDeletionPolicy defines the deletion policy when the backup is deleted.
+
+[Back to TOC](#table-of-contents)
+
+## BackupExpiration
+
+BackupExpiration configures recurring backup retention
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| expireAfterSeconds | ExpireAfterSeconds expires data older than this duration, measured when each Job is created. The source cluster must be available to convert timestamps to FDB versions | *int64 | false |
+| beforeTimestamp | BeforeTimestamp expires data before this timestamp. Mutually exclusive with ExpireAfterSeconds. The caller must choose a cutoff early enough to retain a snapshot and logs needed for RestorableAfterTimestamp. FDB refuses unsafe expiration; the operator does not adjust the cutoff | *metav1.Time | false |
+| restorableAfterTimestamp | RestorableAfterTimestamp requires restorability from this timestamp onward. Required with BeforeTimestamp and mutually exclusive with other restore requirements. The source cluster must be available for FDB timestamp-to-version conversion | *metav1.Time | false |
+| restorableForSeconds | RestorableForSeconds requires restorability from this many seconds ago onward. Mutually exclusive with RestorableAfterVersion | *int64 | false |
+| restorableAfterVersion | RestorableAfterVersion is the oldest database version that must remain restorable after expiration. Mutually exclusive with RestorableForSeconds | *int64 | false |
+| intervalSeconds | IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour. Failed Jobs use exponential backoff up to one day | *int64 | false |
+
+[Back to TOC](#table-of-contents)
+
+## BackupExpirationPhase
+
+BackupExpirationPhase describes the execution state of an expiration Job
+
+[Back to TOC](#table-of-contents)
+
+## BackupExpirationStatus
+
+BackupExpirationStatus records the most recent expiration Job and its schedule
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| jobName | JobName identifies the Job executing this expiration | string | true |
+| phase | Phase is Running from scheduling until the Job reaches a terminal condition | [BackupExpirationPhase](#backupexpirationphase) | true |
+| message | Message provides the Job's failure reason, if any | string | false |
+| completionTime | CompletionTime records when the operator observed a terminal Job | *metav1.Time | false |
+| nextRunTime | NextRunTime persists the next scheduled run across operator restarts and spec updates | *metav1.Time | false |
+| failureCount | FailureCount counts consecutive failed Jobs for exponential backoff | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -153,6 +191,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
 | backupMode | BackupMode defines the backup mode that should be used for the backup. When the BackupMode is set to BackupModeOneTime, the backup will create a single snapshot and then stop. When set to BackupModeContinuous, the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds. Default: \"Continuous\". | *[BackupMode](#backupmode) | false |
 | tag | Tag defines the backup tag that should be used. Using different tags allows to have multiple backups for the same cluster. Default: \"default\". | *[BackupTag](#backuptag) | false |
+| expiration | Expiration configures recurring removal of old backup data with FDB restorability checks. Omitting this field disables new expiration Jobs | *[BackupExpiration](#backupexpiration) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -162,6 +201,7 @@ FoundationDBBackupStatus describes the current status of the backup for a cluste
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
+| expiration | Expiration records the most recent expiration Job and the next scheduled run | *[BackupExpirationStatus](#backupexpirationstatus) | false |
 | agentCount | AgentCount provides the number of agents that are up-to-date, ready, and not terminated. | int | false |
 | deploymentConfigured | DeploymentConfigured indicates whether the deployment is correctly configured. | bool | false |
 | backupDetails | BackupDetails provides information about the state of the backup in the cluster. | *[FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails) | false |

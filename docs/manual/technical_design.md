@@ -363,6 +363,8 @@ The backup reconciler runs the following subreconcilers:
 1. ModifyBackup
 1. UpdateBackupStatus (again)
 
+After these steps, the controller runs `ExpireBackup` and requeues at the earlier of the backup retry and expiration deadlines. Expiration progress is tracked separately from backup generation reconciliation.
+
 ### UpdateBackupStatus
 
 The `UpdateBackupStatus` subreconciler is responsible for updating the `status` field on the backup to reflect the running state. This is used to give early feedback of what needs to change to fulfill the latest generation and to front-load analysis that can be used in later stages. We run this twice in the reconciliation loop, at the very beginning and the very end. The `UpdateBackupStatus` subreconciler is responsible for updating the generation status.
@@ -392,6 +394,10 @@ Currently, this only supports the `snapshotPeriodSeconds` and `url` property.
 ### UpdateBackupStatus (again)
 
 Once we have completed all other steps in reconciliation, we run the `UpdateBackupStatus` subreconciler a second time to check that everything is in the desired state. If there is anything that is not in the desired state, the operator will requeue reconciliation.
+
+### ExpireBackup
+
+The `ExpireBackup` subreconciler creates a Job using the current destination from backup status and cutoffs computed from `spec.expiration` to keep deletion work outside reconciliation workers. The Job retains its command arguments, while backup status tracks completion and the next run time. The subreconciler backs off failures and waits for the previous Job and its Pods to disappear before starting another. Removing the policy lets active work finish before deleting the Job and clearing status. See [Expiring Backup Data](backup.md#expiring-backup-data) for configuration and failure diagnosis.
 
 ## Restore Reconciliation
 
