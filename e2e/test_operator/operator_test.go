@@ -1901,10 +1901,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		BeforeEach(func(ctx SpecContext) {
 			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			originalRoleCounts = spec.DatabaseConfiguration.RoleCounts
-			spec.DatabaseConfiguration.RoleCounts.Proxies = spec.DatabaseConfiguration.RoleCounts.GrvProxies + spec.DatabaseConfiguration.RoleCounts.CommitProxies
+			spec.DatabaseConfiguration.Proxies = spec.DatabaseConfiguration.GrvProxies + spec.DatabaseConfiguration.CommitProxies
 			// Reset the more specific GRV and Commit proxy count.
-			spec.DatabaseConfiguration.RoleCounts.GrvProxies = 0
-			spec.DatabaseConfiguration.RoleCounts.CommitProxies = 0
+			spec.DatabaseConfiguration.GrvProxies = 0
+			spec.DatabaseConfiguration.CommitProxies = 0
 
 			fmt.Println(
 				"Original:",

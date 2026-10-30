@@ -278,10 +278,10 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 
 		var reconciled bool
 		if softReconciliationAllowed {
-			reconciled = cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation
+			reconciled = cluster.Status.Generations.Reconciled == cluster.Generation
 		} else {
 			reconciled = cluster.Status.Generations == fdbv1beta2.ClusterGenerationStatus{
-				Reconciled: cluster.ObjectMeta.Generation,
+				Reconciled: cluster.Generation,
 			}
 		}
 
@@ -357,7 +357,7 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(
 func (fdbCluster *FdbCluster) ForceReconcile(ctx context.Context) {
 	log.Printf("ForceReconcile: Status Generations=%s, Metadata Generation=%d",
 		ToJSON(fdbCluster.cluster.Status.Generations),
-		fdbCluster.cluster.ObjectMeta.Generation)
+		fdbCluster.cluster.Generation)
 
 	fdbCluster.factory.DumpState(ctx, fdbCluster)
 	patch := client.MergeFrom(fdbCluster.cluster.DeepCopy())

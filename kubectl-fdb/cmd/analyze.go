@@ -272,7 +272,7 @@ func analyzeCluster(
 	}
 
 	// 2. Check if reconciled
-	if cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation {
+	if cluster.Status.Generations.Reconciled == cluster.Generation {
 		printStatement(cmd, "Cluster is reconciled", goodMessage)
 	} else {
 		foundIssues = true

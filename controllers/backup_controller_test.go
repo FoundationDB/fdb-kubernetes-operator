@@ -115,7 +115,7 @@ var _ = Describe("backup_controller", func() {
 				),
 			).To(Succeed())
 
-			originalVersion = backup.ObjectMeta.Generation
+			originalVersion = backup.Generation
 			generationGap = 1
 		})
 
@@ -291,7 +291,7 @@ var _ = Describe("backup_controller", func() {
 				Expect(len(deployments.Items)).To(Equal(1))
 				Expect(deployments.Items[0].ObjectMeta.Labels).To(Equal(map[string]string{
 					"fdb-test":                    "test-value",
-					"foundationdb.org/backup-for": string(backup.ObjectMeta.UID),
+					"foundationdb.org/backup-for": string(backup.UID),
 				}))
 			})
 		})
@@ -303,7 +303,7 @@ var _ = Describe("backup_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(deployments.Items)).To(Equal(1))
 				deployment := deployments.Items[0]
-				deployment.ObjectMeta.Annotations["fdb-test-1"] = "test-value-1"
+				deployment.Annotations["fdb-test-1"] = "test-value-1"
 				err = k8sClient.Update(context.TODO(), &deployment)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -533,7 +533,7 @@ var _ = Describe("backup_controller", func() {
 				),
 			).To(Succeed())
 
-			originalVersion = backup.ObjectMeta.Generation
+			originalVersion = backup.Generation
 			generationGap = 1
 		})
 

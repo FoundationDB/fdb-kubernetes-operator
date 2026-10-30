@@ -391,7 +391,7 @@ var _ = Describe("[mock client]", func() {
 			pod1 := createDummyPod()
 			pod2 := createDummyPod()
 			pod2.Name = "pod2"
-			pod2.ObjectMeta.Labels["app"] = "app2"
+			pod2.Labels["app"] = "app2"
 			pod3 := createDummyPod()
 			pod3.Name = "pod3"
 			pod3.Labels = nil
@@ -456,7 +456,7 @@ var _ = Describe("[mock client]", func() {
 	When("creating an event", func() {
 		It("should create the event", func() {
 			pod := createDummyPod()
-			pod.ObjectMeta.UID = uuid.NewUUID()
+			pod.UID = uuid.NewUUID()
 			mockClient.Event(pod, "Testing", "This is a test", "Test message")
 			events := &corev1.EventList{}
 			err := mockClient.List(context.TODO(), events)
@@ -466,7 +466,7 @@ var _ = Describe("[mock client]", func() {
 			Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
 			Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
 			Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
-			Expect(events.Items[0].InvolvedObject.UID).To(Equal(pod.ObjectMeta.UID))
+			Expect(events.Items[0].InvolvedObject.UID).To(Equal(pod.UID))
 			Expect(events.Items[0].Type).To(Equal("Testing"))
 			Expect(events.Items[0].Reason).To(Equal("This is a test"))
 			Expect(events.Items[0].Message).To(Equal("Test message"))
@@ -704,6 +704,6 @@ var _ = Describe("[mock client]", func() {
 
 func sortPodsByName(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[i].ObjectMeta.Name < pods.Items[j].ObjectMeta.Name
+		return pods.Items[i].Name < pods.Items[j].Name
 	})
 }

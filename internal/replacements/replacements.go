@@ -298,7 +298,7 @@ func processGroupNeedsRemovalForPod(
 		}
 	}
 
-	if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
+	if pod.Annotations[fdbv1beta2.LastSpecKey] == specHash {
 		return false, nil
 	}
 
@@ -351,7 +351,7 @@ func processGroupNeedsRemovalForPod(
 		logger.Info("Replace process group",
 			"reason", "specHash has changed",
 			"desiredSpecHash", specHash,
-			"currentSpecHash", pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey],
+			"currentSpecHash", pod.Annotations[fdbv1beta2.LastSpecKey],
 			"desiredSpec", base64.StdEncoding.EncodeToString(jsonSpec),
 		)
 		return true, nil

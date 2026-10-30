@@ -184,7 +184,7 @@ func GetSinglePodListOptions(
 	processGroupID fdbv1beta2.ProcessGroupID,
 ) []client.ListOption {
 	return []client.ListOption{
-		client.InNamespace(cluster.ObjectMeta.Namespace),
+		client.InNamespace(cluster.Namespace),
 		client.MatchingLabels(GetPodMatchLabels(cluster, "", string(processGroupID))),
 	}
 }
@@ -196,7 +196,7 @@ func GetPodListOptions(
 	id string,
 ) []client.ListOption {
 	return []client.ListOption{
-		client.InNamespace(cluster.ObjectMeta.Namespace),
+		client.InNamespace(cluster.Namespace),
 		client.MatchingLabels(GetPodMatchLabels(cluster, processClass, id)),
 	}
 }
@@ -251,7 +251,7 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 		return "", fmt.Errorf("failed to fetch public IP source from nil Pod")
 	}
 
-	source := pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
+	source := pod.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
 	if source == "" {
 		return fdbv1beta2.PublicIPSourcePod, nil
 	}
@@ -331,7 +331,7 @@ func GetIPFamily(pod *corev1.Pod) (int, error) {
 		return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("failed to fetch IP family from nil Pod")
 	}
 
-	ipFamilyValue, ok := pod.ObjectMeta.Annotations[fdbv1beta2.IPFamilyAnnotation]
+	ipFamilyValue, ok := pod.Annotations[fdbv1beta2.IPFamilyAnnotation]
 	if ipFamilyValue != "" && ok {
 		return parseIPFamily(ipFamilyValue)
 	}
@@ -381,10 +381,10 @@ func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (boo
 	}
 
 	// Ignore the fdbv1beta2.LastSpecKey, this value will be updated by replacing or recreating pods.
-	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]
+	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = pod.Annotations[fdbv1beta2.LastSpecKey]
 	// Don't change the annotation for the image type, this will require a pod update.
 	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(
-		GetImageTypeFromAnnotation(pod.ObjectMeta.Annotations),
+		GetImageTypeFromAnnotation(pod.Annotations),
 	)
 	// Don't change the IP family annotation, this will require a pod update.
 	ipFamily, err := GetIPFamily(pod)

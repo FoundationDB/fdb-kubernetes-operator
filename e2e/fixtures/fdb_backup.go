@@ -461,7 +461,7 @@ func (fdbBackup *FdbBackup) Destroy(ctx context.Context) {
 func (fdbBackup *FdbBackup) ForceReconcile(ctx context.Context) {
 	log.Printf("ForceReconcile: Status Generations=%s, Metadata Generation=%d",
 		ToJSON(fdbBackup.backup.Status.Generations),
-		fdbBackup.backup.ObjectMeta.Generation)
+		fdbBackup.backup.Generation)
 
 	patch := client.MergeFrom(fdbBackup.backup.DeepCopy())
 	if fdbBackup.backup.Annotations == nil {

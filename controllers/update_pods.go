@@ -351,7 +351,7 @@ func getPodsToUpdate(
 		}
 
 		// The Pod is updated, so we can continue.
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
+		if pod.Annotations[fdbv1beta2.LastSpecKey] == specHash {
 			// Check here if the Pod spec matches the desired Pod spec.
 			var updated bool
 			updated, err = reconciler.PodLifecycleManager.PodIsUpdated(
@@ -403,7 +403,7 @@ func getPodsToUpdate(
 			fmt.Sprintf(
 				"specHash has changed from %s to %s",
 				specHash,
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey],
+				pod.Annotations[fdbv1beta2.LastSpecKey],
 			),
 		)
 
