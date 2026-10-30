@@ -133,7 +133,7 @@ func CollectMetrics(ch chan<- prometheus.Metric, cluster *fdbv1beta2.FoundationD
 	addGauge(descClusterLastReconciled, float64(cluster.Status.Generations.Reconciled))
 	addGauge(
 		descClusterReconciled,
-		boolFloat64(cluster.ObjectMeta.Generation == cluster.Status.Generations.Reconciled),
+		boolFloat64(cluster.Generation == cluster.Status.Generations.Reconciled),
 	)
 	addGauge(descProcessGroupsToRemove, float64(len(cluster.Spec.ProcessGroupsToRemove)))
 	addGauge(

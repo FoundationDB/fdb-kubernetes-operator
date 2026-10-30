@@ -114,7 +114,7 @@ var _ = Describe("update_status", func() {
 					clusterReconciler,
 					cluster,
 					pod,
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+					pod.Annotations[fdbv1beta2.LastConfigMapKey],
 					pickedProcessGroup,
 					cluster.IsTaintFeatureDisabled(),
 					logger,
@@ -206,7 +206,7 @@ var _ = Describe("update_status", func() {
 						clusterReconciler,
 						cluster,
 						pod,
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+						pod.Annotations[fdbv1beta2.LastConfigMapKey],
 						pickedProcessGroup,
 						cluster.IsTaintFeatureDisabled(),
 						logger,
@@ -286,7 +286,7 @@ var _ = Describe("update_status", func() {
 						clusterReconciler,
 						cluster,
 						pod,
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+						pod.Annotations[fdbv1beta2.LastConfigMapKey],
 						pickedProcessGroup,
 						cluster.IsTaintFeatureDisabled(),
 						logger,
@@ -872,7 +872,7 @@ var _ = Describe("update_status", func() {
 
 		When("the pod has the wrong spec", func() {
 			BeforeEach(func() {
-				storagePod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "bad"
+				storagePod.Annotations[fdbv1beta2.LastSpecKey] = "bad"
 				Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
 			})
 
@@ -918,7 +918,7 @@ var _ = Describe("update_status", func() {
 		When("the pod has the wrong metadata", func() {
 			When("an annotation is missing", func() {
 				BeforeEach(func() {
-					delete(storagePod.ObjectMeta.Annotations, fdbv1beta2.NodeAnnotation)
+					delete(storagePod.Annotations, fdbv1beta2.NodeAnnotation)
 					Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
 				})
 
@@ -965,7 +965,7 @@ var _ = Describe("update_status", func() {
 		When("the pod has the wrong config map hash", func() {
 			When("an annotation is missing", func() {
 				BeforeEach(func() {
-					storagePod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = "bad"
+					storagePod.Annotations[fdbv1beta2.LastConfigMapKey] = "bad"
 					Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
 				})
 
@@ -1492,7 +1492,7 @@ var _ = Describe("update_status", func() {
 		})
 
 		It("should mark the cluster as reconciled", func() {
-			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.Generation))
 		})
 
 		It("should set the fault domain and machine for all process groups", func() {

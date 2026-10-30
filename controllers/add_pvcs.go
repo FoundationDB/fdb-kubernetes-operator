@@ -66,7 +66,7 @@ func (a addPVCs) reconcile(
 			}
 
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-			pvc.ObjectMeta.OwnerReferences = owner
+			pvc.OwnerReferences = owner
 			logger.V(1).Info("Creating PVC", "name", pvc.Name)
 			err = r.Create(ctx, pvc)
 			if err != nil {

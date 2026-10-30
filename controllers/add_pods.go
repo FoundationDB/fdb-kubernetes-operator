@@ -117,7 +117,7 @@ func (a addPods) reconcile(
 			return &requeue{curError: err}
 		}
 
-		pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
+		pod.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
 
 		if cluster.GetPublicIPSource() == fdbv1beta2.PublicIPSourceService {
 			service := &corev1.Service{}

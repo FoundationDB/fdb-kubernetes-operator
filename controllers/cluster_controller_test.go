@@ -85,7 +85,7 @@ func getListOptions(cluster *fdbv1beta2.FoundationDBCluster) []client.ListOption
 
 func sortPodsByName(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[i].ObjectMeta.Name < pods.Items[j].ObjectMeta.Name
+		return pods.Items[i].Name < pods.Items[j].Name
 	})
 }
 
@@ -106,7 +106,7 @@ var _ = Describe("cluster_controller", func() {
 		BeforeEach(func() {
 			Expect(setupClusterForTest(cluster)).To(Succeed())
 			Expect(cluster.Generation).To(Equal(int64(1)))
-			originalVersion = cluster.ObjectMeta.Generation
+			originalVersion = cluster.Generation
 
 			originalPods = &corev1.PodList{}
 			err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
@@ -517,7 +517,7 @@ var _ = Describe("cluster_controller", func() {
 				exclusionString := fmt.Sprintf(
 					"%s:%s",
 					fdbv1beta2.FDBLocalityExclusionPrefix,
-					removedItem.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
+					removedItem.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
 				)
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
 					exclusionString: true,
@@ -1180,7 +1180,7 @@ var _ = Describe("cluster_controller", func() {
 					generation, err := reloadCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(generation).To(Equal(originalVersion + generationGap))
-					originalVersion = cluster.ObjectMeta.Generation
+					originalVersion = cluster.Generation
 
 					err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
@@ -1208,7 +1208,7 @@ var _ = Describe("cluster_controller", func() {
 						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 						if internal.ProcessClassFromLabels(
 							cluster,
-							pod.ObjectMeta.Labels,
+							pod.Labels,
 						) == fdbv1beta2.ProcessClassStorage {
 							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = fdbv1beta2.None{}
 						}
@@ -1238,7 +1238,7 @@ var _ = Describe("cluster_controller", func() {
 					generation, err := reloadCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(generation).To(Equal(originalVersion + generationGap))
-					originalVersion = cluster.ObjectMeta.Generation
+					originalVersion = cluster.Generation
 
 					err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
@@ -1266,7 +1266,7 @@ var _ = Describe("cluster_controller", func() {
 						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 						if internal.ProcessClassFromLabels(
 							cluster,
-							pod.ObjectMeta.Labels,
+							pod.Labels,
 						) == fdbv1beta2.ProcessClassLog {
 							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = fdbv1beta2.None{}
 						}
@@ -2126,7 +2126,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(generation).To(Equal(int64(1)))
 
-				originalVersion = cluster.ObjectMeta.Generation
+				originalVersion = cluster.Generation
 
 				originalPods = &corev1.PodList{}
 				Expect(
@@ -2609,7 +2609,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(k8sClient.List(context.TODO(), events)).NotTo(HaveOccurred())
 					var matchingEvents []corev1.Event
 					for _, event := range events.Items {
-						if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
+						if event.InvolvedObject.UID == cluster.UID &&
 							event.Reason == "UnsupportedClient" {
 							matchingEvents = append(matchingEvents, event)
 						}
@@ -2646,7 +2646,7 @@ var _ = Describe("cluster_controller", func() {
 						Expect(k8sClient.List(context.TODO(), events)).NotTo(HaveOccurred())
 
 						for _, event := range events.Items {
-							if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
+							if event.InvolvedObject.UID == cluster.UID &&
 								event.Reason == "UnsupportedClient" {
 								matchingEvents = append(matchingEvents, event)
 							}
@@ -2675,7 +2675,7 @@ var _ = Describe("cluster_controller", func() {
 
 						var matchingEvents []corev1.Event
 						for _, event := range events.Items {
-							if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
+							if event.InvolvedObject.UID == cluster.UID &&
 								event.Reason == "UnsupportedClient" {
 								matchingEvents = append(matchingEvents, event)
 							}
@@ -3052,7 +3052,7 @@ var _ = Describe("cluster_controller", func() {
 
 					Expect(k8sClient.List(context.TODO(), events)).To(Succeed())
 					for _, event := range events.Items {
-						if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
+						if event.InvolvedObject.UID == cluster.UID &&
 							event.Reason == "UnsupportedClient" {
 							matchingEvents = append(matchingEvents, event)
 						}
@@ -3079,7 +3079,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 			})
@@ -3094,7 +3094,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 			})
@@ -3111,7 +3111,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 
@@ -3125,7 +3125,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are not matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).ToNot(Equal(cluster.Generation))
 					})
 				})
 			})
@@ -3142,7 +3142,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 
@@ -3155,7 +3155,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 			})

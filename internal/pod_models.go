@@ -1037,7 +1037,7 @@ func GetPvc(
 	}
 
 	pvc.ObjectMeta = GetPvcMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)
-	pvc.ObjectMeta.Name = processGroup.GetPvcName(cluster)
+	pvc.Name = processGroup.GetPvcName(cluster)
 
 	if pvc.Spec.AccessModes == nil {
 		pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
@@ -1057,10 +1057,10 @@ func GetPvc(
 		return nil, err
 	}
 
-	if pvc.ObjectMeta.Annotations == nil {
-		pvc.ObjectMeta.Annotations = make(map[string]string, 1)
+	if pvc.Annotations == nil {
+		pvc.Annotations = make(map[string]string, 1)
 	}
-	pvc.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = specHash
+	pvc.Annotations[fdbv1beta2.LastSpecKey] = specHash
 
 	return pvc, nil
 }
@@ -1096,7 +1096,7 @@ func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
 
 // GetBackupDeploymentName returns the name for the associated deployment for the FoundationDBBackup.
 func GetBackupDeploymentName(backup *fdbv1beta2.FoundationDBBackup) string {
-	return fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
+	return fmt.Sprintf("%s-backup-agents", backup.Name)
 }
 
 // GetBackupDeployment builds a deployment for backup agents for a cluster.
@@ -1108,23 +1108,23 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   backup.ObjectMeta.Namespace,
+			Namespace:   backup.Namespace,
 			Name:        GetBackupDeploymentName(backup),
 			Annotations: map[string]string{},
 			Labels:      map[string]string{},
 		},
 	}
 	deployment.Spec.Replicas = &agentCount
-	deployment.ObjectMeta.OwnerReferences = BuildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
+	deployment.OwnerReferences = BuildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
 
 	if backup.Spec.BackupDeploymentMetadata != nil {
-		maps.Copy(deployment.ObjectMeta.Labels, backup.Spec.BackupDeploymentMetadata.Labels)
+		maps.Copy(deployment.Labels, backup.Spec.BackupDeploymentMetadata.Labels)
 		maps.Copy(
-			deployment.ObjectMeta.Annotations,
+			deployment.Annotations,
 			backup.Spec.BackupDeploymentMetadata.Annotations,
 		)
 	}
-	deployment.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
+	deployment.Labels[fdbv1beta2.BackupDeploymentLabel] = string(backup.UID)
 
 	var podTemplate *corev1.PodTemplateSpec
 	if backup.Spec.PodTemplateSpec != nil {
@@ -1295,12 +1295,12 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		return nil, err
 	}
 
-	if podTemplate.ObjectMeta.Labels == nil {
-		podTemplate.ObjectMeta.Labels = make(map[string]string, 1)
+	if podTemplate.Labels == nil {
+		podTemplate.Labels = make(map[string]string, 1)
 	}
-	podTemplate.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentPodLabel] = deployment.ObjectMeta.Name
+	podTemplate.Labels[fdbv1beta2.BackupDeploymentPodLabel] = deployment.Name
 	deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
-		fdbv1beta2.BackupDeploymentPodLabel: deployment.ObjectMeta.Name,
+		fdbv1beta2.BackupDeploymentPodLabel: deployment.Name,
 	}}
 
 	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes,
@@ -1336,7 +1336,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		return nil, err
 	}
 
-	deployment.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = specHash
+	deployment.Annotations[fdbv1beta2.LastSpecKey] = specHash
 
 	return deployment, nil
 }
