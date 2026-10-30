@@ -194,9 +194,10 @@ func getContainers(podSpec *corev1.PodSpec) (*corev1.Container, *corev1.Containe
 	var sidecarContainer *corev1.Container
 
 	for index, container := range podSpec.Containers {
-		if container.Name == fdbv1beta2.MainContainerName {
+		switch container.Name {
+		case fdbv1beta2.MainContainerName:
 			mainContainer = &podSpec.Containers[index]
-		} else if container.Name == fdbv1beta2.SidecarContainerName {
+		case fdbv1beta2.SidecarContainerName:
 			sidecarContainer = &podSpec.Containers[index]
 		}
 	}
@@ -314,10 +315,11 @@ func configureContainersForUnifiedImages(
 	for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 		for _, pid := range crashObjs.Targets {
 			if pid == processGroup.ProcessGroupID || pid == "*" {
-				if crashObjs.ContainerName == mainContainer.Name {
+				switch crashObjs.ContainerName {
+				case mainContainer.Name:
 					mainContainer.Command = []string{"crash-loop"}
 					mainContainer.Args = []string{"crash-loop"}
-				} else if crashObjs.ContainerName == sidecarContainer.Name {
+				case sidecarContainer.Name:
 					sidecarContainer.Command = []string{"crash-loop"}
 					sidecarContainer.Args = []string{"crash-loop"}
 				}
@@ -970,7 +972,8 @@ func getEnvForMonitorConfigSubstitution(
 		faultDomainSource = "spec.nodeName"
 	}
 
-	if faultDomainKey == fdbv1beta2.NoneFaultDomainKey {
+	switch faultDomainKey {
+	case fdbv1beta2.NoneFaultDomainKey:
 		env = append(
 			env,
 			corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
@@ -983,7 +986,7 @@ func getEnvForMonitorConfigSubstitution(
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 			}},
 		)
-	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
+	case "foundationdb.org/kubernetes-cluster":
 		env = append(
 			env,
 			corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
@@ -994,7 +997,7 @@ func getEnvForMonitorConfigSubstitution(
 			env,
 			corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, Value: cluster.Spec.FaultDomain.Value},
 		)
-	} else {
+	default:
 		env = append(
 			env,
 			corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{

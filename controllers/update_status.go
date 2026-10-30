@@ -523,7 +523,7 @@ func checkAndSetProcessStatus(
 			}
 
 			// If the `EmptyMonitorConf` is set, the commandline is by definition wrong since there should be no running processes.
-			if !(commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf) {
+			if commandLine != process.CommandLine || !versionMatch || cluster.Spec.Buggify.EmptyMonitorConf {
 				logger.Info("IncorrectProcess",
 					"expected", commandLine, "got", process.CommandLine,
 					"expectedVersion", cluster.Spec.Version,

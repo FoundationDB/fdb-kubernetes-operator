@@ -110,11 +110,12 @@ func GetStartCommandWithSubstitutions(
 // referenced in the monitor conf.
 func extractPlaceholderEnvVars(env map[string]string, arguments []monitorapi.Argument) {
 	for _, argument := range arguments {
-		if argument.ArgumentType == monitorapi.EnvironmentArgumentType {
+		switch argument.ArgumentType {
+		case monitorapi.EnvironmentArgumentType:
 			if _, present := env[argument.Source]; !present {
 				env[argument.Source] = fmt.Sprintf("$%s", argument.Source)
 			}
-		} else if argument.ArgumentType == monitorapi.ConcatenateArgumentType {
+		case monitorapi.ConcatenateArgumentType:
 			extractPlaceholderEnvVars(env, argument.Values)
 		}
 	}

@@ -441,7 +441,7 @@ func UpdateGlobalCoordinationState(
 
 			// Only add the process group if the exclusion is not done yet, either because the process group has the
 			// exclusion timestamp set or because the processes are excluded.
-			if !(processGroup.IsExcluded() || excluded) {
+			if !processGroup.IsExcluded() && !excluded {
 				if _, ok := pendingForExclusion[processGroup.ProcessGroupID]; !ok {
 					logger.V(1).
 						Info("Adding to pendingForExclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal but not excluded")
