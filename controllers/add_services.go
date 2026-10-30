@@ -152,6 +152,7 @@ func updateService(
 	originalSpec := currentService.Spec.DeepCopy()
 
 	currentService.Spec.Selector = newService.Spec.Selector
+	currentService.Spec.PublishNotReadyAddresses = newService.Spec.PublishNotReadyAddresses
 
 	needsUpdate := !equality.Semantic.DeepEqual(currentService.Spec, *originalSpec)
 	metadata := currentService.ObjectMeta
