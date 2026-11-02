@@ -21,6 +21,8 @@
 package v1beta2
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +40,78 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			Spec: FoundationDBBackupSpec{},
 		}
 	})
+
+	DescribeTable(
+		"validating expiration policies",
+		func(spec string, valid bool) {
+			Expect(json.Unmarshal([]byte(spec), &backup.Spec)).To(Succeed())
+			err := backup.Validate(nil)
+			if valid {
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+		},
+		Entry("disabled", `{}`, true),
+		Entry(
+			"checkpoint version",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableAfterVersion":123456789}}`,
+			true,
+		),
+		Entry(
+			"zero checkpoint version",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableAfterVersion":0}}`,
+			false,
+		),
+		Entry(
+			"negative checkpoint version",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableAfterVersion":-1}}`,
+			false,
+		),
+		Entry(
+			"conflicting restore requirements",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableAfterVersion":123456789,"restorableForSeconds":604800}}`,
+			false,
+		),
+		Entry("retention", `{"expiration":{"expireAfterSeconds":2592000}}`, true),
+		Entry(
+			"restore window",
+			`{"expiration":{"expireAfterSeconds":2592000,"restorableForSeconds":604800,"intervalSeconds":3600}}`,
+			true,
+		),
+		Entry("missing retention", `{"expiration":{}}`, false),
+		Entry("negative retention", `{"expiration":{"expireAfterSeconds":-1}}`, false),
+		Entry(
+			"overflowing duration",
+			`{"expiration":{"expireAfterSeconds":9223372036854775807}}`,
+			false,
+		),
+		Entry(
+			"zero restore window",
+			`{"expiration":{"expireAfterSeconds":100,"restorableForSeconds":0}}`,
+			false,
+		),
+		Entry(
+			"restore window exceeds retention",
+			`{"expiration":{"expireAfterSeconds":100,"restorableForSeconds":101}}`,
+			false,
+		),
+		Entry(
+			"too frequent",
+			`{"expiration":{"expireAfterSeconds":100,"intervalSeconds":1}}`,
+			false,
+		),
+		Entry(
+			"too infrequent",
+			`{"expiration":{"expireAfterSeconds":100,"intervalSeconds":86401}}`,
+			false,
+		),
+		Entry(
+			"unmanaged",
+			`{"backupType":"unmanaged","expiration":{"expireAfterSeconds":100}}`,
+			false,
+		),
+	)
 
 	When("checking reconciliation for backup", func() {
 		It("should reconcile successfully", func() {
