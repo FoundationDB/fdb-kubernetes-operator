@@ -681,7 +681,7 @@ func validateProcessGroups(
 			// if a Pod is marked for terminating (e.g. node failure) but the process itself is still reporting to the
 			// cluster. We only set this condition if the Pod is in this state for GetFailedPodDuration(), the default
 			// here is 5 minutes.
-			if pod.ObjectMeta.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).
+			if pod.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).
 				Before(time.Now()) {
 				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true)
 				continue

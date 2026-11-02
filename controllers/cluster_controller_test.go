@@ -210,7 +210,7 @@ var _ = Describe("cluster_controller", func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+					pod.Annotations[fdbv1beta2.LastConfigMapKey],
 				).To(Equal(configMapHash))
 				Expect(len(cluster.Status.ProcessGroups)).To(Equal(len(pods.Items)))
 			})
@@ -431,7 +431,7 @@ var _ = Describe("cluster_controller", func() {
 
 				pod := pods.Items[firstStorageIndex]
 				Expect(
-					pod.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
+					pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
 				).To(Equal(string(processGroupID)))
 
 				mainContainer := pod.Spec.Containers[0]
@@ -1300,7 +1300,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pods.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+					Expect(item.Labels["fdb-label"]).To(Equal("value3"))
 				}
 			})
 
@@ -1309,14 +1309,14 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					Expect(item.Labels["fdb-label"]).To(Equal(""))
 				}
 
 				configMaps := &corev1.ConfigMapList{}
 				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					Expect(item.Labels["fdb-label"]).To(Equal(""))
 				}
 			})
 		})
@@ -1376,7 +1376,7 @@ var _ = Describe("cluster_controller", func() {
 					)
 					Expect(err).NotTo(HaveOccurred())
 					if pod.Name == pickedPod {
-						Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
+						Expect(pod.Annotations).To(Equal(map[string]string{
 							fdbv1beta2.LastConfigMapKey:            configMapHash,
 							fdbv1beta2.LastSpecKey:                 hash,
 							fdbv1beta2.PublicIPSourceAnnotation:    "pod",
@@ -1393,7 +1393,7 @@ var _ = Describe("cluster_controller", func() {
 						continue
 					}
 
-					Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(pod.Annotations).To(Equal(map[string]string{
 						fdbv1beta2.LastConfigMapKey:         configMapHash,
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
@@ -1412,7 +1412,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(item.Annotations).To(Equal(map[string]string{
 						fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 					}))
 				}
@@ -1421,7 +1421,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Annotations).To(BeNil())
+					Expect(item.Annotations).To(BeNil())
 				}
 			})
 		})
@@ -1448,7 +1448,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pvcs.Items {
-						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+						Expect(item.Labels["fdb-label"]).To(Equal("value3"))
 					}
 				})
 
@@ -1458,14 +1458,14 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pods.Items {
-						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+						Expect(item.Labels["fdb-label"]).To(Equal(""))
 					}
 
 					configMaps := &corev1.ConfigMapList{}
 					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range configMaps.Items {
-						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+						Expect(item.Labels["fdb-label"]).To(Equal(""))
 					}
 				})
 			})
@@ -1510,14 +1510,14 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pvcs.Items {
 						if item.Name == pickedPvc {
-							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							Expect(item.Annotations).To(Equal(map[string]string{
 								"fdb-annotation":                       "value1",
 								"foundationdb.org/existing-annotation": "test-value",
 								fdbv1beta2.LastSpecKey:                 "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 							}))
 							continue
 						}
-						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+						Expect(item.Annotations).To(Equal(map[string]string{
 							"fdb-annotation":       "value1",
 							fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 						}))
@@ -1552,7 +1552,7 @@ var _ = Describe("cluster_controller", func() {
 							&item,
 						)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+						Expect(item.Annotations).To(Equal(map[string]string{
 							fdbv1beta2.LastConfigMapKey:         configMapHash,
 							fdbv1beta2.LastSpecKey:              hash,
 							fdbv1beta2.PublicIPSourceAnnotation: "pod",
@@ -1568,7 +1568,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range configMaps.Items {
-						Expect(item.ObjectMeta.Annotations).To(BeNil())
+						Expect(item.Annotations).To(BeNil())
 					}
 				})
 
@@ -1592,7 +1592,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+					Expect(item.Labels["fdb-label"]).To(Equal("value3"))
 				}
 			})
 
@@ -1601,14 +1601,14 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pods.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					Expect(item.Labels["fdb-label"]).To(Equal(""))
 				}
 
 				pvcs := &corev1.PersistentVolumeClaimList{}
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					Expect(item.Labels["fdb-label"]).To(Equal(""))
 				}
 			})
 		})
@@ -1646,7 +1646,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(item.Annotations).To(Equal(map[string]string{
 						"fdb-annotation":                       "value1",
 						"foundationdb.org/existing-annotation": "test-value",
 					}))
@@ -1676,7 +1676,7 @@ var _ = Describe("cluster_controller", func() {
 						&item,
 					)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(item.Annotations).To(Equal(map[string]string{
 						fdbv1beta2.LastConfigMapKey:         configMapHash,
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
@@ -1692,7 +1692,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(item.Annotations).To(Equal(map[string]string{
 						fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 					}))
 				}

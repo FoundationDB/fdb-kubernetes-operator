@@ -1625,7 +1625,7 @@ func (fdbCluster *FdbCluster) GetListOfUIDsFromVolumeClaims(
 
 	uids := make([]types.UID, 0, len(volumesClaims.Items))
 	for _, volumeClaim := range volumesClaims.Items {
-		uids = append(uids, volumeClaim.ObjectMeta.GetObjectMeta().GetUID())
+		uids = append(uids, volumeClaim.GetObjectMeta().GetUID())
 	}
 
 	return uids

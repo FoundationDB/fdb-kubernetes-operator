@@ -387,7 +387,7 @@ func (fdbBackup *FdbBackup) WaitForReconciliation(ctx context.Context) {
 			startTime = time.Now()
 		}
 
-		return curBackup.Status.Generations.Reconciled == curBackup.ObjectMeta.Generation
+		return curBackup.Status.Generations.Reconciled == curBackup.Generation
 	}).WithTimeout(15*time.Minute).WithPolling(2*time.Second).Should(gomega.BeTrue(), "error waiting for reconciliation of FDB backup")
 }
 

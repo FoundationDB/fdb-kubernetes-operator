@@ -289,7 +289,7 @@ var _ = Describe("backup_controller", func() {
 				err = k8sClient.List(context.TODO(), deployments)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(deployments.Items)).To(Equal(1))
-				Expect(deployments.Items[0].ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(deployments.Items[0].Labels).To(Equal(map[string]string{
 					"fdb-test":                    "test-value",
 					"foundationdb.org/backup-for": string(backup.UID),
 				}))
@@ -319,7 +319,7 @@ var _ = Describe("backup_controller", func() {
 				err = k8sClient.List(context.TODO(), deployments)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(deployments.Items)).To(Equal(1))
-				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
+				Expect(deployments.Items[0].Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",
 					"foundationdb.org/last-applied-spec": "5250c19ca170acf598f0e1437383ac279876e5d08db4d9dfd2b8121dac05e419",

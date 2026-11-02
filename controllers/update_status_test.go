@@ -345,7 +345,7 @@ var _ = Describe("update_status", func() {
 							clusterReconciler,
 							cluster,
 							pod,
-							pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+							pod.Annotations[fdbv1beta2.LastConfigMapKey],
 							pickedProcessGroup,
 							cluster.IsTaintFeatureDisabled(),
 							logger,

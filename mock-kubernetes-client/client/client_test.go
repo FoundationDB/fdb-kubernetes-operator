@@ -74,7 +74,7 @@ var _ = Describe("[mock client]", func() {
 			pod := createDummyPod()
 			err := mockClient.Create(context.TODO(), pod)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(pod.Generation).To(Equal(int64(1)))
 
 			podCopy := &corev1.Pod{}
 			err = mockClient.Get(
@@ -86,7 +86,7 @@ var _ = Describe("[mock client]", func() {
 			Expect(podCopy.Name).To(Equal("pod1"))
 			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
 			Expect(podCopy.Spec.Containers[0].Name).To(Equal("test-container"))
-			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(podCopy.Generation).To(Equal(int64(1)))
 		})
 	})
 
@@ -96,7 +96,7 @@ var _ = Describe("[mock client]", func() {
 			expectedCreationTime := time.Now().Add(-15 * time.Minute)
 			pod.CreationTimestamp.Time = expectedCreationTime
 			Expect(mockClient.Create(context.TODO(), pod)).NotTo(HaveOccurred())
-			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(pod.Generation).To(Equal(int64(1)))
 
 			podCopy := &corev1.Pod{}
 			Expect(
@@ -109,9 +109,9 @@ var _ = Describe("[mock client]", func() {
 			Expect(podCopy.Name).To(Equal("pod1"))
 			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
 			Expect(podCopy.Spec.Containers[0].Name).To(Equal("test-container"))
-			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(podCopy.Generation).To(Equal(int64(1)))
 			Expect(
-				podCopy.ObjectMeta.CreationTimestamp.Time.Minute(),
+				podCopy.CreationTimestamp.Minute(),
 			).To(Equal(expectedCreationTime.Minute()))
 		})
 	})
@@ -136,7 +136,7 @@ var _ = Describe("[mock client]", func() {
 			Expect(pod.Name).To(Equal("pod1"))
 			Expect(len(pod.Spec.Containers)).To(Equal(1))
 			Expect(pod.Spec.Containers[0].Name).To(Equal("test-container"))
-			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(pod.Generation).To(Equal(int64(1)))
 			Expect(pod.Status.PodIP).To(Equal("1.1.0.1"))
 		})
 
@@ -157,7 +157,7 @@ var _ = Describe("[mock client]", func() {
 				Expect(pod.Name).To(Equal("pod1"))
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(pod.Spec.Containers[0].Name).To(Equal("test-container"))
-				Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
+				Expect(pod.Generation).To(Equal(int64(1)))
 				Expect(pod.Status.PodIP).To(Equal(""))
 			})
 		})
@@ -184,7 +184,7 @@ var _ = Describe("[mock client]", func() {
 			}
 			err := mockClient.Create(context.TODO(), service)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(service.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(service.Generation).To(Equal(int64(1)))
 			Expect(service.Spec.ClusterIP).To(Equal("192.168.0.1"))
 
 			service = &corev1.Service{
@@ -198,7 +198,7 @@ var _ = Describe("[mock client]", func() {
 			}
 			err = mockClient.Create(context.TODO(), service)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(service.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(service.Generation).To(Equal(int64(1)))
 			Expect(service.Spec.ClusterIP).To(Equal("None"))
 		})
 	})
@@ -298,7 +298,7 @@ var _ = Describe("[mock client]", func() {
 
 			err = mockClient.Update(context.TODO(), pod)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pod.ObjectMeta.Generation).To(Equal(int64(2)))
+			Expect(pod.Generation).To(Equal(int64(2)))
 
 			podCopy := &corev1.Pod{}
 			err = mockClient.Get(
@@ -310,11 +310,11 @@ var _ = Describe("[mock client]", func() {
 			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
 			Expect(len(podCopy.Spec.Containers[0].Env)).To(Equal(1))
 			Expect(podCopy.Spec.Containers[0].Env[0].Name).To(Equal("test-env"))
-			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(2)))
+			Expect(podCopy.Generation).To(Equal(int64(2)))
 
 			err = mockClient.Update(context.TODO(), pod)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pod.ObjectMeta.Generation).To(Equal(int64(2)))
+			Expect(pod.Generation).To(Equal(int64(2)))
 		})
 	})
 
@@ -328,7 +328,7 @@ var _ = Describe("[mock client]", func() {
 
 			err = mockClient.Status().Update(context.TODO(), pod)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(pod.Generation).To(Equal(int64(1)))
 
 			podCopy := &corev1.Pod{}
 			err = mockClient.Get(
@@ -338,7 +338,7 @@ var _ = Describe("[mock client]", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podCopy.Status.HostIP).To(Equal("foo"))
-			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(podCopy.Generation).To(Equal(int64(1)))
 		})
 	})
 
@@ -539,7 +539,7 @@ var _ = Describe("[mock client]", func() {
 			Expect(events.Items[0].Reason).To(Equal("This is a test"))
 			Expect(events.Items[0].Message).To(Equal("Test message: 5"))
 			Expect(
-				events.Items[0].ObjectMeta.Annotations,
+				events.Items[0].Annotations,
 			).To(Equal(map[string]string{"anno": "value"}))
 		})
 	})
