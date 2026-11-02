@@ -90,6 +90,27 @@ var _ = Describe("add_services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
 		})
 
+		Context("with a headless service that does not publish unready addresses", func() {
+			var service corev1.Service
+			var serviceKey types.NamespacedName
+			var originalUID types.UID
+
+			BeforeEach(func() {
+				serviceKey = types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
+				Expect(k8sClient.Get(context.TODO(), serviceKey, &service)).To(Succeed())
+				originalUID = service.UID
+				service.Spec.PublishNotReadyAddresses = false
+				Expect(k8sClient.Update(context.TODO(), &service)).To(Succeed())
+			})
+
+			It("should publish unready addresses without recreating the service", func() {
+				Expect(requeue).To(BeNil())
+				Expect(k8sClient.Get(context.TODO(), serviceKey, &service)).To(Succeed())
+				Expect(service.Spec.PublishNotReadyAddresses).To(BeTrue())
+				Expect(service.UID).To(Equal(originalUID))
+			})
+		})
+
 		Context("with a change to the match labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig.MatchLabels = map[string]string{
@@ -240,6 +261,7 @@ var _ = Describe("add_services", func() {
 			Expect(firstService.Name).To(Equal("operator-test-1"))
 			Expect(firstService.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal(""))
 			Expect(firstService.Spec.ClusterIP).To(Equal("None"))
+			Expect(firstService.Spec.PublishNotReadyAddresses).To(BeTrue())
 		})
 
 		Context("with the headless service disabled", func() {
