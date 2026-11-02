@@ -342,7 +342,11 @@ func getPodsToUpdate(
 			}
 		}
 
-		specHash, err := internal.GetPodSpecHash(cluster, processGroup, nil)
+		desiredSpec, err := internal.GetPodSpec(cluster, processGroup)
+		var specHash string
+		if err == nil {
+			specHash, err = internal.GetPodSpecHash(cluster, processGroup, desiredSpec)
+		}
 		if err != nil {
 			logger.Info("Skipping Pod due to error generating spec hash",
 				"processGroupID", processGroup.ProcessGroupID,
@@ -370,6 +374,14 @@ func getPodsToUpdate(
 			if updated {
 				continue
 			}
+		}
+
+		imageUpdates, err := internal.GetInPlaceImageUpdates(cluster, pod, desiredSpec)
+		if err != nil {
+			return nil, err
+		}
+		if len(imageUpdates) > 0 {
+			continue
 		}
 
 		needsReplacement, err := replacements.ProcessGroupNeedsReplacements(
