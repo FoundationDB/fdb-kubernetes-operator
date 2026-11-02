@@ -101,6 +101,7 @@ The cluster reconciler runs the following subreconcilers:
 1. [UpdateConfigMap](#updateconfigmap)
 1. [CheckClientCompatibility](#checkclientcompatibility)
 1. [DeletePodsForBuggification](#deletepodsforbuggification)
+1. [UpdateContainerImages](#updatecontainerimages)
 1. [ReplaceMisconfiguredProcessGroups](#replacemisconfiguredprocessgroups)
 1. [ReplaceFailedProcessGroups](#replacefailedprocessGroups)
 1. [AddProcessGroups](#addprocessgroups)
@@ -155,6 +156,12 @@ You can skip these checks by setting the `ignoreUpgradabilityChecks` flag in the
 The `DeletePodsForBuggification` subreconciler deletes pods that need to be recreated in order to set buggification options. These options are set through the `buggify` section in the cluster spec.
 
 When pods are deleted for buggification, we apply fewer safety checks, and buggification will often put the cluster in an unhealthy state.
+
+### UpdateContainerImages
+
+The `UpdateContainerImages` subreconciler applies image-only changes to auxiliary containers selected by `automationOptions.inPlaceImageUpdateContainers`. It updates one Pod at a time and atomically persists the images, applied spec hash, and previous container executions. It reads Pods directly from the API before advancing a rollout or suppressing auxiliary failure replacement, so informer lag cannot hide an accepted repair. Subsequent reconcilers continue to recover unrelated failures.
+
+Custom Pod lifecycle managers opt in through `PodLifecycleManagerWithContainerImageUpdates`; the reconciler also requires an uncached `APIReader`. See [customization](customization.md#updating-auxiliary-container-images-in-place) for restrictions and rollback behavior.
 
 ### ReplaceMisconfiguredProcessGroups
 
