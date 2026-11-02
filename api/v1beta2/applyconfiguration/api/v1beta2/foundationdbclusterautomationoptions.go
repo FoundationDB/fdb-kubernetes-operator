@@ -77,6 +77,10 @@ type FoundationDBClusterAutomationOptionsApplyConfiguration struct {
 	// PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods.
 	// The default for this is ReplaceTransactionSystem.
 	PodUpdateStrategy *apiv1beta2.PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
+	// InPlaceImageUpdateContainers allows image-only updates of these auxiliary containers without recreating Pods.
+	// Containers must support independent restarts. Updates run one Pod at a time and wait for the new images to be ready.
+	// Other Pod spec changes use PodUpdateStrategy. FDB-managed containers and init containers cannot be selected
+	InPlaceImageUpdateContainers []string `json:"inPlaceImageUpdateContainers,omitempty"`
 	// UseManagementAPI defines if the operator should make use of the management API instead of
 	// using fdbcli to interact with the FoundationDB cluster.
 	// Deprecated: Use DatabaseInteractionMode instead.
@@ -224,6 +228,16 @@ func (b *FoundationDBClusterAutomationOptionsApplyConfiguration) WithWaitBetween
 // If called multiple times, the PodUpdateStrategy field is set to the value of the last call.
 func (b *FoundationDBClusterAutomationOptionsApplyConfiguration) WithPodUpdateStrategy(value apiv1beta2.PodUpdateStrategy) *FoundationDBClusterAutomationOptionsApplyConfiguration {
 	b.PodUpdateStrategy = &value
+	return b
+}
+
+// WithInPlaceImageUpdateContainers adds the given value to the InPlaceImageUpdateContainers field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the InPlaceImageUpdateContainers field.
+func (b *FoundationDBClusterAutomationOptionsApplyConfiguration) WithInPlaceImageUpdateContainers(values ...string) *FoundationDBClusterAutomationOptionsApplyConfiguration {
+	for i := range values {
+		b.InPlaceImageUpdateContainers = append(b.InPlaceImageUpdateContainers, values[i])
+	}
 	return b
 }
 

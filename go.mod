@@ -7,6 +7,7 @@ require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20250115161953-f1ab8147ed1c
 	// fdbkubernetesmonitor version for 7.1.67
 	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20250115161953-f1ab8147ed1c
+	github.com/distribution/reference v0.6.0
 	github.com/fatih/color v1.18.0
 	github.com/go-logr/logr v1.4.3
 	// TODO (j-scheuermann): Get rid of this dependency we don't reallt need it
@@ -84,6 +85,7 @@ require (
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
