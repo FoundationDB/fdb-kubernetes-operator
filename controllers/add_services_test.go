@@ -108,8 +108,8 @@ var _ = Describe("add_services", func() {
 						fdbv1beta2.FDBClusterLabel: cluster.Name,
 						"fdb-test-label":           "true",
 					}
-					if service.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel] != "" {
-						labels[fdbv1beta2.FDBProcessGroupIDLabel] = service.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel]
+					if service.Labels[fdbv1beta2.FDBProcessGroupIDLabel] != "" {
+						labels[fdbv1beta2.FDBProcessGroupIDLabel] = service.Labels[fdbv1beta2.FDBProcessGroupIDLabel]
 					}
 					Expect(service.Spec.Selector).To(Equal(labels))
 				}

@@ -63,7 +63,7 @@ func (a addServices) reconcile(
 				return &requeue{curError: err}
 			}
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-			headlessService.ObjectMeta.OwnerReferences = owner
+			headlessService.OwnerReferences = owner
 			logger.V(1).Info("Creating service", "name", headlessService.Name)
 			err = r.Create(ctx, headlessService)
 			if err != nil {

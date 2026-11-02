@@ -496,7 +496,7 @@ func (client *MockClient) AnnotatedEventf(
 	args ...any,
 ) {
 	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
-	event.ObjectMeta.Annotations = annotations
+	event.Annotations = annotations
 	client.createEvent(event)
 }
 

@@ -34,7 +34,7 @@ func GetHeadlessService(cluster *fdbv1beta2.FoundationDBCluster) *corev1.Service
 	service := &corev1.Service{
 		ObjectMeta: GetObjectMetadata(cluster, nil, "", ""),
 	}
-	service.ObjectMeta.Name = cluster.ObjectMeta.Name
+	service.Name = cluster.Name
 	service.Spec.ClusterIP = "None"
 	service.Spec.Selector = cluster.GetMatchLabels()
 

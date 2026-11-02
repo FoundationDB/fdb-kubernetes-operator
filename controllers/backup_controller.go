@@ -91,7 +91,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 
-	originalGeneration := backup.ObjectMeta.Generation
+	originalGeneration := backup.Generation
 	backupLog := globalControllerLogger.WithValues(
 		"namespace",
 		backup.Namespace,
@@ -190,7 +190,7 @@ func (r *FoundationDBBackupReconciler) adminClientForBackup(
 	cluster := &fdbv1beta2.FoundationDBCluster{}
 	err := r.Get(
 		ctx,
-		types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName},
+		types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.ClusterName},
 		cluster,
 	)
 	if err != nil {
