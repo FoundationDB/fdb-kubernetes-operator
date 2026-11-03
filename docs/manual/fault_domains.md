@@ -415,6 +415,9 @@ The number of coordinators is currently a hardcoded mechanism based on the [foll
 ```go
 // DesiredCoordinatorCount returns the number of coordinators to recruit for a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+    if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHallFallback {
+        return 5
+    }
     if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 || cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
         return 9
     }
@@ -424,6 +427,7 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 ```
 
 For all clusters that use more than one region or uses `three_data_hall`, the operator will recruit 9 coordinators.
+Except for `three_data_hall_fallback`, which only recruits 5 coordinators, since it has to keep working when a data hall is lost.
 If the number of regions is `1` the number of recruited coordinators depends on the redundancy mode.
 The number of coordinators is chosen based on the fact that the coordinators use a consensus protocol (Paxos) that needs a majority of processes to be up.
 A common pattern in majority based system is to run `n * 2 + 1` processes, where `n` defines the failures that should be tolerated.

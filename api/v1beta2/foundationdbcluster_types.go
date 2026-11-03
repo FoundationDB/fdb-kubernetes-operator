@@ -1734,6 +1734,10 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 
 // DesiredCoordinatorCount returns the number of coordinators to recruit for a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+	// If one data hall is missing, we may not have 9 coordinator candidates. 5 is a safer choice.
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHallFallback {
+		return 5
+	}
 	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 ||
 		cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
 		return 9
@@ -2381,7 +2385,8 @@ func (cluster *FoundationDBCluster) ShouldUseLocks() bool {
 
 	return cluster.Spec.FaultDomain.ZoneCount > 1 ||
 		len(cluster.Spec.DatabaseConfiguration.Regions) > 1 ||
-		cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall
+		(cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall) ||
+		(cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHallFallback)
 }
 
 // GetLockPrefix gets the prefix for the keys where we store locking
