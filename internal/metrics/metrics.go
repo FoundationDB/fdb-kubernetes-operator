@@ -21,6 +21,8 @@
 package metrics
 
 import (
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -107,6 +109,81 @@ var (
 		"the count of the desired Fdb process groups",
 		append(descClusterDefaultLabels, "process_class"),
 		nil,
+	)
+
+	descBackupDefaultLabels = []string{"namespace", "name"}
+
+	// DescBackupRunning stores whether the backup is currently running.
+	DescBackupRunning = prometheus.NewDesc(
+		"fdb_operator_backup_running",
+		"whether the Fdb backup is currently running.",
+		descBackupDefaultLabels,
+		nil,
+	)
+
+	// DescBackupPaused stores whether the backup agents are currently paused.
+	DescBackupPaused = prometheus.NewDesc(
+		"fdb_operator_backup_paused",
+		"whether the Fdb backup agents are currently paused.",
+		descBackupDefaultLabels,
+		nil,
+	)
+
+	// DescBackupRestorable stores whether the backup currently has a restorable point.
+	DescBackupRestorable = prometheus.NewDesc(
+		"fdb_operator_backup_restorable",
+		"whether the Fdb backup currently has a restorable point.",
+		descBackupDefaultLabels,
+		nil,
+	)
+
+	// DescBackupSecondsSinceLastRestorablePoint stores how long ago the latest restorable point advanced.
+	DescBackupSecondsSinceLastRestorablePoint = prometheus.NewDesc(
+		"fdb_operator_backup_seconds_since_last_restorable_point",
+		"the number of seconds since the latest restorable point of the Fdb backup last advanced.",
+		descBackupDefaultLabels,
+		nil,
+	)
+
+	// DescBackupAgentCount stores the number of ready, up-to-date backup agents.
+	DescBackupAgentCount = prometheus.NewDesc(
+		"fdb_operator_backup_agent_count",
+		"the number of ready, up-to-date Fdb backup agents.",
+		descBackupDefaultLabels,
+		nil,
+	)
+
+	// DescBackupDesiredAgentCount stores the desired number of backup agents.
+	DescBackupDesiredAgentCount = prometheus.NewDesc(
+		"fdb_operator_backup_desired_agent_count",
+		"the desired number of Fdb backup agents.",
+		descBackupDefaultLabels,
+		nil,
+	)
+
+	// descBackupLastReconciled stores the latest generation that was reconciled for the backup.
+	descBackupLastReconciled = prometheus.NewDesc(
+		"fdb_operator_backup_latest_reconciled_status",
+		"the latest generation that was reconciled for the Fdb backup.",
+		descBackupDefaultLabels,
+		nil,
+	)
+
+	// descBackupReconciled stores whether the backup is fully reconciled.
+	descBackupReconciled = prometheus.NewDesc(
+		"fdb_operator_backup_reconciled_status",
+		"status if the Fdb backup is reconciled.",
+		descBackupDefaultLabels,
+		nil,
+	)
+
+	// BackupReconcileErrorsCounter counts the total number of errors encountered by the backup sub-reconcilers.
+	BackupReconcileErrorsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fdb_operator_backup_reconcile_errors_total",
+			Help: "Total number of errors encountered during backup reconciliation, by sub-reconciler",
+		},
+		append(descBackupDefaultLabels, "subreconciler"),
 	)
 )
 
@@ -215,4 +292,36 @@ func boolFloat64(b bool) float64 {
 		return 1
 	}
 	return 0
+}
+
+// CollectBackupMetrics will collect the metrics for the provided fdbv1beta2.FoundationDBBackup and update all
+// related metrics.
+func CollectBackupMetrics(ch chan<- prometheus.Metric, backup *fdbv1beta2.FoundationDBBackup) {
+	addConstMetric := func(desc *prometheus.Desc, v float64) {
+		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v, backup.Namespace, backup.Name)
+	}
+
+	addConstMetric(DescBackupAgentCount, float64(backup.Status.AgentCount))
+	addConstMetric(DescBackupDesiredAgentCount, float64(backup.GetDesiredAgentCount()))
+	addConstMetric(descBackupLastReconciled, float64(backup.Status.Generations.Reconciled))
+	addConstMetric(
+		descBackupReconciled,
+		boolFloat64(backup.ObjectMeta.Generation == backup.Status.Generations.Reconciled),
+	)
+
+	backupDetails := backup.Status.BackupDetails
+	if backupDetails == nil {
+		return
+	}
+
+	addConstMetric(DescBackupRunning, boolFloat64(backupDetails.Running))
+	addConstMetric(DescBackupPaused, boolFloat64(backupDetails.Paused))
+	addConstMetric(DescBackupRestorable, boolFloat64(backupDetails.Restorable))
+
+	if backupDetails.LastRestorableVersionUpdateTime != nil {
+		addConstMetric(
+			DescBackupSecondsSinceLastRestorablePoint,
+			time.Since(backupDetails.LastRestorableVersionUpdateTime.Time).Seconds(),
+		)
+	}
 }

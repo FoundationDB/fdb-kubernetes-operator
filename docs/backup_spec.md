@@ -181,6 +181,8 @@ FoundationDBBackupStatusBackupDetails provides information about the state of th
 | snapshotTime |  | int | false |
 | restorable |  | bool | false |
 | tag |  | string | false |
+| latestRestorableVersion | LatestRestorableVersion is the most recent FDB version that this backup can currently be restored to. | *int64 | false |
+| lastRestorableVersionUpdateTime | LastRestorableVersionUpdateTime is the last time the LatestRestorableVersion advanced, i.e. the last time a new restorable point was recorded for this backup. This can be used to estimate the recovery point objective (RPO) of the backup. | *metav1.Time | false |
 
 [Back to TOC](#table-of-contents)
 
