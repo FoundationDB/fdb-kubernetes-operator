@@ -152,6 +152,11 @@ spec:
                               maxLength: 256
                               pattern: ^([\-._\/a-z0-9A-Z\*])*$
                               type: string
+                            processClasses:
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: set
                           required:
                           - durationInSeconds
                           - key
