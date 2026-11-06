@@ -975,6 +975,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 		hasExactMatch := hasExactMatchedTaintKey(
 			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions,
 			taint.Key,
+			processGroup.ProcessClass,
 		)
 		for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
 			taintConfiguredKeyString := ptr.Deref(taintConfiguredKey.Key, "")
@@ -990,9 +991,14 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 				logger.Info("Taint is not properly set", "Taint", taint)
 				continue
 			}
-			// If a wildcard is specified as key, it will be used as default value, except there is an exact match defined for the taint key.
+			// Use the wildcard as the default unless an exact key matches this process class.
 			if (hasExactMatch && taint.Key != taintConfiguredKeyString) ||
 				(!hasExactMatch && taintConfiguredKeyString != "*") {
+				continue
+			}
+
+			if len(taintConfiguredKey.ProcessClasses) > 0 &&
+				!slices.Contains(taintConfiguredKey.ProcessClasses, processGroup.ProcessClass) {
 				continue
 			}
 
@@ -1222,9 +1228,15 @@ func getRunningVersion(
 func hasExactMatchedTaintKey(
 	taintReplacementOptions []fdbv1beta2.TaintReplacementOption,
 	nodeTaintKey string,
+	processClass fdbv1beta2.ProcessClass,
 ) bool {
 	for _, configuredTaintKey := range taintReplacementOptions {
 		if configuredTaintKey.Key == nil {
+			continue
+		}
+
+		if len(configuredTaintKey.ProcessClasses) > 0 &&
+			!slices.Contains(configuredTaintKey.ProcessClasses, processClass) {
 			continue
 		}
 

@@ -143,7 +143,33 @@ var _ = Describe("update_status", func() {
 			})
 
 			When("the taint was just added long enough to to mark the Pod for replacement", func() {
+				var wildcardTaint, exactStorageTaint, exactStatelessTaint, exactAllClassesTaint fdbv1beta2.TaintReplacementOption
+
 				BeforeEach(func() {
+					wildcardTaint = fdbv1beta2.TaintReplacementOption{
+						Key:               &taintKeyWildcard,
+						DurationInSeconds: &taintKeyWildcardDuration,
+					}
+					exactStorageTaint = fdbv1beta2.TaintReplacementOption{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+						ProcessClasses: []fdbv1beta2.ProcessClass{
+							fdbv1beta2.ProcessClassStorage,
+						},
+					}
+					exactStatelessTaint = fdbv1beta2.TaintReplacementOption{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+						ProcessClasses: []fdbv1beta2.ProcessClass{
+							fdbv1beta2.ProcessClassStateless,
+						},
+					}
+					exactAllClassesTaint = fdbv1beta2.TaintReplacementOption{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+						ProcessClasses:    []fdbv1beta2.ProcessClass{},
+					}
+
 					node.Spec.Taints = []corev1.Taint{
 						{
 							Key:    taintKeyMaintenance,
@@ -165,6 +191,77 @@ var _ = Describe("update_status", func() {
 					Expect(
 						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
 					).NotTo(Equal(nil))
+				})
+
+				When("the exact rule has an empty process class filter", func() {
+					BeforeEach(func() {
+						cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+							wildcardTaint,
+							exactAllClassesTaint,
+						}
+					})
+
+					It("should use the exact rule's replacement delay", func() {
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).NotTo(BeNil())
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+						).NotTo(BeNil())
+					})
+				})
+
+				When("the exact rule selects storage", func() {
+					BeforeEach(func() {
+						cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+							wildcardTaint,
+							exactStorageTaint,
+						}
+					})
+
+					It("should use the exact rule's shorter replacement delay", func() {
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).NotTo(BeNil())
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+						).NotTo(BeNil())
+					})
+				})
+
+				When("the exact rule selects stateless and a wildcard rule is configured", func() {
+					BeforeEach(func() {
+						cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+							wildcardTaint,
+							exactStatelessTaint,
+						}
+					})
+
+					It("should wait for the wildcard rule's longer replacement delay", func() {
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).NotTo(BeNil())
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+						).To(BeNil())
+					})
+				})
+
+				When("only an exact stateless rule is configured", func() {
+					BeforeEach(func() {
+						cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+							exactStatelessTaint,
+						}
+					})
+
+					It("should not set taint conditions for storage", func() {
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).To(BeNil())
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+						).To(BeNil())
+					})
 				})
 			})
 

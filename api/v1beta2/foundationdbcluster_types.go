@@ -1438,7 +1438,8 @@ type MaintenanceModeOptions struct {
 //     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint
 //
 // Setting durationInSeconds to the maximum of int64 will practically disable the taint key.
-// When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used.
+// When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key,
+// the exact matched key will be used if its ProcessClasses includes the process class.
 type TaintReplacementOption struct {
 	// Tainted key
 	// +kubebuilder:validation:MaxLength=256
@@ -1451,6 +1452,11 @@ type TaintReplacementOption struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=0
 	DurationInSeconds *int64 `json:"durationInSeconds,omitempty"`
+
+	// ProcessClasses restricts this option to the listed process classes.
+	// Omitted or empty means all classes.
+	// +listType=set
+	ProcessClasses []ProcessClass `json:"processClasses,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
