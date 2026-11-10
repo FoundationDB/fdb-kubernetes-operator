@@ -22,11 +22,13 @@ package internal
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -580,6 +582,386 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.ImageType = &imageType
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("the main container image is pinned", func() {
+				var unpinnedSpec *corev1.PodSpec
+
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.3.63"
+					cluster.Status.RunningVersion = "7.3.63"
+					unpinnedSpec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					cluster.Spec.MainContainer.MonitorVersion = new("7.3.63")
+				})
+
+				When("the monitor version is equal to the version", func() {
+					It("should not change the pod spec", func() {
+						spec, err = GetPodSpec(
+							cluster,
+							GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(spec).To(Equal(unpinnedSpec))
+					})
+				})
+
+				When("the cluster is upgraded to a different patch version", func() {
+					BeforeEach(func() {
+						cluster.Spec.Version = "7.3.64"
+						spec, err = GetPodSpec(
+							cluster,
+							GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("should use the shared binary launcher", func() {
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+					})
+
+					It(
+						"should keep the main container image and use the new sidecar image",
+						func() {
+							Expect(spec.Containers[0].Image).To(HaveSuffix("7.3.63"))
+							Expect(spec.Containers[1].Image).To(HaveSuffix("7.3.64"))
+						},
+					)
+
+					It(
+						"should make the main container use a version that is never compatible",
+						func() {
+							Expect(spec.Containers[0].Args).To(Equal(append(
+								slices.Clone(unpinnedSpec.Containers[0].Args),
+								"--version-file", "/var/dynamic-conf/shared-binary-version",
+							)))
+							Expect(spec.Volumes).To(ContainElement(WithTransform(
+								func(volume corev1.Volume) []corev1.KeyToPath {
+									if volume.ConfigMap == nil {
+										return nil
+									}
+									return volume.ConfigMap.Items
+								},
+								ContainElement(corev1.KeyToPath{
+									Key:  fdbv1beta2.SharedBinaryVersionKey,
+									Path: "shared-binary-version",
+								}),
+							)))
+						},
+					)
+
+					It("should make the sidecar always copy the binaries", func() {
+						Expect(
+							spec.Containers[1].Args,
+						).NotTo(ContainElement("--main-container-version"))
+						Expect(spec.Containers[1].Args).NotTo(ContainElement("--version-file"))
+					})
+
+					When("the upgrade is done", func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "7.3.64"
+						})
+
+						It("should still use the shared binary launcher", func() {
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+						})
+					})
+				})
+
+				When(
+					"the monitor version is changed to the new version, together with a patch upgrade",
+					func() {
+						BeforeEach(func() {
+							cluster.Spec.Version = "7.3.64"
+							cluster.Spec.MainContainer.MonitorVersion = new("7.3.64")
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should use the new version for the images", func() {
+							Expect(cluster.PinnedImageDiffersFromVersion()).To(BeFalse())
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+							Expect(spec.Containers[0].Image).To(HaveSuffix("7.3.64"))
+							Expect(
+								spec.Containers[0].Args,
+							).To(Equal(unpinnedSpec.Containers[0].Args))
+							Expect(spec.Containers[1].Image).To(HaveSuffix("7.3.64"))
+							Expect(
+								spec.Containers[1].Args,
+							).To(ContainElements("--main-container-version", "7.3.64"))
+						})
+					},
+				)
+
+				When(
+					"the monitor version is changed together with a version incompatible upgrade",
+					func() {
+						BeforeEach(func() {
+							cluster.Spec.Version = "7.4.6"
+							cluster.Spec.MainContainer.MonitorVersion = new("7.4.6")
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It(
+							"should use the running version for the images until the upgrade is done",
+							func() {
+								Expect(cluster.PinnedImageDiffersFromVersion()).To(BeFalse())
+								Expect(spec).To(Equal(unpinnedSpec))
+							},
+						)
+
+						When("the upgrade is done", func() {
+							BeforeEach(func() {
+								cluster.Status.RunningVersion = "7.4.6"
+								spec, err = GetPodSpec(
+									cluster,
+									GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+								)
+								Expect(err).NotTo(HaveOccurred())
+							})
+
+							It("should use the new version for the images", func() {
+								Expect(spec.Containers[0].Image).To(HaveSuffix("7.4.6"))
+								Expect(spec.Containers[1].Image).To(HaveSuffix("7.4.6"))
+							})
+						})
+					},
+				)
+
+				When("the monitor supports the shared binary config", func() {
+					var config monitorapi.ProcessConfiguration
+
+					BeforeEach(func() {
+						cluster.Status.RunningVersion = "7.4.10"
+						cluster.Spec.MainContainer.MonitorVersion = new("7.4.10")
+						cluster.Spec.Version = "7.4.11"
+
+						spec, err = GetPodSpec(
+							cluster,
+							GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						)
+						Expect(err).NotTo(HaveOccurred())
+						config, err = GetMonitorProcessConfiguration(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							1,
+							fdbv1beta2.ImageTypeUnified,
+							nil,
+						)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("should configure the monitor instead of using the version file", func() {
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+						Expect(UseSharedBinaryConfig(cluster)).To(BeTrue())
+						Expect(config.UseSharedBinary).To(HaveValue(BeTrue()))
+						Expect(spec.Containers[0].Args).NotTo(ContainElement("--version-file"))
+						Expect(spec.Containers[0].Image).To(HaveSuffix("7.4.10"))
+					})
+
+					It(
+						"should create the same sidecar arguments as for a Pod of the pinned version",
+						func() {
+							Expect(spec.Containers[1].Image).To(HaveSuffix("7.4.11"))
+							Expect(
+								spec.Containers[1].Args,
+							).To(ContainElements("--main-container-version", "7.4.10"))
+						},
+					)
+
+					It("should not add the volume item for the version file", func() {
+						for _, volume := range spec.Volumes {
+							if volume.ConfigMap == nil {
+								continue
+							}
+
+							for _, item := range volume.ConfigMap.Items {
+								Expect(item.Key).NotTo(Equal(fdbv1beta2.SharedBinaryVersionKey))
+							}
+						}
+					})
+
+					When("the shared binary config is disabled with the annotation", func() {
+						BeforeEach(func() {
+							cluster.Annotations = map[string]string{
+								fdbv1beta2.DisableSharedBinaryConfigAnnotation: "true",
+							}
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+							config, err = GetMonitorProcessConfiguration(
+								cluster,
+								fdbv1beta2.ProcessClassStorage,
+								1,
+								fdbv1beta2.ImageTypeUnified,
+								nil,
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should use the version file instead of the config option", func() {
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+							Expect(UseSharedBinaryConfig(cluster)).To(BeFalse())
+							Expect(config.UseSharedBinary).To(BeNil())
+							Expect(spec.Containers[0].Args).To(ContainElement("--version-file"))
+							Expect(
+								spec.Containers[1].Args,
+							).NotTo(ContainElement("--main-container-version"))
+						})
+					})
+
+					When("the version is equal to the monitor version", func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "7.4.10"
+							cluster.Spec.Version = "7.4.10"
+							config, err = GetMonitorProcessConfiguration(
+								cluster,
+								fdbv1beta2.ProcessClassStorage,
+								1,
+								fdbv1beta2.ImageTypeUnified,
+								nil,
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should not set the shared binary option", func() {
+							Expect(UseSharedBinaryConfig(cluster)).To(BeFalse())
+							Expect(config.UseSharedBinary).To(BeNil())
+						})
+					})
+
+					When("the version is not compatible with the monitor version", func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "8.0.2"
+							cluster.Spec.Version = "8.0.2"
+							config, err = GetMonitorProcessConfiguration(
+								cluster,
+								fdbv1beta2.ProcessClassStorage,
+								1,
+								fdbv1beta2.ImageTypeUnified,
+								nil,
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should not set the shared binary option", func() {
+							Expect(UseSharedBinaryConfig(cluster)).To(BeFalse())
+							Expect(config.UseSharedBinary).To(BeNil())
+						})
+					})
+				})
+
+				It(
+					"should not set the shared binary option for a monitor that doesn't support it",
+					func() {
+						cluster.Spec.Version = "7.3.64"
+						config, configErr := GetMonitorProcessConfiguration(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							1,
+							fdbv1beta2.ImageTypeUnified,
+							nil,
+						)
+						Expect(configErr).NotTo(HaveOccurred())
+						Expect(config.UseSharedBinary).To(BeNil())
+						Expect(UseSharedBinaryConfig(cluster)).To(BeFalse())
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+					},
+				)
+
+				When(
+					"the cluster is running a patch version incompatible with the monitor version",
+					func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "7.4.5"
+							cluster.Spec.Version = "7.4.6"
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should not use the shared binary launcher", func() {
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+							Expect(spec.Containers[0].Args).NotTo(ContainElement("--version-file"))
+							Expect(
+								spec.Containers[1].Args,
+							).To(ContainElements("--main-container-version", "7.3.63"))
+						})
+					},
+				)
+
+				When("the main container image is not pinned", func() {
+					BeforeEach(func() {
+						cluster.Spec.MainContainer.MonitorVersion = nil
+						cluster.Spec.Version = "7.3.64"
+					})
+
+					It("should not use the shared binary launcher", func() {
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+					})
+				})
+
+				When("the cluster is upgraded to a protocol incompatible version", func() {
+					BeforeEach(func() {
+						cluster.Spec.Version = "7.4.6"
+						spec, err = GetPodSpec(
+							cluster,
+							GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It(
+						"should keep the main container image and the main container version of the sidecar",
+						func() {
+							Expect(spec.Containers[0].Image).To(HaveSuffix("7.3.63"))
+							Expect(
+								spec.Containers[1].Args,
+							).To(ContainElements("--main-container-version", "7.3.63"))
+							Expect(spec).To(Equal(unpinnedSpec))
+						},
+					)
+
+					When("the upgrade is done", func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "7.4.6"
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It(
+							"should keep the main container image and use the new sidecar image",
+							func() {
+								Expect(spec.Containers[0].Image).To(HaveSuffix("7.3.63"))
+								Expect(
+									spec.Containers[0].Args,
+								).To(Equal(unpinnedSpec.Containers[0].Args))
+								Expect(spec.Containers[1].Image).To(HaveSuffix("7.4.6"))
+								Expect(
+									spec.Containers[1].Args,
+								).To(ContainElements("--main-container-version", "7.3.63"))
+							},
+						)
+					})
+				})
 			})
 
 			When("running one storage server per disk", func() {

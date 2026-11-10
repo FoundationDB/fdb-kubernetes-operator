@@ -52,6 +52,7 @@ import (
 // +kubebuilder:printcolumn:name="ReconciledProcessGroups",type="integer",JSONPath=".status.reconciledProcessGroups",description="Number of reconciled process groups",priority=1
 // +kubebuilder:printcolumn:name="DesiredProcessGroups",type="integer",JSONPath=".status.desiredProcessGroups",description="Desired number of process groups",priority=1
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.runningVersion",description="Running version",priority=0
+// +kubebuilder:printcolumn:name="MonitorVersion",type="string",JSONPath=".status.monitorVersion",description="Version of the main container image",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
 // +kubebuilder:ac:generate=true
@@ -313,6 +314,10 @@ type FoundationDBClusterStatus struct {
 	// RunningVersion defines the version of FoundationDB that the cluster is
 	// currently running.
 	RunningVersion string `json:"runningVersion,omitempty"`
+
+	// MonitorVersion defines the version of the image of the main container, which runs fdb-kubernetes-monitor. This is
+	// the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set.
+	MonitorVersion string `json:"monitorVersion,omitempty"`
 
 	// ConnectionString defines the contents of the cluster file.
 	ConnectionString string `json:"connectionString,omitempty"`
@@ -2252,6 +2257,16 @@ type ContainerOverrides struct {
 	// a container.
 	// +kubebuilder:validation:MaxItems=100
 	ImageConfigs []ImageConfig `json:"imageConfigs,omitempty"`
+
+	// MonitorVersion pins the FDB version of the image used for the main container, which runs fdb-kubernetes-monitor.
+	// The value must be a valid FDB version and selects the unified image tag for the main container. When set,
+	// the main container image does not change when spec.version changes, and fdbserver is run from the binaries
+	// staged by the sidecar whenever spec.version is not the version of the main container image. The image of the
+	// main container also contains fdbcli and other binaries of the pinned version, which can differ from the version
+	// of the running fdbserver. Only supported with the unified image type and ignored on the sidecar container.
+	// +kubebuilder:validation:Pattern:=(\d+)\.(\d+)\.(\d+)
+	// +optional
+	MonitorVersion *string `json:"monitorVersion,omitempty"`
 }
 
 // DesiredDatabaseConfiguration builds the database configuration for the
@@ -2337,6 +2352,17 @@ func (cluster *FoundationDBCluster) IsBeingUpgradedWithVersionIncompatibleVersio
 	desiredVersion, _ := ParseFdbVersion(cluster.Spec.Version)
 
 	return !runningVersion.IsProtocolCompatible(desiredVersion)
+}
+
+// UpdatesSidecarInPlace returns true if the sidecar image must be updated in-place for the ongoing upgrade. This is the
+// case for all version incompatible upgrades and for all upgrades if the main container image is pinned, because the
+// image of the main container doesn't change.
+func (cluster *FoundationDBCluster) UpdatesSidecarInPlace() bool {
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		return true
+	}
+
+	return cluster.PinnedImageDiffersFromVersion() && cluster.IsBeingUpgraded()
 }
 
 // VersionCompatibleUpgradeInProgress returns true if the cluster is currently being upgraded and the upgrade is to
@@ -3006,6 +3032,75 @@ func (cluster *FoundationDBCluster) UseUnifiedImage() bool {
 	return true
 }
 
+// GetMonitorVersion returns the pinned version of the main container image or an empty string if the main container
+// image is not pinned.
+func (cluster *FoundationDBCluster) GetMonitorVersion() string {
+	return ptr.Deref(cluster.Spec.MainContainer.MonitorVersion, "")
+}
+
+// GetMonitorVersionOrDefault returns the pinned version of the main container image or the version of the cluster, if
+// the main container image is not pinned.
+func (cluster *FoundationDBCluster) GetMonitorVersionOrDefault() string {
+	if monitorVersion := cluster.GetMonitorVersion(); monitorVersion != "" {
+		return monitorVersion
+	}
+
+	return cluster.Spec.Version
+}
+
+// MonitorSupportsSharedBinaryConfig returns true if the main container image is pinned and the monitor in the main
+// container supports the UseSharedBinary option in the process configuration. Older versions ignore the option, which
+// means that the operator must not rely on the option for those versions. The annotation
+// DisableSharedBinaryConfigAnnotation on the cluster disables the use of the option.
+func (cluster *FoundationDBCluster) MonitorSupportsSharedBinaryConfig() bool {
+	if !cluster.UsePinnedMainContainerImage() {
+		return false
+	}
+
+	// The option can be disabled with an annotation on the cluster. An invalid value is ignored.
+	disabled, err := strconv.ParseBool(cluster.Annotations[DisableSharedBinaryConfigAnnotation])
+	if err == nil && disabled {
+		return false
+	}
+
+	monitorVersion, err := ParseFdbVersion(cluster.GetMonitorVersion())
+	if err != nil {
+		return false
+	}
+
+	return monitorVersion.SupportsSharedBinaryConfig()
+}
+
+// UsePinnedMainContainerImage returns true if the main container image is pinned to a fixed version that doesn't
+// change with the FDB version. This is only supported for the unified image.
+func (cluster *FoundationDBCluster) UsePinnedMainContainerImage() bool {
+	return cluster.UseUnifiedImage() && cluster.GetMonitorVersion() != ""
+}
+
+// PinnedImageDiffersFromVersion returns true if the main container image is pinned to a version that is different from
+// the version of the cluster. In this case upgrades are performed in-place, because the image of the main container
+// doesn't change. If the pinned version is changed to the new version of the cluster, the cluster is upgraded like a
+// cluster without a pinned image.
+func (cluster *FoundationDBCluster) PinnedImageDiffersFromVersion() bool {
+	return cluster.UsePinnedMainContainerImage() && !cluster.MonitorVersionEqualsVersion()
+}
+
+// MonitorVersionEqualsVersion returns true if the pinned version of the main container image is equal to the version of
+// the cluster.
+func (cluster *FoundationDBCluster) MonitorVersionEqualsVersion() bool {
+	monitorVersion, err := ParseFdbVersion(cluster.GetMonitorVersion())
+	if err != nil {
+		return false
+	}
+
+	version, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return false
+	}
+
+	return monitorVersion.Equal(version)
+}
+
 // DesiredImageType returns the desired image type that should be used.
 func (cluster *FoundationDBCluster) DesiredImageType() ImageType {
 	if cluster.UseUnifiedImage() {
@@ -3399,6 +3494,8 @@ func (cluster *FoundationDBCluster) Validate(
 		)
 	}
 
+	validations = append(validations, cluster.validateMonitorVersion()...)
+
 	// Verify if any of the user provided pod specs contains forbidden modifications.
 	for processClass, settings := range cluster.Spec.Processes {
 		if settings.PodTemplate == nil {
@@ -3423,6 +3520,38 @@ func (cluster *FoundationDBCluster) Validate(
 	}
 
 	return errors.New(strings.Join(validations, ", "))
+}
+
+// validateMonitorVersion validates the pinned main container image version and returns all found issues.
+func (cluster *FoundationDBCluster) validateMonitorVersion() []string {
+	if cluster.Spec.SidecarContainer.MonitorVersion != nil {
+		return []string{"monitorVersion is not supported for the sidecar container"}
+	}
+
+	if cluster.Spec.MainContainer.MonitorVersion == nil {
+		return nil
+	}
+
+	if !cluster.UseUnifiedImage() {
+		return []string{"monitorVersion is only supported with the unified image type"}
+	}
+
+	monitorVersion, err := ParseFdbVersion(cluster.GetMonitorVersion())
+	if err != nil {
+		return []string{fmt.Sprintf("monitorVersion is not a valid version: %s", err.Error())}
+	}
+
+	if !monitorVersion.IsSupported() {
+		return []string{
+			fmt.Sprintf(
+				"monitorVersion: %s is not supported, minimum supported version is: %s",
+				monitorVersion.String(),
+				Versions.MinimumVersion.String(),
+			),
+		}
+	}
+
+	return nil
 }
 
 // IsTaintFeatureDisabled return true if operator is configured to not replace Pods tainted Nodes OR

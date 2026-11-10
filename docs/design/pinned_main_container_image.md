@@ -125,6 +125,23 @@ Semantics:
 Changing `monitorVersion` itself is a normal Pod spec change and goes through the regular `updatePods` rolling update,
 which is how users roll in base-image and monitor fixes.
 
+### Rolling the pinned image forward together with an upgrade
+
+If the user sets `monitorVersion` to the same value as `spec.version`, e.g. in the same change that upgrades the
+cluster, the image is not pinned to a different version anymore and the cluster is upgraded like a cluster without
+`monitorVersion`:
+
+* The images of both containers follow the Pod version: the running version during a version incompatible upgrade, the
+  new version during a protocol compatible upgrade. Pods that are created during the upgrade get the same images as
+  without the feature.
+* The sidecar image is not updated in-place for compatible upgrades and the process version check keeps the behavior
+  for compatible upgrades, because the Pods are replaced.
+* The main container image changes, so the hash changes and `updatePods` (or the replacement strategy) recreates the
+  Pods: right away for a compatible upgrade, after the upgrade for an incompatible one.
+* Pods that are capable of starting the sidecar binary are replaced as well, because the main container image differs.
+
+Afterwards `monitorVersion` equals the version of the cluster and the next upgrade is in-place again.
+
 ### 2. Pod specification in pinned mode
 
 Everything here is gated on `monitorVersion` being set. When it is unset the generated Pod spec must be byte-for-byte
@@ -227,13 +244,24 @@ The flow depends on whether the upgrade is protocol compatible and on whether th
 
 Notes:
 
-* In a mixed cluster (some Pods capable, some not), the operator decides per Pod. A bounce of the whole cluster to the
-  new version starts only once every Pod is able to start the new binary (capable, or an incompatible upgrade).
+* In a mixed cluster (some Pods capable, some not), the operator decides per Pod. A Pod that has to be replaced to
+  become capable has the `IncorrectPodSpec` condition and is excluded from the bounce. It is recreated by `updatePods`
+  (or replaced, depending on the `PodUpdateStrategy`) and starts with the new version.
 * The "compatible and not capable" case must be detected explicitly. Otherwise the sidecar would copy the new binary
   while the launcher silently restarts the old one, and the cluster would never converge.
-* How compatible upgrades are restarted in place (rolling per process group versus the coordinated bounce used for
-  incompatible upgrades) is an open question, see below.
-* `IsBeingUpgradedWithVersionIncompatibleVersion` and the places that gate on it need an audit.
+* **Implementation.** In-place compatible upgrades are restarted through the regular bounce path, like any other
+  configuration change that requires a restart. `updateSidecarVersions` runs for every upgrade in pinned mode
+  (`UpdatesSidecarInPlace`). The process version check is not skipped for compatible upgrades in pinned mode, so every
+  process with the old version has the `IncorrectCommandLine` condition. The bounce waits for the conditions
+  `IncorrectSidecarImage`, `IncorrectConfigMap`, `IncorrectPodSpec` and `SidecarUnreachable` to be absent. The
+  `IncorrectConfigMap` condition is only cleared once the monitor accepted the configuration of the new version, which
+  the monitor only does if the staged binary exists. All processes that are ready are killed in a single call. The
+  operator does not use the upgrade lock for compatible upgrades.
+* The Pod spec of a Pod that requires the shared binary launcher (`UseSharedBinaryLauncher`) differs in the
+  `--version-file` argument of the main container, the `shared-binary-version` item of the `config-map` volume and the
+  missing `--main-container-version` argument of the sidecar. These settings, together with the sidecar image, are
+  removed before the hash is calculated. `PodHasDesiredSpec` compares the hash and additionally requires a capable
+  Pod if the desired spec requires it. It is used by `updatePods`, the status check and the replacements.
 
 ### 6. Validation
 
@@ -243,6 +271,8 @@ Notes:
 * Require that the images of `monitorVersion` and of `spec.version` are unified images that contain the flags listed in
   "Current Implementation" (all unified images do).
 * Consider requiring `spec.version >= monitorVersion`, to avoid downgrades running with an older monitor than expected.
+* There is no restriction on the relation between `spec.version` and `monitorVersion`. Versions that are protocol
+  compatible with `monitorVersion` use the shared binary launcher, see 2.
 
 ### 7. Migration
 
@@ -290,18 +320,39 @@ annotation). The operator keeps verifying the mode through the running version (
 
 `monitorVersion` is part of the spec, so the operator knows which monitor runs in the main container and does not have
 to detect support at runtime (an older monitor silently ignores the unknown `useSharedBinary` field, so the operator
-must never set it for a monitor that does not support it):
+must never set it for a monitor that does not support it). The versions that contain the features are
+`Version.SupportsSharedBinaryConfig`: **7.4.10 and newer 7.4 patches, 8.0.2 and newer 8.0 patches, and 8.1 and newer**.
+The features will not be backported to 7.3 and older releases.
 
 | `monitorVersion` | Mechanism |
 |---|---|
-| Older than the minimum version | Operator-only design as described above: fake `--version-file` on capable Pods, no `--main-container-version` flag, rolling update at the first patch upgrade, no pruning. |
-| At least the minimum version | `useSharedBinary: true` in the generated process configuration. Pods use the non-capable spec (no `--version-file`), patch upgrades are in place from the start, the retry covers a Pod start before the sidecar finished copying and the launcher prunes. |
+| Does not support the features (7.3 and older, 7.4.x < 7.4.10, 8.0.0, 8.0.1) | Operator-only design as described above: fake `--version-file` on capable Pods, no `--main-container-version` flag, rolling update at the first patch upgrade, nudge of Pods whose monitor has not reported a configuration. |
+| Supports the features | `useSharedBinary: true` in the generated process configuration whenever the Pod version is a different patch version of `monitorVersion`. The Pod spec equals the non-capable spec (no `--version-file`), so there are no capable Pods and the first patch upgrade is in place too. The monitor retries to load the configuration if the binary is not staged yet. |
+
+**Escape hatch.** If the version table is wrong for a monitor (an old monitor ignores the option silently), the
+annotation `foundationdb.org/disable-shared-binary-config: "true"` on the `FoundationDBCluster` makes the operator treat
+every monitor of this cluster as not supporting the option. The operator then uses the version file and does not write
+the option into the process configuration. An annotation was chosen over a spec field, because a spec field would be new
+API surface that is hard to remove again. Setting the annotation does not change the hash, but Pods that are
+supposed to use the shared binary and have no version file get the `IncorrectPodSpec` condition and are replaced once, like
+for the first patch upgrade with an old monitor. Clusters where `spec.version` is equal to or incompatible with
+`monitorVersion` are not affected. Only the value `true` (any form accepted by `strconv.ParseBool`) disables the option,
+other values are ignored.
+
+The option is only set for unified images and only if it is needed (the Pod version is protocol compatible with
+`monitorVersion` but not equal). In all other cases the monitor already starts the right binary. The monitor does not
+restart processes when only the option changes. The `shared-binary-version` ConfigMap key is still written for all pinned
+clusters. Removing it while Pods that mount it are still running would break the ConfigMap updates of these Pods.
 
 The sidecar image follows `spec.version`, which can be older than the minimum version. Leaving out
-`--main-container-version` works with both: old sidecars always copy, new ones ignore the flag.
+`--main-container-version` works with both: old sidecars always copy, new ones ignore the flag. Pods that mount the
+file keep working with both mechanisms.
 
 Switching between the two mechanisms by changing `monitorVersion` is a normal Pod spec change and goes through the
-regular rolling update. Open questions for the monitor side:
+regular rolling update. While Pods with an older monitor are still replaced, they ignore the option and rely on the
+version file, or are replaced before they are restarted, because their main container image differs.
+
+Open questions for the monitor side:
 
 * Pruning currently runs for every launcher, not only when `useSharedBinary` is set. It should be gated, or this
   documented as a behavior change for default clusters.
@@ -309,6 +360,12 @@ regular rolling update. Open questions for the monitor side:
 * The sidecar restores a removed directory of its own version. If the sidecar is older than the desired version, the
   launcher prunes that directory and the sidecar copies it again at every process start. This should only happen
   while the sidecar lags behind and is harmless.
+* If the gate table is wrong and a monitor ignores the option, the baked-in binary keeps running and the bounce repeats.
+  The operator does not detect this yet, see "mode honored" above.
+
+**Development note:** until the monitor change is released, the operator builds against the monitor API with a local
+`replace` directive in `go.mod`. It must be replaced by a version bump of
+`github.com/apple/foundationdb/fdbkubernetesmonitor` before merging.
 
 ## Risks and Open Questions
 
@@ -316,8 +373,11 @@ regular rolling update. Open questions for the monitor side:
   If the launcher loads the configuration before the copy has finished it rejects it and starts nothing until the
   next trigger (config file event or Pod timestamp). In the upgrade flow the operator avoids this by patching the
   sidecar and waiting before the config version is bumped. For a Pod restart or a freshly created Pod it remains a
-  gap. Mitigation without a monitor change: the operator touches the ConfigMap/Pod annotation again once the sidecar
-  is ready; the permanent fix is the retry in future monitor versions.
+  gap. Observed in an e2e run: all new Pods stayed without any monitor annotation, because the operator skipped the
+  Pods in `updatePodConfig` (their config hash already matched), so the monitor was never notified to reload the
+  configuration. The operator now runs the config sync for every Pod of a pinned cluster whose monitor has not reported a
+  configuration yet (`shouldSyncPodConfig`), which sets the outdated-config-map annotation until the monitor accepted the
+  configuration. The permanent fix is the retry in future monitor versions.
 * **Reliance on monitor internals.** The mode depends on `currentContainerVersion` only being used for the
   compatibility check, and on the string comparison for the sidecar copy. A future monitor change could break this.
   Mitigation: an e2e test per supported monitor version, and a note in the monitor repo.
@@ -336,11 +396,18 @@ regular rolling update. Open questions for the monitor side:
   instances; verify nothing derives the main image locally.
 * **`IgnoreLogGroupsForUpgrade`** and other upgrade-related options should be checked for assumptions that the main
   image tracks `spec.version`.
-* **Open question: restart of compatible upgrades.** Incompatible upgrades use a coordinated bounce of all processes.
-  A compatible (patch) upgrade is a rolling Pod replacement today. In-place compatible upgrades must restart processes
-  on the new binary without Pod recreation, and should do so in a rolling fashion, not as a simultaneous bounce, to
-  avoid an unnecessary recovery. This needs a concrete design (per process group bounce with the existing safety
-  checks) before implementation.
+* **Open question: rolling restart of compatible upgrades.** The initial implementation restarts all processes that are
+  ready in one call, like any other configuration change. Incompatible upgrades require this, but a compatible
+  (patch) upgrade is a rolling Pod replacement today. A rolling restart (per process group or in batches, with the
+  existing safety checks) would avoid additional recoveries. This is not implemented yet.
+* **Stragglers.** If a process misses the restart of a version incompatible upgrade, nothing restarts it implicitly: in
+  the default mode all Pods are recreated at the end of the upgrade, with a pinned image they are not. The existing
+  `removeIncompatibleProcesses` reconciler recreates Pods of processes in `incompatible_connections`, which requires a
+  status from the database. If the database is unavailable because of stranded processes (for example no cluster
+  controller can be elected), the operator cannot find them. A status independent detection needs the monitor to report
+  the version of the running processes, and an operator step that restarts the process (isolate annotation toggle or
+  Pod deletion). It is deferred until a monitor release contains the reporting. Until then the manual recovery is to
+  delete the stranded Pods. See E27 to E29 in the test plan.
 * **Relation to the deferral draft.** This design makes the deferral draft unnecessary for users who opt in. The
   deferral draft remains relevant only for users who want to keep the default model. Decision: close the deferral draft
   if this one is accepted.
@@ -358,9 +425,10 @@ Staged so that each stage is useful on its own:
    `updatePods` queuing nothing after the upgrade, status/verification. Controller tests: `updatePods` queues no Pod
    for deletion after a version change; no Pod is rolled when the mode is enabled. E2E: enable the mode and perform an
    incompatible upgrade, verifying no Pod recreation and the correct running version.
-3. **Stage 3: patch upgrades.** Capable Pod spec (version file key, `--version-file`, no `--main-container-version`), per-Pod capability
-   detection, fallback to the rolling update for non-capable Pods, concrete design for restarting compatible
-   upgrades in place. E2E: first patch upgrade rolls once, the next patch upgrade does not; a Pod restart mid-upgrade.
+3. **Stage 3: patch upgrades.** Capable Pod spec (version file key, `--version-file`, no `--main-container-version`),
+   per-Pod capability detection, fallback to the rolling update for non-capable Pods, restart of compatible upgrades
+   in place through the regular bounce (implemented, a rolling restart is still open). E2E: first patch upgrade rolls
+   once, the next patch upgrade does not; a Pod restart mid-upgrade (not implemented yet).
 4. **Stage 4: docs.** Manual section on the mode, trade-offs and the process for rolling the pinned image forward.
 5. **Later (optional):** adopt the features of future monitor versions (`useSharedBinary`, retry, pruning) behind a
    minimum `monitorVersion`.

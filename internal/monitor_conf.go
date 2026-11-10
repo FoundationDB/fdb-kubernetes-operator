@@ -251,6 +251,12 @@ func GetMonitorProcessConfiguration(
 		Version: &version,
 	}
 
+	// Monitors that support the option start the binary that was staged by the sidecar, even if the version is protocol
+	// compatible with the version of the main container.
+	if imageType == fdbv1beta2.ImageTypeUnified && UseSharedBinaryConfig(cluster) {
+		configuration.UseSharedBinary = new(true)
+	}
+
 	if cluster.Status.ConnectionString == "" {
 		// Return a placeholder configuration with the servers off until we
 		// have the initial connection string.

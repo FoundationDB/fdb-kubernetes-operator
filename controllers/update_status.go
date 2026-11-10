@@ -121,6 +121,7 @@ func (c updateStatus) reconcile(
 		}
 	}
 	clusterStatus.RunningVersion = version
+	clusterStatus.MonitorVersion = cluster.GetMonitorVersionOrDefault()
 	// We update the running version of the cluster status here to make sure that the Pod Spec hash and other things
 	// are properly calculated based on the current observed running version. If we don't update the running version
 	// here, we could see a race condition where the updateStatus sub-reconciler runs for the first time after an upgrade
@@ -410,7 +411,10 @@ func checkAndSetProcessStatus(
 		}
 	}
 
-	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
+	// If the main container image is pinned, the processes are restarted in-place with the binary of the sidecar. This
+	// means that the processes of all Pods must be restarted and the mixed set of versions is not a valid state.
+	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress() &&
+		!cluster.PinnedImageDiffersFromVersion()
 	imageType := internal.GetImageType(pod)
 	for processNumber := 1; processNumber <= processCount; processNumber++ {
 		// If the process status is present under the process group ID take that information, otherwise check if there
@@ -785,8 +789,27 @@ func validateProcessGroup(
 		return err
 	}
 
+	// If the main container image is pinned the sidecar image is no longer part of the hash. Pods that were created before
+	// the image was pinned still have the full hash as annotation. If the Pod matches the full hash, the Pod is not
+	// outdated and only the annotation must be updated, otherwise the Pod would be recreated.
+	if cluster.UsePinnedMainContainerImage() &&
+		specHash != pod.Annotations[fdbv1beta2.LastSpecKey] {
+		err = updateLastSpecKeyForPinnedImage(
+			ctx,
+			r,
+			cluster,
+			processGroupStatus,
+			pod,
+			specHash,
+			logger,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Check here if the Pod spec matches the desired Pod spec.
-	incorrectPodSpec := specHash != pod.Annotations[fdbv1beta2.LastSpecKey]
+	incorrectPodSpec := !internal.PodHasDesiredSpec(cluster, pod, specHash)
 	if !incorrectPodSpec {
 		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
 		if err != nil {
@@ -1318,4 +1341,43 @@ func updateFaultDomains(
 			status.ProcessGroups[idx].Machine = fdbv1beta2.Machine(host)
 		}
 	}
+}
+
+// updateLastSpecKeyForPinnedImage updates the last applied spec annotation of the Pod to the provided hash, if the
+// annotation matches the hash of the full spec. The full spec includes the sidecar image, which is not part of the hash
+// if the main container image is pinned.
+func updateLastSpecKeyForPinnedImage(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroupStatus *fdbv1beta2.ProcessGroupStatus,
+	pod *corev1.Pod,
+	specHash string,
+	logger logr.Logger,
+) error {
+	fullSpecHash, err := internal.GetFullPodSpecHash(cluster, processGroupStatus)
+	if err != nil {
+		return err
+	}
+
+	if pod.Annotations[fdbv1beta2.LastSpecKey] != fullSpecHash {
+		return nil
+	}
+
+	logger.Info(
+		"Updating last applied spec annotation for pinned main container image",
+		"processGroupID", processGroupStatus.ProcessGroupID,
+		"currentSpecHash", fullSpecHash,
+		"desiredSpecHash", specHash,
+	)
+	updatedPod := pod.DeepCopy()
+	updatedPod.Annotations[fdbv1beta2.LastSpecKey] = specHash
+	err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, updatedPod)
+	if err != nil {
+		return err
+	}
+
+	pod.Annotations[fdbv1beta2.LastSpecKey] = specHash
+
+	return nil
 }

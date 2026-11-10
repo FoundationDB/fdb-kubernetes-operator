@@ -74,6 +74,21 @@ func (version Version) SupportsRecoveryState() bool {
 	return version.IsAtLeast(Versions.SupportsRecoveryState)
 }
 
+// SupportsSharedBinaryConfig returns true if the fdb-kubernetes-monitor of this version supports the UseSharedBinary
+// option in the process configuration, retries to load a configuration if the binary is not available yet and removes
+// unused binaries from the shared binary directory. The features are not available in the 7.3 and older releases.
+func (version Version) SupportsSharedBinaryConfig() bool {
+	switch {
+	case version.Major == 7 && version.Minor == 4:
+		return version.IsAtLeast(Versions.SupportsSharedBinaryConfig74)
+	case version.Major == 8 && version.Minor == 0:
+		return version.IsAtLeast(Versions.SupportsSharedBinaryConfig80)
+	default:
+		// All newer releases than 7.4 and 8.0 contain the features. 7.3 and older releases will not get the features.
+		return version.IsAtLeast(Versions.SupportsSharedBinaryConfigNewer)
+	}
+}
+
 // SupportsVersionChange returns true if the current version can be downgraded or upgraded to provided other version.
 func (version Version) SupportsVersionChange(other Version) bool {
 	return version.IsProtocolCompatible(other) || other.IsAtLeast(version)
@@ -152,6 +167,9 @@ var Versions = struct {
 	NextPatchVersion,
 	MinimumVersion,
 	SupportsIsPresent,
+	SupportsSharedBinaryConfig74,
+	SupportsSharedBinaryConfig80,
+	SupportsSharedBinaryConfigNewer,
 	SupportsShardedRocksDB,
 	SupportsRedwood1,
 	SupportsBackupEncryption,
@@ -171,6 +189,9 @@ var Versions = struct {
 	NextMajorVersion:                  Version{api.Version{Major: 8, Minor: 0, Patch: 0}},
 	MinimumVersion:                    Version{api.Version{Major: 7, Minor: 1, Patch: 0}},
 	SupportsIsPresent:                 Version{api.Version{Major: 7, Minor: 1, Patch: 4}},
+	SupportsSharedBinaryConfig74:      Version{api.Version{Major: 7, Minor: 4, Patch: 10}},
+	SupportsSharedBinaryConfig80:      Version{api.Version{Major: 8, Minor: 0, Patch: 2}},
+	SupportsSharedBinaryConfigNewer:   Version{api.Version{Major: 8, Minor: 1, Patch: 0}},
 	SupportsShardedRocksDB:            Version{api.Version{Major: 7, Minor: 2, Patch: 0}},
 	SupportsRedwood1:                  Version{api.Version{Major: 7, Minor: 3, Patch: 0}},
 	SupportsRecoveryState:             Version{api.Version{Major: 7, Minor: 1, Patch: 22}},

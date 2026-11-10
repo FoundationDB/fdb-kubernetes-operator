@@ -33,6 +33,9 @@ type FoundationDBClusterStatusApplyConfiguration struct {
 	// RunningVersion defines the version of FoundationDB that the cluster is
 	// currently running.
 	RunningVersion *string `json:"runningVersion,omitempty"`
+	// MonitorVersion defines the version of the image of the main container, which runs fdb-kubernetes-monitor. This is
+	// the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set.
+	MonitorVersion *string `json:"monitorVersion,omitempty"`
 	// ConnectionString defines the contents of the cluster file.
 	ConnectionString *string `json:"connectionString,omitempty"`
 	// Configured defines whether we have configured the database yet.
@@ -131,6 +134,14 @@ func (b *FoundationDBClusterStatusApplyConfiguration) WithNeedsNewCoordinators(v
 // If called multiple times, the RunningVersion field is set to the value of the last call.
 func (b *FoundationDBClusterStatusApplyConfiguration) WithRunningVersion(value string) *FoundationDBClusterStatusApplyConfiguration {
 	b.RunningVersion = &value
+	return b
+}
+
+// WithMonitorVersion sets the MonitorVersion field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the MonitorVersion field is set to the value of the last call.
+func (b *FoundationDBClusterStatusApplyConfiguration) WithMonitorVersion(value string) *FoundationDBClusterStatusApplyConfiguration {
+	b.MonitorVersion = &value
 	return b
 }
 

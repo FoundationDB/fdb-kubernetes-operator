@@ -48,6 +48,10 @@ spec:
       jsonPath: .status.runningVersion
       name: Version
       type: string
+    - description: Version of the main container image
+      jsonPath: .status.monitorVersion
+      name: MonitorVersion
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -487,6 +491,9 @@ spec:
                       type: object
                     maxItems: 100
                     type: array
+                  monitorVersion:
+                    pattern: (\d+)\.(\d+)\.(\d+)
+                    type: string
                   peerVerificationRules:
                     maxLength: 10000
                     type: string
@@ -4636,6 +4643,9 @@ spec:
                       type: object
                     maxItems: 100
                     type: array
+                  monitorVersion:
+                    pattern: (\d+)\.(\d+)\.(\d+)
+                    type: string
                   peerVerificationRules:
                     maxLength: 10000
                     type: string
@@ -4881,6 +4891,8 @@ spec:
                     maxLength: 512
                     type: string
                 type: object
+              monitorVersion:
+                type: string
               needsNewCoordinators:
                 type: boolean
               processGroups:
