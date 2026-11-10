@@ -130,6 +130,7 @@ ContainerOverrides provides options for customizing a container created by the o
 | enableTls | EnableTLS controls whether we should be listening on a TLS connection. | bool | false |
 | peerVerificationRules | PeerVerificationRules provides the rules for what client certificates the process should accept. | string | false |
 | imageConfigs | ImageConfigs allows customizing the image that we use for a container. | [][ImageConfig](#imageconfig) | false |
+| monitorVersion | MonitorVersion pins the FDB version of the image used for the main container, which runs fdb-kubernetes-monitor. The value must be a valid FDB version and selects the unified image tag for the main container. When set, the main container image does not change when spec.version changes, and fdbserver is run from the binaries staged by the sidecar whenever spec.version is not the version of the main container image. The image of the main container also contains fdbcli and other binaries of the pinned version, which can differ from the version of the running fdbserver. Only supported with the unified image type and ignored on the sidecar container. | *string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -289,6 +290,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | hasIncorrectServiceConfig | HasIncorrectServiceConfig indicates whether the cluster has service config that is out of date with the cluster spec. | bool | false |
 | needsNewCoordinators | NeedsNewCoordinators indicates whether the cluster needs to recruit new coordinators to fulfill its fault tolerance requirements. | bool | false |
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
+| monitorVersion | MonitorVersion defines the version of the image of the main container, which runs fdb-kubernetes-monitor. This is the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | hasListenIPsForAllPods | HasListenIPsForAllPods defines whether every pod has an environment variable for its listen address. | bool | false |

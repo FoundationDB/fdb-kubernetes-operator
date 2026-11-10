@@ -24,6 +24,7 @@ import (
 	"context"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	corev1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -106,4 +107,56 @@ var _ = Describe("updatePodConfig", func() {
 			Expect(req).To(BeNil())
 		})
 	})
+
+	DescribeTable(
+		"when deciding if the config of a Pod must be synced",
+		func(
+			version string,
+			runningVersion string,
+			monitorVersion *string,
+			podAnnotations map[string]string,
+			expected bool,
+		) {
+			testCluster := internal.CreateDefaultCluster()
+			testCluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+			testCluster.Spec.Version = version
+			testCluster.Status.RunningVersion = runningVersion
+			testCluster.Spec.MainContainer.MonitorVersion = monitorVersion
+			testPod := &corev1.Pod{}
+			testPod.Annotations = podAnnotations
+
+			Expect(shouldSyncPodConfig(testCluster, testPod, "hash")).To(Equal(expected))
+		},
+		Entry("hash is outdated",
+			"7.1.57", "7.1.57", nil,
+			map[string]string{fdbv1beta2.LastConfigMapKey: "other"},
+			true),
+		Entry("hash matches and no upgrade is running",
+			"7.1.57", "7.1.57", nil,
+			map[string]string{fdbv1beta2.LastConfigMapKey: "hash"},
+			false),
+		Entry("hash matches during a version incompatible upgrade",
+			"7.2.0", "7.1.57", nil,
+			map[string]string{fdbv1beta2.LastConfigMapKey: "hash"},
+			true),
+		Entry("hash matches, main image is pinned and the monitor reported a configuration",
+			"7.2.0", "7.2.0", new("7.1.57"),
+			map[string]string{
+				fdbv1beta2.LastConfigMapKey:        "hash",
+				api.CurrentConfigurationAnnotation: "{}",
+			},
+			false),
+		Entry("hash matches, main image is pinned and the monitor has not reported a configuration",
+			"7.2.0", "7.2.0", new("7.1.57"),
+			map[string]string{fdbv1beta2.LastConfigMapKey: "hash"},
+			true),
+		Entry(
+			"hash matches, main image is pinned to the version and the monitor has not reported a configuration",
+			"7.1.57",
+			"7.1.57",
+			new("7.1.57"),
+			map[string]string{fdbv1beta2.LastConfigMapKey: "hash"},
+			false,
+		),
+	)
 })

@@ -5439,6 +5439,164 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
+	When("validating the monitor version of a cluster", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "7.4.6",
+					DatabaseConfiguration: DatabaseConfiguration{
+						StorageEngine: StorageEngineSSD2,
+					},
+				},
+			}
+		})
+
+		It("should not pin the main container image if the monitor version is unset", func() {
+			Expect(cluster.UsePinnedMainContainerImage()).To(BeFalse())
+			Expect(cluster.GetMonitorVersion()).To(BeEmpty())
+			Expect(cluster.Validate(nil)).To(Succeed())
+		})
+
+		It("should not support the shared binary config", func() {
+			Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(BeFalse())
+		})
+
+		It("should default the monitor version to the version", func() {
+			Expect(cluster.GetMonitorVersionOrDefault()).To(Equal("7.4.6"))
+		})
+
+		When("the monitor version is set", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.MonitorVersion = new("7.3.63")
+			})
+
+			It("should not support the shared binary config for an old monitor version", func() {
+				Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(BeFalse())
+			})
+
+			When("the monitor version supports the shared binary config", func() {
+				BeforeEach(func() {
+					cluster.Spec.MainContainer.MonitorVersion = new("7.4.10")
+				})
+
+				It("should support the shared binary config", func() {
+					Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(BeTrue())
+				})
+
+				When("the image type is split", func() {
+					BeforeEach(func() {
+						cluster.Spec.ImageType = new(ImageTypeSplit)
+					})
+
+					It("should not support the shared binary config", func() {
+						Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(BeFalse())
+					})
+				})
+
+				DescribeTable("when the disable annotation is set",
+					func(value string, expected bool) {
+						cluster.Annotations = map[string]string{
+							DisableSharedBinaryConfigAnnotation: value,
+						}
+						Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(Equal(expected))
+					},
+					Entry("true", "true", false),
+					Entry("True", "True", false),
+					Entry("1", "1", false),
+					Entry("false", "false", true),
+					Entry("empty", "", true),
+					Entry("invalid", "disabled", true),
+				)
+			})
+
+			It("should pin the main container image", func() {
+				Expect(cluster.UsePinnedMainContainerImage()).To(BeTrue())
+				Expect(cluster.GetMonitorVersion()).To(Equal("7.3.63"))
+				Expect(cluster.GetMonitorVersionOrDefault()).To(Equal("7.3.63"))
+				Expect(cluster.Validate(nil)).To(Succeed())
+			})
+
+			When("the monitor version is equal to the version", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.3.63"
+				})
+
+				It("should be valid", func() {
+					Expect(cluster.Validate(nil)).To(Succeed())
+				})
+			})
+
+			When("the version is a different patch version of the monitor version", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.3.64"
+				})
+
+				It("should be valid", func() {
+					Expect(cluster.Validate(nil)).To(Succeed())
+				})
+			})
+
+			When("the monitor version is invalid", func() {
+				BeforeEach(func() {
+					cluster.Spec.MainContainer.MonitorVersion = new("invalid")
+				})
+
+				It("should return an error", func() {
+					Expect(
+						cluster.Validate(nil),
+					).To(MatchError(ContainSubstring("monitorVersion is not a valid version")))
+				})
+			})
+
+			When("the image type is split", func() {
+				BeforeEach(func() {
+					cluster.Spec.ImageType = new(ImageTypeSplit)
+				})
+
+				It("should return an error", func() {
+					Expect(
+						cluster.Validate(nil),
+					).To(MatchError(ContainSubstring("only supported with the unified image type")))
+					Expect(cluster.UsePinnedMainContainerImage()).To(BeFalse())
+				})
+			})
+
+			When("the monitor version is set on the sidecar container", func() {
+				BeforeEach(func() {
+					cluster.Spec.SidecarContainer.MonitorVersion = new("7.3.63")
+				})
+
+				It("should return an error", func() {
+					Expect(
+						cluster.Validate(nil),
+					).To(MatchError(ContainSubstring("not supported for the sidecar container")))
+				})
+			})
+
+			When("a patch upgrade is in progress", func() {
+				BeforeEach(func() {
+					cluster.Status.RunningVersion = "7.4.5"
+				})
+
+				It("should be valid", func() {
+					Expect(cluster.Validate(nil)).To(Succeed())
+				})
+			})
+
+			When("an upgrade to a protocol incompatible version is in progress", func() {
+				BeforeEach(func() {
+					cluster.Status.RunningVersion = "7.3.63"
+				})
+
+				It("should be valid", func() {
+					Expect(cluster.Validate(nil)).To(Succeed())
+				})
+			})
+		})
+	})
+
 	When("adding processes to the no-schedule list", func() {
 		var cluster *FoundationDBCluster
 

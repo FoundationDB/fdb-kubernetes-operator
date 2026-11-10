@@ -58,6 +58,14 @@ const (
 	// RunningVersionKey defines the key name in the ConfigMap whose value is the FDB version that the cluster is currently running.
 	RunningVersionKey = "running-version"
 
+	// SharedBinaryVersionKey defines the key name in the ConfigMap whose value is a version that is never protocol
+	// compatible with a real FDB version. Pods of a cluster with a pinned main container image use the file as the
+	// version file of the main container, to always start the fdbserver binary that is staged by the sidecar.
+	SharedBinaryVersionKey = "shared-binary-version"
+
+	// SharedBinaryVersionValue defines the content of the SharedBinaryVersionKey in the ConfigMap.
+	SharedBinaryVersionValue = "0.0.0"
+
 	// FoundationDBBackupFinalizerName is thename of the finalizer for the operator.
 	FoundationDBBackupFinalizerName = "foundationdb.org/fdb-kubernetes-operator"
 )
