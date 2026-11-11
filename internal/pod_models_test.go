@@ -3609,7 +3609,8 @@ var _ = Describe("pod_models", func() {
 
 			It("should use the default service spec", func() {
 				Expect(service.Spec).To(Equal(corev1.ServiceSpec{
-					ClusterIP: "None",
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
 					Selector: map[string]string{
 						fdbv1beta2.FDBClusterLabel: "operator-test-1",
 					},
@@ -3658,7 +3659,8 @@ var _ = Describe("pod_models", func() {
 
 			It("should use the default service spec", func() {
 				Expect(service.Spec).To(Equal(corev1.ServiceSpec{
-					ClusterIP: "None",
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
 					Selector: map[string]string{
 						"fdb-custom-name":         "operator-test-1",
 						"fdb-managed-by-operator": "true",
