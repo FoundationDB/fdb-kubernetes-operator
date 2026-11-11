@@ -391,7 +391,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 	// TODO add same test for multi-region cluster + Add test cases with edge cases -> Dedicated suite?
-	FDescribeTable(
+	PDescribeTable(
 		"upgrading a cluster with a specific monitor version",
 		func(ctx SpecContext, beforeVersion string, targetVersion string) {
 			performUpgrade(ctx,
