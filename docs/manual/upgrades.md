@@ -17,9 +17,37 @@ Clusters that use the unified image can opt in to a [pinned main container image
 This document describes the upgrade process based on the operator version `v1.14.0` for older versions there might be a slight difference in how the operator is handling the upgrades.
 In addition to that we are currently working on reducing the complexity for patch upgrades to reduce the upgrade steps to the [Recreation of old Pods](#recreation-of-pods-phase) phase.
 
-The graphic below represents the different stages in a Pod during the upgrade:
+The graphic below represents the different stages in a Pod during the upgrade of a cluster that uses the split image (the main container runs `fdbmonitor`):
 
-<img src="./imgs/upgrade_mechanism.svg">
+```mermaid
+flowchart LR
+    subgraph S1["Initial state"]
+        direction TB
+        M1["main container<br/>foundationdb:OLD_VERSION"]
+        C1["sidecar container<br/>foundationdb-kubernetes-sidecar:OLD_VERSION"]
+        V1["shared volume /var/dynamic-conf<br/>bin/OLD_VERSION/fdbserver<br/>fdbmonitor.conf pointing to /usr/bin<br/>fdb.cluster"]
+        M1 ~~~ C1
+        C1 ~~~ V1
+    end
+    subgraph S2["Staging and restart phase"]
+        direction TB
+        M2["main container<br/>foundationdb:OLD_VERSION"]
+        C2["sidecar container<br/>foundationdb-kubernetes-sidecar:NEW_VERSION"]
+        V2["shared volume /var/dynamic-conf<br/>bin/NEW_VERSION/fdbserver<br/>fdbmonitor.conf pointing to /var/dynamic-conf/bin<br/>fdb.cluster"]
+        M2 ~~~ C2
+        C2 ~~~ V2
+    end
+    subgraph S3["After the recreation of the Pod"]
+        direction TB
+        M3["main container<br/>foundationdb:NEW_VERSION"]
+        C3["sidecar container<br/>foundationdb-kubernetes-sidecar:NEW_VERSION"]
+        V3["shared volume /var/dynamic-conf<br/>fdbmonitor.conf pointing to /usr/bin<br/>fdb.cluster"]
+        M3 ~~~ C3
+        C3 ~~~ V3
+    end
+    S1 -->|"update the sidecar image"| S2
+    S2 -->|"recreate the Pod"| S3
+```
 
 The first state on the left is the initial state before the operator is doing any work.
 The second state in the middle is the state of the Pod during the [Staging Phase](#staging-phase) and the [Restart Phase](#restart-phase).
