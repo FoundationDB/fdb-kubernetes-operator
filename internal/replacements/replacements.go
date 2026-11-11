@@ -298,7 +298,7 @@ func processGroupNeedsRemovalForPod(
 		}
 	}
 
-	if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
+	if internal.PodHasDesiredSpec(cluster, pod, specHash) {
 		return false, nil
 	}
 

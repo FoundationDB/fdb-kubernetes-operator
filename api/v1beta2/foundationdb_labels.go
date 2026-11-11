@@ -52,6 +52,12 @@ const (
 	// for debugging purpose.
 	IsolateProcessGroupAnnotation = "foundationdb.org/isolate-process-group"
 
+	// DisableSharedBinaryConfigAnnotation is the annotation on the FoundationDBCluster resource that disables the use of
+	// the UseSharedBinary option in the process configuration, even if the monitor of the main container supports it.
+	// If the annotation is set to "true", the operator uses the version file of the main container instead. This is an
+	// escape hatch in case the operator relies on the option for a monitor that doesn't handle it.
+	DisableSharedBinaryConfigAnnotation = "foundationdb.org/disable-shared-binary-config"
+
 	// NodeAnnotation is an annotation key that specifies where a Pod is currently running on.
 	// The information is fetched from Pod.Spec.NodeName of the Pod resource.
 	NodeAnnotation = "foundationdb.org/current-node"

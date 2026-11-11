@@ -102,7 +102,95 @@ func GetPodSpecHash(
 		}
 	}
 
+	// If the main container image is pinned, the settings that depend on the FDB version are not part of the hash. The
+	// sidecar image changes with every FDB version change and is updated in-place by the updateSidecarVersions
+	// reconciler. Whether the Pod is able to always start the binary of the sidecar is checked separately, see
+	// PodHasDesiredSpec.
+	if cluster.UsePinnedMainContainerImage() {
+		spec = withoutVersionDependentSettings(spec)
+	}
+
 	return GetJSONHash(spec)
+}
+
+// PodHasDesiredSpec returns true if the last applied spec hash of the Pod matches the provided hash of the desired spec.
+// If the main container image is pinned, the Pod must also be able to start the binary of the sidecar, if the desired
+// spec requires it. A Pod that is able to do this is also valid if the desired spec doesn't require it.
+func PodHasDesiredSpec(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+	specHash string,
+) bool {
+	if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
+		return false
+	}
+
+	if UseSharedBinaryLauncher(cluster) && !PodUsesSharedBinaryLauncher(pod) {
+		return false
+	}
+
+	return true
+}
+
+// GetFullPodSpecHash builds the hash of the expected spec for a pod, including the sidecar image. This is the hash
+// that was used for all clusters before the main container image could be pinned.
+func GetFullPodSpecHash(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+) (string, error) {
+	spec, err := GetPodSpec(cluster, processGroup)
+	if err != nil {
+		return "", err
+	}
+
+	return GetJSONHash(spec)
+}
+
+// withoutVersionDependentSettings returns a copy of the provided spec without the settings that are changed
+// depending on the FDB version if the main container image is pinned. These are the image of the sidecar container,
+// the settings to always start the binary that was staged by the sidecar and the main container version of the sidecar.
+func withoutVersionDependentSettings(spec *corev1.PodSpec) *corev1.PodSpec {
+	result := spec.DeepCopy()
+	for idx := range result.Containers {
+		switch result.Containers[idx].Name {
+		case fdbv1beta2.SidecarContainerName:
+			result.Containers[idx].Image = ""
+			result.Containers[idx].Args = removeFlagWithValue(
+				result.Containers[idx].Args,
+				mainContainerVersionFlag,
+			)
+		case fdbv1beta2.MainContainerName:
+			result.Containers[idx].Args = removeFlagWithValue(
+				result.Containers[idx].Args,
+				versionFileFlag,
+			)
+		}
+	}
+
+	for idx := range result.Volumes {
+		if result.Volumes[idx].ConfigMap == nil {
+			continue
+		}
+
+		result.Volumes[idx].ConfigMap.Items = slices.DeleteFunc(
+			slices.Clone(result.Volumes[idx].ConfigMap.Items),
+			func(item corev1.KeyToPath) bool {
+				return item.Key == fdbv1beta2.SharedBinaryVersionKey
+			},
+		)
+	}
+
+	return result
+}
+
+// removeFlagWithValue returns the args without the provided flag and its value.
+func removeFlagWithValue(args []string, flag string) []string {
+	idx := slices.Index(args, flag)
+	if idx < 0 || idx+1 >= len(args) {
+		return args
+	}
+
+	return slices.Concat(args[:idx], args[idx+2:])
 }
 
 // GetJSONHash serializes an object to JSON and takes a hash of the resulting

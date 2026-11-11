@@ -30,6 +30,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
@@ -115,8 +116,7 @@ func (updatePodConfig) reconcile(
 		// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
 		// to make sure all process groups have the required files ready. In the future we will use a different condition to indicate that a
 		// process group si ready to be restarted.
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash &&
-			!cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		if !shouldSyncPodConfig(cluster, pod, configMapHash) {
 			continue
 		}
 
@@ -190,4 +190,35 @@ func (updatePodConfig) reconcile(
 	}
 
 	return nil
+}
+
+// shouldSyncPodConfig returns true if the operator must make sure that the monitor of the Pod has the desired
+// configuration, even if the Pod already has the annotation with the hash of the desired ConfigMap.
+func shouldSyncPodConfig(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+	configMapHash string,
+) bool {
+	if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash {
+		return true
+	}
+
+	// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
+	// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the
+	// updatePodDynamicConf to make sure all process groups have the required files ready.
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		return true
+	}
+
+	// If the main container image is pinned, the monitor of a new Pod can depend on the binary that is copied by the
+	// sidecar. If the monitor loads the configuration before the sidecar finished copying the binary, it rejects the
+	// configuration and has not reported any configuration yet. The monitor only loads the configuration again when
+	// it is notified that the configuration is outdated, which the operator does in updatePodDynamicConf. Monitors that
+	// support the UseSharedBinary option retry to load the configuration on their own.
+	if cluster.PinnedImageDiffersFromVersion() && !cluster.MonitorSupportsSharedBinaryConfig() {
+		_, reported := pod.ObjectMeta.Annotations[api.CurrentConfigurationAnnotation]
+		return !reported
+	}
+
+	return false
 }

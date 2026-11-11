@@ -46,8 +46,9 @@ func (updateSidecarVersions) reconcile(
 	_ *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
-	// We don't need to upgrade the sidecar if no upgrade is in progress, we can skip any further work here.
-	if !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+	// We don't need to upgrade the sidecar in-place if no upgrade is in progress, or if the Pods are replaced as part of
+	// the upgrade, we can skip any further work here.
+	if !cluster.UpdatesSidecarInPlace() {
 		return nil
 	}
 

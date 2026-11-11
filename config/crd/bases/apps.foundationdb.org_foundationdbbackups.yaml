@@ -169,6 +169,9 @@ spec:
                       type: object
                     maxItems: 100
                     type: array
+                  monitorVersion:
+                    pattern: (\d+)\.(\d+)\.(\d+)
+                    type: string
                   peerVerificationRules:
                     maxLength: 10000
                     type: string
@@ -4024,6 +4027,9 @@ spec:
                       type: object
                     maxItems: 100
                     type: array
+                  monitorVersion:
+                    pattern: (\d+)\.(\d+)\.(\d+)
+                    type: string
                   peerVerificationRules:
                     maxLength: 10000
                     type: string

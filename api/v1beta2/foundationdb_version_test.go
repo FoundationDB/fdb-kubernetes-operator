@@ -239,6 +239,29 @@ var _ = Describe("[api] FDBVersion", func() {
 	)
 
 	DescribeTable(
+		"validating if the monitor of the provided version supports the shared binary config",
+		func(version string, expected bool) {
+			parsed, err := ParseFdbVersion(version)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(parsed.SupportsSharedBinaryConfig()).To(Equal(expected))
+		},
+		Entry("7.1.67", "7.1.67", false),
+		Entry("7.3.0", "7.3.0", false),
+		Entry("7.3.79", "7.3.79", false),
+		Entry("7.3.200", "7.3.200", false),
+		Entry("7.4.0", "7.4.0", false),
+		Entry("7.4.9", "7.4.9", false),
+		Entry("7.4.10", "7.4.10", true),
+		Entry("7.4.11", "7.4.11", true),
+		Entry("8.0.0", "8.0.0", false),
+		Entry("8.0.1", "8.0.1", false),
+		Entry("8.0.2", "8.0.2", true),
+		Entry("8.0.3", "8.0.3", true),
+		Entry("8.1.0", "8.1.0", true),
+		Entry("9.0.0", "9.0.0", true),
+	)
+
+	DescribeTable(
 		"validating if the provided version supports locality based exclusions",
 		func(version Version, expected bool) {
 			Expect(version.SupportsLocalityBasedExclusions()).To(Equal(expected))

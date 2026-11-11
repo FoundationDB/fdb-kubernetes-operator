@@ -331,7 +331,9 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 
 			version, ok := client.VersionProcessGroups[processGroupID]
 			if !ok {
-				if client.Cluster.VersionCompatibleUpgradeInProgress() {
+				// If the main container image is pinned, the image doesn't contain the version of the processes.
+				if client.Cluster.VersionCompatibleUpgradeInProgress() &&
+					!client.Cluster.PinnedImageDiffersFromVersion() {
 					for _, container := range pod.Spec.Containers {
 						if container.Name != fdbv1beta2.MainContainerName {
 							continue

@@ -28,15 +28,16 @@ Each test will create a new FoundationDB cluster which will be upgraded.
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
-
-	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
@@ -384,6 +385,46 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 					Expect(spec.FaultDomain.Key).To(Equal(corev1.LabelHostname))
 					Expect(spec.FaultDomain.ValueFrom).To(HaveSuffix(fdbv1beta2.EnvNameInstanceID))
+				})
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+	// TODO add same test for multi-region cluster + Add test cases with edge cases -> Dedicated suite?
+	PDescribeTable(
+		"upgrading a cluster with a specific monitor version",
+		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			performUpgrade(ctx,
+				testConfig{
+					beforeVersion: beforeVersion,
+					targetVersion: targetVersion,
+					clusterConfig: &fixtures.ClusterConfig{
+						DebugSymbols:                 false,
+						SimulateCustomFaultDomainEnv: true,
+					},
+					loadData: false,
+				}, func(cluster *fixtures.FdbCluster) {
+					// Gather the list of initial pods to ensure the rollout of the monitor version (with the same
+					// version as spec.version), doesn't cause a rollout.
+					pods := cluster.GetAllPods(ctx)
+					initialPods := map[string]types.UID{}
+					for _, pod := range pods.Items {
+						initialPods[pod.Name] = pod.UID
+					}
+
+					spec := cluster.GetCluster(ctx).Spec.DeepCopy()
+					spec.MainContainer.MonitorVersion = new(spec.Version)
+					fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+					Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
+
+					// Verify that no pod was recreated when setting monitor version.
+					validated := map[string]fdbv1beta2.None{}
+					for _, pod := range cluster.GetAllPods(ctx).Items {
+						Expect(
+							pod.UID,
+						).To(Equal(initialPods[pod.Name]), fmt.Sprintf("Pod UID changed for pod: %s, was recreated", pod.Name))
+						validated[pod.Name] = fdbv1beta2.None{}
+					}
 				})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),

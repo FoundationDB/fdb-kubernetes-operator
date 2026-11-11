@@ -41,6 +41,18 @@ func GetFilterConditions(
 		}
 	}
 
+	// If the main container image is pinned, the processes can only be restarted after the sidecar image is updated and
+	// the new binary is staged. Otherwise, the processes would be restarted with the old binary.
+	if cluster.UpdatesSidecarInPlace() {
+		return map[fdbv1beta2.ProcessGroupConditionType]bool{
+			fdbv1beta2.IncorrectCommandLine:  true,
+			fdbv1beta2.IncorrectPodSpec:      false,
+			fdbv1beta2.IncorrectSidecarImage: false,
+			fdbv1beta2.SidecarUnreachable:    false,
+			fdbv1beta2.IncorrectConfigMap:    false,
+		}
+	}
+
 	// In case of TLS/Non-TLS conversion we can ignore the fdbv1beta2.IncorrectPodSpec, otherwise if a user tries
 	// to change the Pod spec and the TLS settings, the operator gets stuck. Because the bounce processes sub-reconciler
 	// would wait for the Pod update and the Pod update sub-reconciler would wait for the process restart.

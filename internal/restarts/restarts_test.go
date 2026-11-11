@@ -59,6 +59,43 @@ var _ = Describe("restarts", func() {
 				fdbv1beta2.IncorrectPodSpec:     false,
 				fdbv1beta2.IncorrectConfigMap:   false,
 			}),
+		Entry("when a patch upgrade is performed and the main container image is pinned",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.26",
+					MainContainer: fdbv1beta2.ContainerOverrides{
+						MonitorVersion: new("7.1.25"),
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					RunningVersion: "7.1.25",
+				},
+			},
+			map[fdbv1beta2.ProcessGroupConditionType]bool{
+				fdbv1beta2.IncorrectCommandLine:  true,
+				fdbv1beta2.IncorrectPodSpec:      false,
+				fdbv1beta2.IncorrectSidecarImage: false,
+				fdbv1beta2.SidecarUnreachable:    false,
+				fdbv1beta2.IncorrectConfigMap:    false,
+			}),
+		Entry("when no upgrade is performed and the main container image is pinned",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.25",
+					MainContainer: fdbv1beta2.ContainerOverrides{
+						MonitorVersion: new("7.1.25"),
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					RunningVersion: "7.1.25",
+				},
+			},
+			map[fdbv1beta2.ProcessGroupConditionType]bool{
+				fdbv1beta2.IncorrectCommandLine: true,
+				fdbv1beta2.SidecarUnreachable:   false,
+				fdbv1beta2.IncorrectPodSpec:     false,
+				fdbv1beta2.IncorrectConfigMap:   false,
+			}),
 		Entry("when a version incompatible upgrade is performed",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{

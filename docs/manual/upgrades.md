@@ -9,14 +9,45 @@ The document will describe the upgrade process in details and some cases the ope
 
 FoundationDB upgrades for major and minor versions are incompatible and require that all processes are updated in a short time period.
 
+By default the operator recreates all Pods at the end of an upgrade, to move them to the image of the new version.
+Clusters that use the unified image can opt in to a [pinned main container image](#pinned-main-container-image), where the image of the main container does not change with the FDB version and upgrades are performed in-place without recreating the Pods.
+
 ### Upgrade Process Details
 
 This document describes the upgrade process based on the operator version `v1.14.0` for older versions there might be a slight difference in how the operator is handling the upgrades.
 In addition to that we are currently working on reducing the complexity for patch upgrades to reduce the upgrade steps to the [Recreation of old Pods](#recreation-of-pods-phase) phase.
 
-The graphic below represents the different stages in a Pod during the upgrade:
+The graphic below represents the different stages in a Pod during the upgrade of a cluster that uses the split image (the main container runs `fdbmonitor`):
 
-<img src="./imgs/upgrade_mechanism.svg">
+```mermaid
+flowchart LR
+    subgraph S1["Initial state"]
+        direction TB
+        M1["main container<br/>foundationdb:OLD_VERSION"]
+        C1["sidecar container<br/>foundationdb-kubernetes-sidecar:OLD_VERSION"]
+        V1["shared volume /var/dynamic-conf<br/>bin/OLD_VERSION/fdbserver<br/>fdbmonitor.conf pointing to /usr/bin<br/>fdb.cluster"]
+        M1 ~~~ C1
+        C1 ~~~ V1
+    end
+    subgraph S2["Staging and restart phase"]
+        direction TB
+        M2["main container<br/>foundationdb:OLD_VERSION"]
+        C2["sidecar container<br/>foundationdb-kubernetes-sidecar:NEW_VERSION"]
+        V2["shared volume /var/dynamic-conf<br/>bin/NEW_VERSION/fdbserver<br/>fdbmonitor.conf pointing to /var/dynamic-conf/bin<br/>fdb.cluster"]
+        M2 ~~~ C2
+        C2 ~~~ V2
+    end
+    subgraph S3["After the recreation of the Pod"]
+        direction TB
+        M3["main container<br/>foundationdb:NEW_VERSION"]
+        C3["sidecar container<br/>foundationdb-kubernetes-sidecar:NEW_VERSION"]
+        V3["shared volume /var/dynamic-conf<br/>fdbmonitor.conf pointing to /usr/bin<br/>fdb.cluster"]
+        M3 ~~~ C3
+        C3 ~~~ V3
+    end
+    S1 -->|"update the sidecar image"| S2
+    S2 -->|"recreate the Pod"| S3
+```
 
 The first state on the left is the initial state before the operator is doing any work.
 The second state in the middle is the state of the Pod during the [Staging Phase](#staging-phase) and the [Restart Phase](#restart-phase).
@@ -64,6 +95,8 @@ After the `kill` command the operator will initiate a new reconciliation loop to
 
 #### Recreation of Pods Phase
 
+This phase does not happen for clusters with a [pinned main container image](#pinned-main-container-image), unless `monitorVersion` is changed together with the version.
+
 Technically the upgrade is now done and all the pods in the cluster are running on the new version but the operator has to do some cleanup.
 The cleanup includes the recreation of all Pods to ensure they use the new FoundationDB image for the desired version and the `fdbmonitor` configuration will be updated to point again to 
 the binary included in the image at `/bin/$fdb_version/fdb-server`, instead of the one at `/var/dynamic-conf/bin/$fdb_version` in the original, technically-upgraded pod.
@@ -80,6 +113,139 @@ Once all Pods are updated to the new image the upgrade is done and the cluster s
 Do note that both "recreation" (also referred to as "deletion" of a pod/process group) and "replacement" have a specific meaning here,
 see [Replacements and Deletions](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/replacements_and_deletions.md#replacements-and-deletions)
 for more information.
+
+### Pinned Main Container Image
+
+With the [unified image](../design/unified_sidecar_and_process_monitor.md) every Pod runs the `fdb-kubernetes-monitor` in the main container, which starts the `fdbserver` process, and a sidecar container that copies the binaries of its own image into a shared volume.
+By default the image of the main container follows the FDB version, which means that the [Recreation of Pods Phase](#recreation-of-pods-phase) recreates all Pods at the end of every upgrade.
+For clusters with a lot of stateful Pods this is expensive: volumes must be reattached, the operator waits for the cluster to be healthy again and the recreation can cause additional recoveries.
+For protocol compatible (patch) upgrades the recreation is the upgrade itself, for version incompatible upgrades it is only cleanup after the processes are already running on the new version.
+
+#### Why this mode exists
+
+The recreation at the end of an upgrade is only needed to move the main container to the image of the new version.
+The unified image makes this unnecessary, because the sidecar already copies the `fdbserver` binary of its own version into a volume that is shared with the main container.
+The pinned main container image uses this: the sidecar is the carrier of the binaries for the version of the cluster and the main container only provides the `fdb-kubernetes-monitor` that starts them.
+This keeps the cost of an upgrade independent of the number of Pods that have to be recreated and makes updating the main image (base image or monitor fixes) an explicit decision of the user, instead of a side effect of every FDB upgrade.
+The design, the interaction with the monitor and the open questions are described in the [pinned main container image design](../design/pinned_main_container_image.md).
+The [test plan](../design/pinned_main_container_image_test_plan.md) lists what is verified for this mode.
+
+The mode is opt-in.
+Clusters that do not set `monitorVersion` behave as described in the [upgrade process details](#upgrade-process-details).
+
+#### Enabling the mode
+
+If `monitorVersion` is set in the main container settings, the main container image stays at this version and `fdbserver` runs from the binaries that the sidecar stages in the shared volume (`/var/fdb/shared-binaries/bin/$fdb_version`).
+Only the image of the sidecar container is updated in-place when the FDB version changes.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 7.4.10
+  imageType: unified
+  mainContainer:
+    monitorVersion: 7.4.10
+```
+
+`monitorVersion` must be a valid FDB version (the same format as `version`) and is only supported with the unified image.
+The version the main container image is using is shown in `status.monitorVersion` and in the `MonitorVersion` column of `kubectl get fdb`.
+If `monitorVersion` is not set, the status shows the `version` of the cluster.
+
+#### Upgrade flows compared
+
+The phases have the same names as in the [upgrade process details](#upgrade-process-details).
+The first diagram shows the classic flow for a version incompatible upgrade, the second one the same upgrade with a pinned main container image.
+
+```mermaid
+flowchart TD
+    A["Pre upgrade check<br/>all clients support the new version"] --> B["Staging phase<br/>sidecar image updated in-place<br/>new binary and configuration in place"]
+    B --> C["Restart phase<br/>wait until all Pods are ready<br/>restart all processes"]
+    C --> D["Recreation of Pods phase<br/>all Pods are recreated with the image of the new version"]
+    D --> E["Upgrade done"]
+    D -.->|"process did not restart"| F["RemoveIncompatibleProcesses<br/>recreates the Pod"]
+    F --> E
+```
+
+With a pinned main container image there is no recreation phase.
+The restart only starts once the monitor of every Pod has accepted the configuration of the new version, which is only possible after the sidecar has staged the binary.
+
+```mermaid
+flowchart TD
+    A["Pre upgrade check<br/>all clients support the new version"] --> B["Staging phase<br/>sidecar image updated in-place<br/>binary staged, configuration pushed"]
+    B --> C{"Monitor of every Pod accepted<br/>the new configuration?"}
+    C -->|"no, binary not staged yet"| B
+    C -->|"yes"| D["Restart phase<br/>restart all processes that are ready"]
+    D --> E["Upgrade done<br/>no Pod was recreated"]
+    D -.->|"process did not restart"| F["RemoveIncompatibleProcesses<br/>recreates the Pod, needs a cluster status"]
+    F --> E
+```
+
+For protocol compatible (patch) upgrades the flow depends on the version of the monitor in the main container:
+
+```mermaid
+flowchart TD
+    A["Patch upgrade"] --> B{"monitorVersion supports<br/>the useSharedBinary option?<br/>7.4.10+, 8.0.2+, 8.1+"}
+    B -->|"yes"| C["Staging phase<br/>sidecar image updated in-place<br/>useSharedBinary set in the configuration"]
+    C --> D["Restart phase<br/>processes start from the staged binary"]
+    D --> G["Upgrade done<br/>no Pod was recreated"]
+    B -->|"no"| E{"Pods already use the<br/>staged binary?"}
+    E -->|"yes, after an earlier patch upgrade"| H["Staging phase<br/>sidecar image updated in-place<br/>the Pods already start the staged binary"]
+    H --> D
+    E -->|"no, first patch upgrade"| F["Pods are replaced once<br/>new Pods always start the staged binary"]
+    F --> G
+```
+
+#### Rollout
+
+| Change | What the operator does |
+|---|---|
+| Set `monitorVersion` to the current `version` | Nothing is restarted or recreated. The operator only updates the `foundationdb.org/last-applied-spec` annotation of the Pods. Enable the setting before you start an upgrade. |
+| Version incompatible upgrade (major or minor) | The [Staging Phase](#staging-phase) and the [Restart Phase](#restart-phase) run as before, the sidecar image is updated in-place and the processes are restarted with the staged binary. The Recreation of Pods Phase does not happen, no Pod is recreated. |
+| Patch upgrade, `monitorVersion` of at least `7.4.10`, `8.0.2` or `8.1.0` | In-place as well: the operator writes the option `useSharedBinary` into the process configuration, updates the sidecar image and restarts the processes with the staged binary. |
+| Patch upgrade, older `monitorVersion` | The first patch upgrade away from `monitorVersion` replaces the Pods once (according to the [Pod update strategy](../cluster_spec.md#podupdatestrategy)) with Pods that always start the staged binary. All further patch upgrades are in-place. |
+| Set `monitorVersion` and `version` to the same new version | Normal upgrade with a rolling update of the Pods, like for a cluster without `monitorVersion`. Use this to roll the pinned image forward, for example for base image or monitor fixes. The following upgrades are in-place again. |
+| Change only `monitorVersion` | Rolling update of the Pods to the new main container image. |
+| Remove `monitorVersion` | Rolling update of the Pods back to the images of the `version`. |
+
+The monitor versions that support the `useSharedBinary` option are `7.4.10` and newer 7.4 patches, `8.0.2` and newer 8.0 patches and `8.1.0` and newer.
+They also retry to start the process if the sidecar has not finished staging the binary yet.
+These changes are not available for `7.3` and older versions, which use the first patch upgrade rollout from the table.
+
+During an in-place upgrade the operator only restarts the processes if the monitor of every Pod has accepted the configuration of the new version, and the monitor only does that once the binary exists.
+The restart is done with the same `kill` command that is used for all other restarts, which means all processes that are ready are restarted at the same time.
+
+#### Caveats
+
+- **Image maintenance**: the main container image is not refreshed by upgrades anymore.
+  Security fixes in the base image and bug fixes in the `fdb-kubernetes-monitor` only reach the Pods if you change `monitorVersion`.
+  Plan a regular update of `monitorVersion`, see the [rollout table](#rollout).
+- **Tools in the main container**: `fdbcli`, `fdbbackup` and other binaries in the main container image have the version of `monitorVersion`, not the version of the running `fdbserver`.
+  Commands that exec into the main container, for example some [kubectl fdb plugin](../../kubectl-fdb/Readme.md) commands, can therefore use a different version than the cluster.
+  The staged `fdbcli` of the running version is available in the shared volume at `/var/fdb/shared-binaries/bin/$fdb_version/fdbcli`.
+- **Dependency on the sidecar**: a Pod can only start `fdbserver` if the sidecar has staged the binary.
+  If the sidecar of a new Pod cannot copy the binary, the process of this Pod will not start.
+  Monitors before `7.4.10` and `8.0.2` do not retry, the operator triggers a reload of the configuration until the monitor has accepted it.
+  A Process Group with this problem has the `MissingProcesses` condition and the Pod has no `foundationdb.org/launcher-environment` annotation.
+  If the operator does not do this, you can trigger the reload manually: `kubectl annotate pod pod-1 foundationdb.org/outdated-config-map-seen="$(date +%s)" --overwrite`.
+- **Disk usage**: the staged binaries of old versions stay in the shared volume (an `emptyDir`) until the Pod is recreated, every upgrade adds the `fdbserver` and `fdbcli` binaries of the new version.
+  Monitor versions with support for the `useSharedBinary` option remove the staged versions that are not used anymore.
+  For other versions plan for the versions you expect to deploy during the life time of a Pod, the volume is reset when the Pod is recreated, for example when you change `monitorVersion`.
+- **Processes that are not restarted**: in the classic flow the Recreation of Pods Phase restarts every process that missed the `kill` command, because all Pods are recreated.
+  With a pinned image this phase does not exist, so a process that missed the restart keeps running on the old version.
+  For version incompatible upgrades the operator recreates the Pods of processes that are listed in the `incompatible_connections` of the cluster status in the `RemoveIncompatibleProcesses` subreconciler.
+  This needs a cluster status and does not work if the cluster is unavailable because of those processes, for example if the majority of the coordinators did not restart.
+  In this case restart or recreate the affected Pods manually, see [Processes are not restarted during the restart Phase](#processes-are-not-restarted-during-the-restart-phase).
+  For patch upgrades these processes are not a problem, since they are still part of the cluster.
+- **Disabling the shared binary option**: if the `useSharedBinary` option causes problems you can set the annotation `foundationdb.org/disable-shared-binary-config: "true"` on the `FoundationDBCluster`.
+  The operator then uses the mechanism for older monitors.
+  Pods that need the staged binary but do not have the required settings will be replaced once.
+- **Multiple regions and data centers**: the in-place upgrade uses the same coordination between the operators as the classic upgrade, see the [technical design](technical_design.md#bounceprocesses).
+  Every operator needs the `fdbcli` of the new version.
+  The pinned main container image has not been validated in multi-region setups yet.
+- **Downgrades**: the same limitations as for the classic upgrade apply, only downgrades to an older patch version are supported.
 
 ### Known issues
 
