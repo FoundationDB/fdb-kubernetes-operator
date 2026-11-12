@@ -136,6 +136,54 @@ spec:
               encryptionKeyPath:
                 maxLength: 4096
                 type: string
+              expiration:
+                properties:
+                  beforeTimestamp:
+                    format: date-time
+                    type: string
+                  expireAfterSeconds:
+                    format: int64
+                    maximum: 315360000
+                    minimum: 1
+                    type: integer
+                  intervalSeconds:
+                    format: int64
+                    maximum: 86400
+                    minimum: 60
+                    type: integer
+                  restorableAfterTimestamp:
+                    format: date-time
+                    type: string
+                  restorableAfterVersion:
+                    format: int64
+                    minimum: 1
+                    type: integer
+                  restorableForSeconds:
+                    format: int64
+                    maximum: 315360000
+                    minimum: 1
+                    type: integer
+                type: object
+                x-kubernetes-validations:
+                - message: restorableForSeconds must not exceed expireAfterSeconds
+                  rule: '!has(self.restorableForSeconds) || (has(self.expireAfterSeconds)
+                    && self.restorableForSeconds <= self.expireAfterSeconds)'
+                - message: restorableForSeconds and restorableAfterVersion are mutually
+                    exclusive
+                  rule: '!has(self.restorableForSeconds) || !has(self.restorableAfterVersion)'
+                - message: exactly one of expireAfterSeconds and beforeTimestamp is
+                    required
+                  rule: has(self.expireAfterSeconds) != has(self.beforeTimestamp)
+                - message: beforeTimestamp and restorableAfterTimestamp must be set
+                    together
+                  rule: has(self.beforeTimestamp) == has(self.restorableAfterTimestamp)
+                - message: timestamp expiration cannot use duration or version restore
+                    requirements
+                  rule: '!has(self.beforeTimestamp) || (!has(self.restorableForSeconds)
+                    && !has(self.restorableAfterVersion))'
+                - message: beforeTimestamp must not exceed restorableAfterTimestamp
+                  rule: '!has(self.beforeTimestamp) || !has(self.restorableAfterTimestamp)
+                    || timestamp(self.beforeTimestamp) <= timestamp(self.restorableAfterTimestamp)'
               imageType:
                 default: split
                 enum:
@@ -4042,6 +4090,10 @@ spec:
             - clusterName
             - version
             type: object
+            x-kubernetes-validations:
+            - message: expiration is not supported for unmanaged backups
+              rule: '!has(self.expiration) || !has(self.backupType) || self.backupType
+                != ''unmanaged'''
           status:
             properties:
               agentCount:
@@ -4063,6 +4115,31 @@ spec:
                 type: object
               deploymentConfigured:
                 type: boolean
+              expiration:
+                properties:
+                  completionTime:
+                    format: date-time
+                    type: string
+                  failureCount:
+                    minimum: 0
+                    type: integer
+                  jobName:
+                    type: string
+                  message:
+                    type: string
+                  nextRunTime:
+                    format: date-time
+                    type: string
+                  phase:
+                    enum:
+                    - Running
+                    - Succeeded
+                    - Failed
+                    type: string
+                required:
+                - jobName
+                - phase
+                type: object
               generations:
                 properties:
                   needsBackupAgentUpdate:

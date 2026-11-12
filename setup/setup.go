@@ -129,6 +129,7 @@ type Options struct {
 	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
 	MinimumUptimeForConfigurationChanges                  time.Duration
 	MinimumAgeForTerminalPodDeletion                      time.Duration
+	BackupExpirationPollInterval                          time.Duration
 	// AllowedAdditionalVolumeSources defines the allowed corev1.VolumeSources a user can define in the user provided
 	// corev1.PodSpec.
 	AllowedAdditionalVolumeSources []string
@@ -383,6 +384,12 @@ func (o *Options) BindFlags(fs *pflag.FlagSet) {
 		"the minimum uptime for the cluster before configuration changes are allowed.",
 	)
 	fs.DurationVar(
+		&o.BackupExpirationPollInterval,
+		"backup-expiration-poll-interval",
+		time.Minute,
+		"Interval for observing active backup expiration Jobs. Non-positive values use one minute.",
+	)
+	fs.DurationVar(
 		&o.MinimumAgeForTerminalPodDeletion,
 		"minimum-age-for-terminal-pod-deletion",
 		30*time.Second,
@@ -614,6 +621,7 @@ func StartManager(
 		backupReconciler.ServerSideApply = operatorOpts.ServerSideApply
 		backupReconciler.AllowedPodModifications = allowedPodModifications
 		backupReconciler.MinimumAgeForTerminalPodDeletion = operatorOpts.MinimumAgeForTerminalPodDeletion
+		backupReconciler.BackupExpirationPollInterval = operatorOpts.BackupExpirationPollInterval
 
 		if err := backupReconciler.SetupWithManager(
 			mgr,
