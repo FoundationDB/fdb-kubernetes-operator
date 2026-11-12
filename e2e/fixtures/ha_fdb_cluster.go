@@ -250,7 +250,7 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 	for _, cluster := range clusters {
 		curCluster := cluster.GetCluster(ctx)
 
-		generation := curCluster.ObjectMeta.Generation
+		generation := curCluster.Generation
 		// Only increase the expected generation if the cluster is not already upgraded.
 		if curCluster.Spec.Version != version {
 			generation++

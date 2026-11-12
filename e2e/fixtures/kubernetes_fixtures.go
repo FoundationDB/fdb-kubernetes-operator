@@ -252,7 +252,7 @@ func (factory *Factory) checkIfNamespaceIsTerminating(ctx context.Context, name 
 		return nil
 	}
 
-	deletionTimestamp := namespace.ObjectMeta.DeletionTimestamp
+	deletionTimestamp := namespace.DeletionTimestamp
 	// No deletionTimestamp is set, so we can assume the namespace is still running.
 	if deletionTimestamp == nil {
 		return nil

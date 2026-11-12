@@ -672,7 +672,7 @@ func validateProcessGroups(
 		)
 
 		// This handles the case where the Pod has a DeletionTimestamp and should be deleted.
-		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !pod.DeletionTimestamp.IsZero() {
 			// If the ProcessGroup is marked for removal and is excluded, we can put the status into ResourcesTerminating.
 			if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
 				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true)
@@ -682,7 +682,7 @@ func validateProcessGroups(
 			// if a Pod is marked for terminating (e.g. node failure) but the process itself is still reporting to the
 			// cluster. We only set this condition if the Pod is in this state for GetFailedPodDuration(), the default
 			// here is 5 minutes.
-			if pod.ObjectMeta.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).
+			if pod.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).
 				Before(time.Now()) {
 				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true)
 				continue
@@ -705,7 +705,7 @@ func validateProcessGroups(
 			status.ImageTypes = append(status.ImageTypes, imageType)
 		}
 
-		if pod.ObjectMeta.DeletionTimestamp.IsZero() && status.HasListenIPsForAllPods {
+		if pod.DeletionTimestamp.IsZero() && status.HasListenIPsForAllPods {
 			hasPodIP := false
 			for _, container := range pod.Spec.Containers {
 				if container.Name == fdbv1beta2.SidecarContainerName ||
@@ -852,7 +852,7 @@ func validateProcessGroup(
 			synced = false
 		}
 	} else {
-		synced = pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash
+		synced = pod.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, !synced)
@@ -1009,7 +1009,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 			}
 
 			// Use node taint's timestamp as the NodeTaintDetected condition's starting time.
-			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Time.Unix() < *nodeTaintDetectedTime {
+			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Unix() < *nodeTaintDetectedTime {
 				logger.Info("Update NodeTaintDetected condition",
 					"TaintKey", taint.Key,
 					"TaintValue", taint.Value,

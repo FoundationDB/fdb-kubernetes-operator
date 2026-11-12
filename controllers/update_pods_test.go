@@ -684,7 +684,7 @@ var _ = Describe("update_pods", func() {
 								),
 							).To(Succeed())
 							Expect(
-								newPod.CreationTimestamp.Time.Unix(),
+								newPod.CreationTimestamp.Unix(),
 							).To(Equal(creationTimestamp.Unix()))
 						})
 

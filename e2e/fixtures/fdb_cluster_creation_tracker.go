@@ -209,7 +209,7 @@ func (tracker *fdbClusterCreationTracker) checkStep(
 		}
 	case creationStepDatabaseConfigured:
 		reconciled := cluster.Status.Generations == fdbv1beta2.ClusterGenerationStatus{
-			Reconciled: cluster.ObjectMeta.Generation,
+			Reconciled: cluster.Generation,
 		}
 
 		if !reconciled {

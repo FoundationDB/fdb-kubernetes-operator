@@ -61,7 +61,7 @@ var _ = Describe("pod_models", func() {
 				It("should contain the process group's metadata", func() {
 					Expect(pod.Namespace).To(Equal("my-ns"))
 					Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
-					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(pod.Labels).To(Equal(map[string]string{
 						fdbv1beta2.FDBClusterLabel:        cluster.Name,
 						fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 						fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -102,7 +102,7 @@ var _ = Describe("pod_models", func() {
 				It("should contain the process group's metadata", func() {
 					Expect(pod.Namespace).To(Equal("my-ns"))
 					Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
-					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(pod.Labels).To(Equal(map[string]string{
 						"fdb-custom-name":                 cluster.Name,
 						"fdb-new-custom-name":             cluster.Name,
 						"fdb-managed-by-operator":         "true",
@@ -123,7 +123,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should contain the process group's metadata", func() {
 					Expect(pod.Name).To(Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
-					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(pod.Labels).To(Equal(map[string]string{
 						fdbv1beta2.FDBClusterLabel: cluster.Name,
 						fdbv1beta2.FDBProcessClassLabel: string(
 							fdbv1beta2.ProcessClassClusterController,
@@ -164,7 +164,7 @@ var _ = Describe("pod_models", func() {
 						&pod.Spec,
 					)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(pod.Annotations).To(Equal(map[string]string{
 						"fdb-annotation":                    "value1",
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
@@ -199,7 +199,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("should add the labels to the metadata", func() {
-					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(pod.Labels).To(Equal(map[string]string{
 						fdbv1beta2.FDBClusterLabel:        cluster.Name,
 						fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 						fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -2574,11 +2574,11 @@ var _ = Describe("pod_models", func() {
 
 				Expect(traceVolumeCount).To(Equal(1))
 				Expect(traceVolume).NotTo(BeNil())
-				Expect(traceVolume.VolumeSource.EmptyDir).To(BeNil())
-				Expect(traceVolume.VolumeSource.HostPath).NotTo(BeNil())
-				Expect(traceVolume.VolumeSource.HostPath.Path).To(Equal("/var/log/fdb-trace-logs"))
+				Expect(traceVolume.EmptyDir).To(BeNil())
+				Expect(traceVolume.HostPath).NotTo(BeNil())
+				Expect(traceVolume.HostPath.Path).To(Equal("/var/log/fdb-trace-logs"))
 				Expect(
-					traceVolume.VolumeSource.HostPath.Type,
+					traceVolume.HostPath.Type,
 				).To(Equal(ptr.To(corev1.HostPathDirectoryOrCreate)))
 			})
 		})
@@ -3013,7 +3013,7 @@ var _ = Describe("pod_models", func() {
 			})
 			It("adds config-map volume that refers to custom map", func() {
 				Expect(
-					spec.Volumes[2].VolumeSource.ConfigMap.LocalObjectReference.Name,
+					spec.Volumes[2].ConfigMap.Name,
 				).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
 			})
 		})
@@ -3028,7 +3028,7 @@ var _ = Describe("pod_models", func() {
 			})
 			It("adds data volume that refers to default pvc", func() {
 				Expect(
-					spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName,
+					spec.Volumes[0].PersistentVolumeClaim.ClaimName,
 				).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 			})
 		})
@@ -3249,7 +3249,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the service", func() {
 				Expect(service.Namespace).To(Equal("my-ns"))
 				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
-				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(service.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -3329,7 +3329,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the service", func() {
 				Expect(service.Namespace).To(Equal("my-ns"))
 				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
-				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(service.Labels).To(Equal(map[string]string{
 					"fdb-custom-name":                 cluster.Name,
 					"fdb-managed-by-operator":         "true",
 					"fdb-new-custom-name":             cluster.Name,
@@ -3371,7 +3371,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the PVC", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -3412,7 +3412,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the PVC", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					"fdb-custom-name":                 cluster.Name,
 					"fdb-new-custom-name":             cluster.Name,
 					"fdb-managed-by-operator":         "true",
@@ -3479,11 +3479,11 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the PVC", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Annotations).To(Equal(map[string]string{
+				Expect(pvc.Annotations).To(Equal(map[string]string{
 					"fdb-annotation":                     "value1",
 					"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 				}))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -3518,7 +3518,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should include the prefix in the process group IDs", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "dc1-storage-1",
@@ -3563,7 +3563,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should include the prefix in the process group IDs", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "dc1-storage-1",
@@ -3600,9 +3600,9 @@ var _ = Describe("pod_models", func() {
 
 		Context("with the default config", func() {
 			It("should set the metadata on the service", func() {
-				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
-				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
-				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal("operator-test-1"))
+				Expect(service.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel: "operator-test-1",
 				}))
 			})
@@ -3627,8 +3627,8 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should update the IPFamilies in the service spec", func() {
-				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
-				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal("operator-test-1"))
 				Expect(len(service.Spec.IPFamilies)).To(Equal(1))
 				Expect(service.Spec.IPFamilies).To(Equal([]corev1.IPFamily{corev1.IPv6Protocol}))
 			})
@@ -3648,9 +3648,9 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set the metadata on the service", func() {
-				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
-				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
-				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal("operator-test-1"))
+				Expect(service.Labels).To(Equal(map[string]string{
 					"fdb-custom-name":         "operator-test-1",
 					"fdb-new-custom-name":     "operator-test-1",
 					"fdb-managed-by-operator": "true",
@@ -3709,15 +3709,15 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set the metadata for the deployment", func() {
-				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
-				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
+				Expect(deployment.Name).To(Equal("operator-test-1-backup-agents"))
+				Expect(len(deployment.OwnerReferences)).To(Equal(1))
 				Expect(
-					deployment.ObjectMeta.OwnerReferences[0].UID,
-				).To(Equal(cluster.ObjectMeta.UID))
-				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
-					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
+					deployment.OwnerReferences[0].UID,
+				).To(Equal(cluster.UID))
+				Expect(deployment.Labels).To(Equal(map[string]string{
+					fdbv1beta2.BackupDeploymentLabel: string(cluster.UID),
 				}))
-				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
+				Expect(deployment.Annotations).To(Equal(map[string]string{
 					"foundationdb.org/last-applied-spec": "5250c19ca170acf598f0e1437383ac279876e5d08db4d9dfd2b8121dac05e419",
 				}))
 			})
@@ -3733,7 +3733,7 @@ var _ = Describe("pod_models", func() {
 				).To(Equal(metav1.LabelSelector{MatchLabels: map[string]string{
 					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
 				}}))
-				Expect(deployment.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(deployment.Spec.Template.Labels).To(Equal(map[string]string{
 					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
 				}))
 			})
@@ -3994,7 +3994,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should add the labels", func() {
-				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(deployment.Labels).To(Equal(map[string]string{
 					"foundationdb.org/backup-for": "",
 					"fdb-test":                    "test-value",
 				}))
@@ -4082,15 +4082,15 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set custom parameter in the args", func() {
-				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
-				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
+				Expect(deployment.Name).To(Equal("operator-test-1-backup-agents"))
+				Expect(len(deployment.OwnerReferences)).To(Equal(1))
 				Expect(
-					deployment.ObjectMeta.OwnerReferences[0].UID,
-				).To(Equal(cluster.ObjectMeta.UID))
-				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
-					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
+					deployment.OwnerReferences[0].UID,
+				).To(Equal(cluster.UID))
+				Expect(deployment.Labels).To(Equal(map[string]string{
+					"foundationdb.org/backup-for": string(cluster.UID),
 				}))
-				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
+				Expect(deployment.Annotations).To(Equal(map[string]string{
 					"foundationdb.org/last-applied-spec": "a8b98f7f18dc54eda28869efedf2718393b73fb8b0980cd2e88fb5153fbcd33b",
 				}))
 

@@ -423,8 +423,8 @@ var _ = Describe("pod_helper", func() {
 			result, err := podMetadataCorrect(tc.metadata, tc.pod)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(tc.expected))
-			Expect(tc.pod.ObjectMeta.Labels).To(Equal(tc.expectedMeta.Labels))
-			Expect(tc.pod.ObjectMeta.Annotations).To(Equal(tc.expectedMeta.Annotations))
+			Expect(tc.pod.Labels).To(Equal(tc.expectedMeta.Labels))
+			Expect(tc.pod.Annotations).To(Equal(tc.expectedMeta.Annotations))
 		},
 		Entry("Metadata matches with Pod metadata",
 			testCase{

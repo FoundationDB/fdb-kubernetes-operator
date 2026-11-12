@@ -115,7 +115,7 @@ func (updatePodConfig) reconcile(
 		// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
 		// to make sure all process groups have the required files ready. In the future we will use a different condition to indicate that a
 		// process group si ready to be restarted.
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash &&
+		if pod.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash &&
 			!cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 			continue
 		}
@@ -138,7 +138,7 @@ func (updatePodConfig) reconcile(
 				delayedRequeue = false
 			}
 
-			pod.ObjectMeta.Annotations[api.OutdatedConfigMapAnnotation] = strconv.FormatInt(
+			pod.Annotations[api.OutdatedConfigMapAnnotation] = strconv.FormatInt(
 				time.Now().Unix(),
 				10,
 			)
@@ -152,9 +152,9 @@ func (updatePodConfig) reconcile(
 		}
 
 		// Update the LastConfigMapKey annotation once the Pod was updated.
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash {
-			pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
-			delete(pod.ObjectMeta.Annotations, api.OutdatedConfigMapAnnotation)
+		if pod.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash {
+			pod.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
+			delete(pod.Annotations, api.OutdatedConfigMapAnnotation)
 			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 			if err != nil {
 				allSynced = false

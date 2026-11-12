@@ -78,11 +78,11 @@ func (u updateBackupAgents) reconcile(
 		return &requeue{curError: err}
 	}
 
-	if deployment != nil && deployment.ObjectMeta.Name != deploymentName {
+	if deployment != nil && deployment.Name != deploymentName {
 		return &requeue{
 			curError: fmt.Errorf(
 				"inconsistent deployment names: %s != %s",
-				deployment.ObjectMeta.Name,
+				deployment.Name,
 				deploymentName,
 			),
 		}
@@ -101,10 +101,10 @@ func (u updateBackupAgents) reconcile(
 			&existingDeployment.ObjectMeta,
 			deployment.ObjectMeta,
 		)
-		deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
+		deployment.Annotations = existingDeployment.Annotations
 
 		if annotationChange ||
-			!reflect.DeepEqual(existingDeployment.ObjectMeta.Labels, deployment.ObjectMeta.Labels) {
+			!reflect.DeepEqual(existingDeployment.Labels, deployment.Labels) {
 			err = r.Update(ctx, deployment)
 			if err != nil {
 				return &requeue{curError: err}

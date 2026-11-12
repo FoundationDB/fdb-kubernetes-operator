@@ -387,7 +387,7 @@ func (fdbBackup *FdbBackup) WaitForReconciliation(ctx context.Context) {
 			startTime = time.Now()
 		}
 
-		return curBackup.Status.Generations.Reconciled == curBackup.ObjectMeta.Generation
+		return curBackup.Status.Generations.Reconciled == curBackup.Generation
 	}).WithTimeout(15*time.Minute).WithPolling(2*time.Second).Should(gomega.BeTrue(), "error waiting for reconciliation of FDB backup")
 }
 
@@ -461,7 +461,7 @@ func (fdbBackup *FdbBackup) Destroy(ctx context.Context) {
 func (fdbBackup *FdbBackup) ForceReconcile(ctx context.Context) {
 	log.Printf("ForceReconcile: Status Generations=%s, Metadata Generation=%d",
 		ToJSON(fdbBackup.backup.Status.Generations),
-		fdbBackup.backup.ObjectMeta.Generation)
+		fdbBackup.backup.Generation)
 
 	patch := client.MergeFrom(fdbBackup.backup.DeepCopy())
 	if fdbBackup.backup.Annotations == nil {
