@@ -337,7 +337,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 		}
 	}
 
-	originalGeneration := cluster.ObjectMeta.Generation
+	originalGeneration := cluster.Generation
 	normalizedSpec := cluster.Spec.DeepCopy()
 	var delayedRequeueDuration time.Duration
 	var delayedRequeue bool

@@ -34,9 +34,11 @@ func GetHeadlessService(cluster *fdbv1beta2.FoundationDBCluster) *corev1.Service
 	service := &corev1.Service{
 		ObjectMeta: GetObjectMetadata(cluster, nil, "", ""),
 	}
-	service.ObjectMeta.Name = cluster.ObjectMeta.Name
+	service.Name = cluster.Name
 	service.Spec.ClusterIP = "None"
 	service.Spec.Selector = cluster.GetMatchLabels()
+	// Peer discovery must remain available when a sidecar makes the Pod unready
+	service.Spec.PublishNotReadyAddresses = true
 
 	if cluster.IsPodIPFamily6() {
 		service.Spec.IPFamilies = []corev1.IPFamily{corev1.IPv6Protocol}

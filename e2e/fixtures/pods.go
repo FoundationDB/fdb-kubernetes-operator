@@ -163,7 +163,7 @@ func GetProcessGroupID(pod corev1.Pod) fdbv1beta2.ProcessGroupID {
 func GetPvc(pod *corev1.Pod) string {
 	for _, vol := range pod.Spec.Volumes {
 		if vol.Name == "data" {
-			return vol.VolumeSource.PersistentVolumeClaim.ClaimName
+			return vol.PersistentVolumeClaim.ClaimName
 		}
 	}
 

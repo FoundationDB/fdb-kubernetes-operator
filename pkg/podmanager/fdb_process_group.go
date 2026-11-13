@@ -79,10 +79,10 @@ func GetPublicIPs(pod *corev1.Pod, log logr.Logger) []string {
 		return []string{}
 	}
 
-	source := pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
+	source := pod.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
 	if source == "" || source == string(fdbv1beta2.PublicIPSourcePod) {
 		return internal.GetPublicIPsForPod(pod, log)
 	}
 
-	return []string{pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPAnnotation]}
+	return []string{pod.Annotations[fdbv1beta2.PublicIPAnnotation]}
 }

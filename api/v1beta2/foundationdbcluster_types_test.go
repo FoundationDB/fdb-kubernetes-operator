@@ -3756,7 +3756,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 			settings := cluster.GetProcessSettings(ProcessClassStorage)
 			Expect(
-				settings.PodTemplate.ObjectMeta.Labels,
+				settings.PodTemplate.Labels,
 			).To(Equal(map[string]string{"test-label": "label2"}))
 			Expect(
 				settings.CustomParameters,

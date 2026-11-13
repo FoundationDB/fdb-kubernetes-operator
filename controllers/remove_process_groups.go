@@ -591,7 +591,7 @@ func getProcessesToInclude(
 					)
 					if markedAsExcluded != nil {
 						timeToFullExclusion = float64(
-							processGroup.RemovalTimestamp.Time.Unix() - ptr.Deref(
+							processGroup.RemovalTimestamp.Unix() - ptr.Deref(
 								markedAsExcluded,
 								0,
 							),

@@ -127,7 +127,7 @@ func (r *FoundationDBRestoreReconciler) adminClientForRestore(
 	err := r.Get(
 		ctx,
 		types.NamespacedName{
-			Namespace: restore.ObjectMeta.Namespace,
+			Namespace: restore.Namespace,
 			Name:      restore.Spec.DestinationClusterName,
 		},
 		cluster,

@@ -508,13 +508,14 @@ func GetSubstitutionsFromClusterAndPod(
 
 	substitutions[fdbv1beta2.EnvNamePodIP] = substitutions[fdbv1beta2.EnvNamePublicIP]
 
-	if cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
+	switch cluster.Spec.FaultDomain.Key {
+	case fdbv1beta2.NoneFaultDomainKey:
 		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Name
 		substitutions[fdbv1beta2.EnvNameZoneID] = pod.Name
-	} else if cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
+	case "foundationdb.org/kubernetes-cluster":
 		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Spec.NodeName
 		substitutions[fdbv1beta2.EnvNameZoneID] = cluster.Spec.FaultDomain.Value
-	} else {
+	default:
 		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
 		if faultDomainSource == "" {
 			faultDomainSource = "spec.nodeName"
