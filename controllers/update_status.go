@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"sort"
@@ -809,6 +810,12 @@ func validateProcessGroup(
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPodSpec)
+	pendingImages, err := internal.GetPendingImageUpdates(cluster, pod)
+	if err != nil {
+		return err
+	}
+	processGroupStatus.UpdateCondition(fdbv1beta2.UpdatingContainerImages,
+		pod.Annotations[internal.InPlaceImageUpdateAnnotation] != "")
 
 	// Check the sidecar image, to ensure the sidecar is running with the desired image.
 	sidecarImage, err := internal.GetSidecarImage(cluster, processGroupStatus.ProcessClass)
@@ -890,14 +897,16 @@ func validateProcessGroup(
 		processGroupStatus.UpdateCondition(fdbv1beta2.MissingPVC, incorrectPVC)
 	}
 
-	if pod.Status.Phase == corev1.PodPending {
+	if pod.Status.Phase == corev1.PodPending &&
+		(len(pendingImages) == 0 || !internal.ContainersReadyExcept(pod, slices.Collect(maps.Keys(pendingImages)))) {
 		processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, true)
 		return nil
 	}
 
 	failing := pod.Status.Phase == corev1.PodFailed
 	for _, container := range pod.Status.ContainerStatuses {
-		if !container.Ready {
+		_, updatingImage := pendingImages[container.Name]
+		if !container.Ready && !updatingImage {
 			failing = true
 			break
 		}

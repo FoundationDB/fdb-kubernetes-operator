@@ -31,6 +31,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -121,12 +122,35 @@ const (
 
 // Ensure the interfaces are implemented
 var _ PodLifecycleManagerWithPodUpdateMethod = (*StandardPodLifecycleManager)(nil)
+var _ PodLifecycleManagerWithContainerImageUpdates = (*StandardPodLifecycleManager)(nil)
 var _ PodLifecycleManager = (*StandardPodLifecycleManager)(nil)
 
 // PodLifecycleManagerWithPodUpdateMethod implements an interface to change the way how pods are updated.
 type PodLifecycleManagerWithPodUpdateMethod interface {
 	// SetUpdateMethod will set the update method for pods.
 	SetUpdateMethod(method PodUpdateMethod)
+}
+
+// PodLifecycleManagerWithContainerImageUpdates supports atomic image updates and authoritative reads
+// Implementations must preserve their Pod ownership filtering when using the supplied API reader
+type PodLifecycleManagerWithContainerImageUpdates interface {
+	GetPodsForImageUpdate(
+		context.Context,
+		client.Reader,
+		*fdbv1beta2.FoundationDBCluster,
+		...client.ListOption,
+	) ([]*corev1.Pod, error)
+	// UpdateContainerImages atomically applies images, their spec hash and pending-container marker
+	// An empty pending marker clears the annotation; nil images leaves the images unchanged
+	UpdateContainerImages(
+		context.Context,
+		client.Client,
+		*fdbv1beta2.FoundationDBCluster,
+		*corev1.Pod,
+		map[string]string,
+		string,
+		string,
+	) error
 }
 
 // StandardPodLifecycleManager provides an implementation of PodLifecycleManager
@@ -166,6 +190,16 @@ func (manager *StandardPodLifecycleManager) updatePod(
 func (manager *StandardPodLifecycleManager) GetPods(
 	ctx context.Context,
 	r client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	options ...client.ListOption,
+) ([]*corev1.Pod, error) {
+	return manager.GetPodsForImageUpdate(ctx, r, cluster, options...)
+}
+
+// GetPodsForImageUpdate lists owned Pods using the supplied authoritative reader
+func (manager *StandardPodLifecycleManager) GetPodsForImageUpdate(
+	ctx context.Context,
+	r client.Reader,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	options ...client.ListOption,
 ) ([]*corev1.Pod, error) {
@@ -287,6 +321,45 @@ func (manager *StandardPodLifecycleManager) UpdateImageVersion(
 ) error {
 	pod.Spec.Containers[containerIndex].Image = image
 	return manager.updatePod(ctx, r, pod)
+}
+
+// UpdateContainerImages keeps image rollout bookkeeping atomic with conflict detection in both update modes
+func (manager *StandardPodLifecycleManager) UpdateContainerImages(
+	ctx context.Context,
+	r client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+	images map[string]string,
+	appliedSpecHash string,
+	pendingAnnotation string,
+) error {
+	if cluster.ShouldFilterOnOwnerReferences() && !metav1.IsControlledBy(pod, cluster) {
+		return fmt.Errorf("pod %s is not controlled by cluster %s", pod.Name, cluster.Name)
+	}
+	updated := pod.DeepCopy()
+	for index := range updated.Spec.Containers {
+		container := &updated.Spec.Containers[index]
+		if image, found := images[container.Name]; found {
+			container.Image = image
+		}
+	}
+	if updated.Annotations == nil {
+		updated.Annotations = make(map[string]string)
+	}
+	updated.Annotations[fdbv1beta2.LastSpecKey] = appliedSpecHash
+	if pendingAnnotation == "" {
+		delete(updated.Annotations, internal.InPlaceImageUpdateAnnotation)
+	} else {
+		updated.Annotations[internal.InPlaceImageUpdateAnnotation] = pendingAnnotation
+	}
+	if manager.updateMethod == Patch {
+		return r.Patch(
+			ctx,
+			updated,
+			client.MergeFromWithOptions(pod, client.MergeFromWithOptimisticLock{}),
+		)
+	}
+	return r.Update(ctx, updated)
 }
 
 // UpdateMetadata updates an Pod's metadata.
