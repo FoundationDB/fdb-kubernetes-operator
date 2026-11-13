@@ -30,7 +30,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("remove", func() {
@@ -756,7 +755,7 @@ var _ = Describe("remove", func() {
 
 		When("locality based exclusions are disabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
+				cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = new(false)
 			})
 
 			It("should still validate the address", func() {
