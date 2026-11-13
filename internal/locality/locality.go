@@ -210,12 +210,15 @@ func ChooseDistributedProcesses(
 	chosenIDs := make(map[string]bool, count)
 	primaryDC := cluster.DesiredDatabaseConfiguration().GetPrimaryDCID()
 
+	// Minimize the reuse of identical location keys with priority: Zone ID (most important), Data Hall, Data Center (least important)
 	fields := constraint.Fields
 	if len(fields) == 0 {
-		fields = []string{fdbv1beta2.FDBLocalityZoneIDKey, fdbv1beta2.FDBLocalityDCIDKey}
-		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		fields = []string{fdbv1beta2.FDBLocalityZoneIDKey}
+		if (cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall) ||
+			(cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback) {
 			fields = append(fields, fdbv1beta2.FDBLocalityDataHallKey)
 		}
+		fields = append(fields, fdbv1beta2.FDBLocalityDCIDKey)
 	}
 
 	chosenCounts := make(map[string]map[string]int, len(fields))
@@ -317,7 +320,14 @@ func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 				fdbv1beta2.FDBLocalityZoneIDKey:   1,
 			}
 		}
-
+		// For the three_data_hall_fallback redundancy mode, we will only recruit 5 coordinators.
+		// If one data hall is missing, we still need up to 3 coordinators from the same data hall.
+		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback {
+			return map[string]int{
+				fdbv1beta2.FDBLocalityDataHallKey: 3,
+				fdbv1beta2.FDBLocalityZoneIDKey:   1,
+			}
+		}
 		return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1}
 	}
 
