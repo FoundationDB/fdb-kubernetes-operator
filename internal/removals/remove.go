@@ -230,6 +230,24 @@ func getAddressesToValidateBeforeRemoval(
 
 		// Add all addresses to make sure all seen addresses of a process are excluded.
 		for _, pAddr := range processGroup.Addresses {
+			// Kubernetes can hand out the IP address of a removed Pod to a different Pod. If a process of another
+			// process group is currently using this address, the old process cannot be serving any roles on that
+			// address anymore. Checking this address would block the removal as the process of the other process
+			// group is not excluded, and excluding it would exclude the unrelated process. This is only safe when
+			// locality based exclusions are used, as in that case the locality of the process group is still validated
+			// above. Without locality based exclusions the address is the only way to validate the exclusion.
+			if cluster.UseLocalitiesForExclusion() &&
+				ipReusedByOtherProcessGroup(cluster, status, pAddr, processGroup.ProcessGroupID) {
+				logger.Info(
+					"Ignoring address of process group that is used by a different process group",
+					"processGroupID",
+					processGroup.ProcessGroupID,
+					"address",
+					pAddr,
+				)
+				continue
+			}
+
 			addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 		}
 	}
@@ -244,6 +262,46 @@ func getAddressesToValidateBeforeRemoval(
 	}
 
 	return remainingMap, addresses
+}
+
+// ipReusedByOtherProcessGroup returns true if the machine-readable status contains a process with the provided IP
+// address that belongs to a different process group and no process of the provided process group is reporting with
+// this IP address. If a process of the provided process group is still reporting with this address, e.g. because
+// multiple processes share the same IP address, the address must still be validated.
+func ipReusedByOtherProcessGroup(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	ip string,
+	processGroupID fdbv1beta2.ProcessGroupID,
+) bool {
+	if status == nil {
+		return false
+	}
+
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return false
+	}
+
+	usedByOtherProcessGroup := false
+	for _, process := range status.Cluster.Processes {
+		if !cluster.ProcessSharesDC(process) || !process.Address.IPAddress.Equal(parsedIP) {
+			continue
+		}
+
+		instanceID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if !ok {
+			continue
+		}
+
+		if fdbv1beta2.ProcessGroupID(instanceID) == processGroupID {
+			return false
+		}
+
+		usedByOtherProcessGroup = true
+	}
+
+	return usedByOtherProcessGroup
 }
 
 // processGroupIDsInStatus returns the set of process group IDs that have at least one process

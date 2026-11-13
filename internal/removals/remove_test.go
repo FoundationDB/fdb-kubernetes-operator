@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("remove", func() {
@@ -712,6 +713,88 @@ var _ = Describe("remove", func() {
 			nil,
 		),
 	)
+
+	When("the IP address of a removed process group is reused by another process group", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var status *fdbv1beta2.FoundationDBStatus
+
+		BeforeEach(func() {
+			cluster = &fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: fdbv1beta2.Versions.Default.String(),
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID:     "log-1",
+							ProcessClass:       fdbv1beta2.ProcessClassLog,
+							Addresses:          []string{"192.0.0.1"},
+							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+						},
+						{
+							ProcessGroupID: "stateless-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"192.0.0.1"},
+						},
+					},
+				},
+			}
+			status = statusForAllProcessGroups(cluster)
+			delete(status.Cluster.Processes, "log-1")
+			stateless := status.Cluster.Processes["stateless-1"]
+			stateless.Address = fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("192.0.0.1")}
+			status.Cluster.Processes["stateless-1"] = stateless
+		})
+
+		It("should only validate the locality of the process group", func() {
+			_, addresses := getAddressesToValidateBeforeRemoval(logr.Discard(), cluster, status)
+			Expect(addresses).To(ConsistOf(
+				fdbv1beta2.ProcessAddress{StringAddress: "locality_instance_id:log-1"},
+			))
+		})
+
+		When("locality based exclusions are disabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
+			})
+
+			It("should still validate the address", func() {
+				_, addresses := getAddressesToValidateBeforeRemoval(logr.Discard(), cluster, status)
+				Expect(addresses).To(ConsistOf(
+					fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("192.0.0.1")},
+				))
+			})
+		})
+
+		When(
+			"a process of the removed process group still reports with the same IP address",
+			func() {
+				BeforeEach(func() {
+					// Without the exclusion timestamp the address is always validated.
+					cluster.Status.ProcessGroups[0].ExclusionTimestamp = nil
+					status.Cluster.Processes["log-1-2"] = fdbv1beta2.FoundationDBStatusProcessInfo{
+						Address: fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("192.0.0.1")},
+						Locality: map[string]string{
+							fdbv1beta2.FDBLocalityInstanceIDKey: "log-1",
+						},
+					}
+				})
+
+				It("should still validate the address", func() {
+					_, addresses := getAddressesToValidateBeforeRemoval(
+						logr.Discard(),
+						cluster,
+						status,
+					)
+					Expect(addresses).To(ConsistOf(
+						fdbv1beta2.ProcessAddress{StringAddress: "locality_instance_id:log-1"},
+						fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("192.0.0.1")},
+					))
+				})
+			},
+		)
+	})
 })
 
 // statusForAllProcessGroups builds a synthetic FoundationDBStatus that contains a process
