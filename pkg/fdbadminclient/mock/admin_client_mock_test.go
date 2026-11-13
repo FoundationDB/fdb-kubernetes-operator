@@ -192,6 +192,95 @@ var _ = Describe("mock_client", func() {
 		)
 	})
 
+	When("the IP address of a process group to remove is used by another process group", func() {
+		It(
+			"should ignore the reused address and still verify the exclusion of the process groups",
+			func() {
+				cluster := &fdbv1beta2.FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "dev-reused-ip",
+					},
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: fdbv1beta2.Versions.Default.String(),
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+							{
+								// The log pod doesn't exist anymore, e.g. it is stuck in pending.
+								ProcessGroupID:   "log-1",
+								ProcessClass:     fdbv1beta2.ProcessClassLog,
+								Addresses:        []string{"1.1.1.1"},
+								RemovalTimestamp: &metav1.Time{Time: time.Now()},
+							},
+							{
+								ProcessGroupID: "stateless-1",
+								ProcessClass:   fdbv1beta2.ProcessClassStateless,
+								Addresses:      []string{"1.1.1.1"},
+							},
+							{
+								ProcessGroupID:   "storage-1",
+								ProcessClass:     fdbv1beta2.ProcessClassStorage,
+								Addresses:        []string{"1.1.1.2"},
+								RemovalTimestamp: &metav1.Time{Time: time.Now()},
+							},
+						},
+						RequiredAddresses: fdbv1beta2.RequiredAddressSet{
+							NonTLS: true,
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
+
+				// Only create the pods for the process groups that are still running.
+				for _, processGroup := range cluster.Status.ProcessGroups[1:] {
+					Expect(k8sClient.Create(context.TODO(), &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      processGroup.GetPodName(cluster),
+							Namespace: cluster.GetNamespace(),
+							Labels: map[string]string{
+								fdbv1beta2.FDBClusterLabel: cluster.Name,
+								fdbv1beta2.FDBProcessGroupIDLabel: string(
+									processGroup.ProcessGroupID,
+								),
+								fdbv1beta2.FDBProcessClassLabel: string(
+									processGroup.ProcessClass,
+								),
+							},
+						},
+						Status: corev1.PodStatus{PodIP: processGroup.Addresses[0]},
+					})).To(Succeed())
+				}
+
+				admin, err := NewMockAdminClient(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				status, err := admin.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				// The running storage process is not excluded, the reused address of the log process must not be checked
+				// and reported as remaining even though the stateless process using it is not excluded.
+				remaining, err := removals.GetRemainingMap(GinkgoLogr, admin, cluster, status, 0)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(remaining).To(Equal(map[string]bool{
+					"locality_instance_id:log-1":     false,
+					"locality_instance_id:storage-1": true,
+				}))
+
+				Expect(admin.ExcludeProcesses([]fdbv1beta2.ProcessAddress{
+					{StringAddress: "locality_instance_id:storage-1"},
+				})).To(Succeed())
+				status, err = admin.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				remaining, err = removals.GetRemainingMap(GinkgoLogr, admin, cluster, status, 0)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(remaining).To(Equal(map[string]bool{
+					"locality_instance_id:log-1":     false,
+					"locality_instance_id:storage-1": false,
+				}))
+			},
+		)
+	})
+
 	When("changing the commandline arguments", func() {
 		var adminClient *AdminClient
 		var initialCommandline string
