@@ -608,7 +608,6 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 	return factory.getSidecarConfigs(factory.GetSidecarContainerOverrides(config).ImageConfigs)
 }
 
-//nolint:revive
 func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 	cpuRequests := "500m"
 	MemoryRequests := "1024Mi"
