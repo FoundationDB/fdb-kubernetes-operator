@@ -72,6 +72,8 @@ If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator wo
 The operator has an option to automatically replace ProcessGroups where the associated Pod is running on a tainted Node.
 This feature is disabled by default, but can be enabled by setting `automationOptions.replacements.taintReplacementOptions`.
 
+Each option accepts a `processClasses` list; an omitted or empty list applies to all process classes. For each ProcessGroup, the operator filters options by process class, then prefers an exact taint key match over a wildcard (`"*"`) match.
+
 We use three examples below to illustrate how to set up the feature.
 
 ## Automatic Replacement of Pods with SecurityContext changes
@@ -95,6 +97,8 @@ spec:
         taintReplacementTimeSeconds: 1800
         enabled: true
 ```
+
+Add `processClasses: [stateless]` to the taint replacement option above to limit it to stateless ProcessGroups.
 
 If there are multiple Pods on tainted Nodes, the operator will simultaneously replace at most `automationOptions.replacements.maxConcurrentReplacements` Pods.
 
