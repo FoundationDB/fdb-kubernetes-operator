@@ -5116,6 +5116,32 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	})
 
 	When("validating a cluster", func() {
+		DescribeTable("rejects unsafe in-place image selections", func(name string) {
+			cluster := &FoundationDBCluster{Spec: FoundationDBClusterSpec{
+				Version:               Versions.Default.String(),
+				DatabaseConfiguration: DatabaseConfiguration{StorageEngine: StorageEngineSSD2},
+				AutomationOptions: FoundationDBClusterAutomationOptions{
+					InPlaceImageUpdateContainers: []string{name},
+				},
+				Processes: map[ProcessClass]ProcessSettings{ProcessClassGeneral: {
+					PodTemplate: &corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{
+							{Name: "bootstrap", Image: "example/bootstrap:1"},
+						},
+					}},
+				}},
+			}}
+			Expect(
+				cluster.Validate(nil),
+			).To(MatchError(ContainSubstring("cannot be updated in place")))
+		},
+			Entry("empty name", ""),
+			Entry("FDB main container", MainContainerName),
+			Entry("FDB sidecar", SidecarContainerName),
+			Entry("FDB init container", InitContainerName),
+			Entry("custom init container", "bootstrap"),
+		)
+
 		DescribeTable("it should return if the cluster is valid",
 			func(cluster *FoundationDBCluster, expected error) {
 				if expected == nil {
