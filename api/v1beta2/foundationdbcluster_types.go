@@ -248,6 +248,14 @@ type FoundationDBClusterSpec struct {
 	// the coordinator selection process could conflict.
 	CoordinatorSelection []CoordinatorSelectionSetting `json:"coordinatorSelection,omitempty"`
 
+	// IneligibleCoordinatorDataCenters defines the data centers, by their dcid locality, whose processes are never
+	// selected as coordinators. The coordinators are spread across the remaining data centers of the regions.
+	// This setting requires regions in the database configuration.
+	// If the FoundationDB cluster spans across multiple Kubernetes clusters or DCs the
+	// IneligibleCoordinatorDataCenters must match in all FoundationDB cluster resources otherwise
+	// the coordinator selection process could conflict.
+	IneligibleCoordinatorDataCenters []string `json:"ineligibleCoordinatorDataCenters,omitempty"`
+
 	// LabelConfig allows customizing labels used by the operator.
 	LabelConfig LabelConfig `json:"labels,omitempty"`
 
@@ -2655,6 +2663,27 @@ func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) b
 	return false
 }
 
+// IsEligibleCoordinatorDataCenter checks if processes in the given data center can be selected as coordinators.
+func (cluster *FoundationDBCluster) IsEligibleCoordinatorDataCenter(dcID string) bool {
+	return !slices.Contains(cluster.Spec.IneligibleCoordinatorDataCenters, dcID)
+}
+
+// CountEligibleCoordinatorDataCenters returns the number of unique data centers in the regions that are eligible
+// to host coordinators.
+func (cluster *FoundationDBCluster) CountEligibleCoordinatorDataCenters() int {
+	dataCenters := map[string]None{}
+
+	for _, region := range cluster.Spec.DatabaseConfiguration.Regions {
+		for _, dc := range region.DataCenters {
+			if cluster.IsEligibleCoordinatorDataCenter(dc.ID) {
+				dataCenters[dc.ID] = None{}
+			}
+		}
+	}
+
+	return len(dataCenters)
+}
+
 // GetEligibleCandidateClasses returns process classes that are eligible to become coordinators.
 func (cluster *FoundationDBCluster) GetEligibleCandidateClasses() []ProcessClass {
 	var candidateClasses []ProcessClass
@@ -3372,6 +3401,14 @@ func (cluster *FoundationDBCluster) Validate(
 				),
 			)
 		}
+	}
+
+	if len(cluster.Spec.IneligibleCoordinatorDataCenters) > 0 &&
+		cluster.CountEligibleCoordinatorDataCenters() == 0 {
+		validations = append(
+			validations,
+			"ineligibleCoordinatorDataCenters requires regions and must leave at least one data center of the regions eligible for coordinators",
+		)
 	}
 
 	if cluster.Spec.Routing.PodIPFamily != nil {

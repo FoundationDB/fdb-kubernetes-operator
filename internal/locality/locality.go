@@ -326,7 +326,7 @@ func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 			float64(
 				cluster.DesiredCoordinatorCount(),
 			) / float64(
-				cluster.Spec.DatabaseConfiguration.CountUniqueDataCenters(),
+				cluster.CountEligibleCoordinatorDataCenters(),
 			),
 		),
 	)
@@ -473,6 +473,19 @@ func CheckCoordinatorValidity(
 					"Process class of process is not eligible as coordinator",
 					"class",
 					process.ProcessClass,
+					"address",
+					coordinatorAddress,
+				)
+				allEligible = false
+			}
+
+			if !cluster.IsEligibleCoordinatorDataCenter(
+				process.Locality[fdbv1beta2.FDBLocalityDCIDKey],
+			) {
+				pLogger.Info(
+					"Data center of process is not eligible for coordinators",
+					"dcID",
+					process.Locality[fdbv1beta2.FDBLocalityDCIDKey],
 					"address",
 					coordinatorAddress,
 				)

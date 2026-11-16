@@ -912,6 +912,11 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = make([]CoordinatorSelectionSetting, len(*in))
 		copy(*out, *in)
 	}
+	if in.IneligibleCoordinatorDataCenters != nil {
+		in, out := &in.IneligibleCoordinatorDataCenters, &out.IneligibleCoordinatorDataCenters
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	in.LabelConfig.DeepCopyInto(&out.LabelConfig)
 	if in.UseExplicitListenAddress != nil {
 		in, out := &in.UseExplicitListenAddress, &out.UseExplicitListenAddress

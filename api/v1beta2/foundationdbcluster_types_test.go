@@ -5199,6 +5199,63 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				fmt.Errorf("stateless is not a valid process class for coordinators"),
 			),
+			Entry("using ineligible coordinator data centers that leave one data center eligible",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+							Regions: []Region{
+								{
+									DataCenters: []DataCenter{
+										{ID: "dc1"},
+										{ID: "dc2", Satellite: 1},
+									},
+								},
+							},
+						},
+						IneligibleCoordinatorDataCenters: []string{"dc2"},
+					},
+				},
+				nil,
+			),
+			Entry("using ineligible coordinator data centers that cover all data centers",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.Default.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+							Regions: []Region{
+								{
+									DataCenters: []DataCenter{
+										{ID: "dc1"},
+										{ID: "dc2", Satellite: 1},
+									},
+								},
+							},
+						},
+						IneligibleCoordinatorDataCenters: []string{"dc1", "dc2"},
+					},
+				},
+				fmt.Errorf(
+					"ineligibleCoordinatorDataCenters requires regions and must leave at least one data center of the regions eligible for coordinators",
+				),
+			),
+			Entry("using ineligible coordinator data centers without regions",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version:    Versions.Default.String(),
+						DataCenter: "dc1",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+						IneligibleCoordinatorDataCenters: []string{"dc1"},
+					},
+				},
+				fmt.Errorf(
+					"ineligibleCoordinatorDataCenters requires regions and must leave at least one data center of the regions eligible for coordinators",
+				),
+			),
 			Entry(
 				"multiple validations",
 				&FoundationDBCluster{

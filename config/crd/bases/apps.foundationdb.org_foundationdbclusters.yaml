@@ -416,6 +416,10 @@ spec:
                 - unified
                 maxLength: 1024
                 type: string
+              ineligibleCoordinatorDataCenters:
+                items:
+                  type: string
+                type: array
               labels:
                 properties:
                   filterOnOwnerReference:

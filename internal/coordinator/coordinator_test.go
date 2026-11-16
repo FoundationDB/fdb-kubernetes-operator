@@ -716,6 +716,99 @@ var _ = Describe("Change coordinators", func() {
 					})
 				})
 			})
+
+			When("using 3 sites with a fallback satellite next to each main dc", func() {
+				var remoteID, thirdSiteID, primaryFallbackID, remoteFallbackID string
+
+				BeforeEach(func() {
+					primaryID = internal.GenerateRandomString(10)
+					remoteID = internal.GenerateRandomString(10)
+					thirdSiteID = internal.GenerateRandomString(10)
+					primaryFallbackID = internal.GenerateRandomString(10)
+					remoteFallbackID = internal.GenerateRandomString(10)
+
+					cluster.Spec.DataCenter = primaryID
+					cluster.Spec.IneligibleCoordinatorDataCenters = []string{
+						primaryFallbackID,
+						remoteFallbackID,
+					}
+					cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
+						{
+							DataCenters: []fdbv1beta2.DataCenter{
+								{
+									ID:       primaryID,
+									Priority: 1,
+								},
+								{
+									ID:        thirdSiteID,
+									Satellite: 1,
+									Priority:  1,
+								},
+								{
+									ID:        primaryFallbackID,
+									Satellite: 1,
+								},
+							},
+						},
+						{
+							DataCenters: []fdbv1beta2.DataCenter{
+								{
+									ID: remoteID,
+								},
+								{
+									ID:        thirdSiteID,
+									Satellite: 1,
+									Priority:  1,
+								},
+								{
+									ID:        remoteFallbackID,
+									Satellite: 1,
+								},
+							},
+						},
+					}
+				})
+
+				It("should select 3 coordinators in each eligible dc", func() {
+					dcDistribution := map[string]int{}
+					for _, candidate := range candidates {
+						dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
+					}
+
+					Expect(dcDistribution).To(Equal(map[string]int{
+						primaryID:   3,
+						remoteID:    3,
+						thirdSiteID: 3,
+					}))
+				})
+
+				It("should report coordinators in an ineligible dc as not valid", func() {
+					ineligible := cluster.Spec.IneligibleCoordinatorDataCenters
+					cluster.Spec.IneligibleCoordinatorDataCenters = nil
+					defaultCoordinators, err := selectCoordinatorsLocalities(
+						testLogger,
+						cluster,
+						status,
+						nil,
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					cluster.Spec.IneligibleCoordinatorDataCenters = ineligible
+					coordinatorStatus := make(map[string]bool, len(defaultCoordinators))
+					for _, coordinator := range defaultCoordinators {
+						coordinatorStatus[GetCoordinatorAddress(cluster, coordinator).String()] = false
+					}
+
+					hasValidCoordinators, _, err := locality.CheckCoordinatorValidity(
+						testLogger,
+						cluster,
+						status,
+						coordinatorStatus,
+					)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(hasValidCoordinators).To(BeFalse())
+				})
+			})
 		})
 
 		When("using a FDB cluster with three_data_hall", func() {

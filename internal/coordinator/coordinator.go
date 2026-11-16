@@ -84,6 +84,12 @@ func selectCandidates(
 			continue
 		}
 
+		if !cluster.IsEligibleCoordinatorDataCenter(
+			process.Locality[fdbv1beta2.FDBLocalityDCIDKey],
+		) {
+			continue
+		}
+
 		// If the cluster should be using DNS in the cluster file we should make sure the locality is set.
 		if cluster.UseDNSInClusterFile() {
 			_, ok := process.Locality[fdbv1beta2.FDBLocalityDNSNameKey]

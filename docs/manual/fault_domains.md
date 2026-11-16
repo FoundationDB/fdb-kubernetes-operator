@@ -471,9 +471,33 @@ The operator supports the following classes as coordinators:
 - `transaction`
 - `coordinator`
 
+### Data centers without coordinators
+
+In a multi-region cluster the operator recruits 9 coordinators and places at most `ceil(9 / <number of data centers in the regions>)` coordinators in a single data center.
+With 5 data centers, e.g. two main data centers, a satellite in a third site that both regions prefer, and a fallback satellite in the same metro area as each main data center that keeps commits running if the third site is down, the operator places at most 2 coordinators in each data center.
+Losing a site that hosts a main data center and its fallback satellite can then leave 5 of the 9 coordinators: still a majority, but the loss of one more coordinator makes the cluster unavailable.
+
+You can define data centers whose processes are never selected as coordinators with `ineligibleCoordinatorDataCenters`.
+This setting requires regions in the database configuration:
+
+```yaml
+spec:
+  ineligibleCoordinatorDataCenters:
+    - dc1-fallback
+    - dc2-fallback
+```
+
+The operator spreads the coordinators across the remaining data centers and computes the per data center limit only over them.
+In the example above the operator places 3 coordinators in each of the two main data centers and in the third site, as recommended in the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#choosing-coordinators).
+If a current coordinator runs in an ineligible data center, the operator changes the coordinators.
+
+To add or change `ineligibleCoordinatorDataCenters` on a running cluster, first upgrade all operator instances to a version that supports the setting.
+Then apply the same list to all `FoundationDBCluster` resources within the operator's `--minimum-uptime-for-coordinator-change-with-undesired-process` (default 5 minutes).
+While the lists differ, each operator instance reports the coordinators chosen by the other as invalid and can change them back.
+
 ### Known limitations
 
-FoundationDB clusters that are spread across different DC's or Kubernetes clusters only support the same `coordinatorSelection`.
+FoundationDB clusters that are spread across different DC's or Kubernetes clusters only support the same `coordinatorSelection` and `ineligibleCoordinatorDataCenters`.
 The reason behind this is that the coordinator selection is a global process and different `coordinatorSelection` of the `FoundationDBCluster` resources can lead to an undefined behaviour or in the worst case flapping coordinators.
 
 ## Next

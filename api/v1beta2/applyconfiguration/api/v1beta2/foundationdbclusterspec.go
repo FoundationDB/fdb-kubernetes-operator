@@ -114,6 +114,13 @@ type FoundationDBClusterSpecApplyConfiguration struct {
 	// CoordinatorSelection must match in all FoundationDB cluster resources otherwise
 	// the coordinator selection process could conflict.
 	CoordinatorSelection []CoordinatorSelectionSettingApplyConfiguration `json:"coordinatorSelection,omitempty"`
+	// IneligibleCoordinatorDataCenters defines the data centers, by their dcid locality, whose processes are never
+	// selected as coordinators. The coordinators are spread across the remaining data centers of the regions.
+	// This setting requires regions in the database configuration.
+	// If the FoundationDB cluster spans across multiple Kubernetes clusters or DCs the
+	// IneligibleCoordinatorDataCenters must match in all FoundationDB cluster resources otherwise
+	// the coordinator selection process could conflict.
+	IneligibleCoordinatorDataCenters []string `json:"ineligibleCoordinatorDataCenters,omitempty"`
 	// LabelConfig allows customizing labels used by the operator.
 	LabelConfig *LabelConfigApplyConfiguration `json:"labels,omitempty"`
 	// UseExplicitListenAddress determines if we should add a listen address
@@ -383,6 +390,16 @@ func (b *FoundationDBClusterSpecApplyConfiguration) WithCoordinatorSelection(val
 			panic("nil value passed to WithCoordinatorSelection")
 		}
 		b.CoordinatorSelection = append(b.CoordinatorSelection, *values[i])
+	}
+	return b
+}
+
+// WithIneligibleCoordinatorDataCenters adds the given value to the IneligibleCoordinatorDataCenters field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the IneligibleCoordinatorDataCenters field.
+func (b *FoundationDBClusterSpecApplyConfiguration) WithIneligibleCoordinatorDataCenters(values ...string) *FoundationDBClusterSpecApplyConfiguration {
+	for i := range values {
+		b.IneligibleCoordinatorDataCenters = append(b.IneligibleCoordinatorDataCenters, values[i])
 	}
 	return b
 }
