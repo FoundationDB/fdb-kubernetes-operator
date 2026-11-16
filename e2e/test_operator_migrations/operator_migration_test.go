@@ -105,6 +105,63 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 		Expect(fdbCluster.WaitForReconciliation(ctx)).ToNot(HaveOccurred())
 	})
 
+	It("restarts auxiliary images without replacing Pods or restarting FDB", func(ctx SpecContext) {
+		const containerName = "image-update-test"
+		originalSpec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
+		DeferCleanup(func(ctx SpecContext) {
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, originalSpec)
+			Expect(fdbCluster.WaitForReconciliation(ctx)).To(Succeed())
+		})
+		spec := originalSpec.DeepCopy()
+		settings := fdbCluster.GetProcessSettings(fdbv1beta2.ProcessClassLog).DeepCopy()
+		containerIndex := len(settings.PodTemplate.Spec.Containers)
+		settings.PodTemplate.Spec.Containers = append(
+			settings.PodTemplate.Spec.Containers,
+			corev1.Container{
+				Name:    containerName,
+				Image:   "busybox:1.36.1",
+				Command: []string{"sleep", "86400"},
+			},
+		)
+		spec.Processes[fdbv1beta2.ProcessClassLog] = *settings
+		spec.AutomationOptions.InPlaceImageUpdateContainers = []string{containerName}
+		fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+		Expect(fdbCluster.WaitForReconciliation(ctx)).To(Succeed())
+
+		containerStatus := func(pod corev1.Pod, name string) corev1.ContainerStatus {
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.Name == name {
+					return status
+				}
+			}
+			return corev1.ContainerStatus{}
+		}
+		initialPods := fdbCluster.GetLogPods(ctx).Items
+		Expect(len(initialPods)).To(BeNumerically(">", 1))
+
+		// Kubelet restarts containers even when only the image reference spelling changes
+		for _, image := range []string{"busybox:1.37.0", "docker.io/library/busybox:1.37.0"} {
+			settings.PodTemplate.Spec.Containers[containerIndex].Image = image
+			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
+			Eventually(func(g Gomega) {
+				for _, initial := range initialPods {
+					pod := fdbCluster.GetPod(ctx, initial.Name)
+					g.Expect(pod.UID).To(Equal(initial.UID))
+					g.Expect(containerStatus(*pod, fdbv1beta2.MainContainerName).ContainerID).
+						To(Equal(containerStatus(initial, fdbv1beta2.MainContainerName).ContainerID))
+					status := containerStatus(*pod, containerName)
+					g.Expect(status.Ready).To(BeTrue())
+					g.Expect(status.ContainerID).NotTo(BeEmpty())
+					g.Expect(containerStatus(initial, containerName).ContainerID).NotTo(BeEmpty())
+					g.Expect(status.ContainerID).
+						NotTo(Equal(containerStatus(initial, containerName).ContainerID))
+				}
+			}).WithTimeout(10 * time.Minute).WithPolling(time.Second).Should(Succeed())
+			Expect(fdbCluster.WaitForReconciliation(ctx)).To(Succeed())
+			initialPods = fdbCluster.GetLogPods(ctx).Items
+		}
+	})
+
 	When("a migration is triggered and the namespace quota is limited", func() {
 		var quota *corev1.ResourceQuota
 
