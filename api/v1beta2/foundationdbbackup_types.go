@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"k8s.io/utils/ptr"
 
@@ -63,6 +64,7 @@ type FoundationDBBackupList struct {
 }
 
 // FoundationDBBackupSpec describes the desired state of the backup for a cluster.
+// +kubebuilder:validation:XValidation:rule="!has(self.expiration) || !has(self.backupType) || self.backupType != 'unmanaged'",message="expiration is not supported for unmanaged backups"
 type FoundationDBBackupSpec struct {
 	// The version of FoundationDB that the backup agents should run.
 	Version string `json:"version"`
@@ -161,6 +163,68 @@ type FoundationDBBackupSpec struct {
 	// Default: "default".
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="BackupTag is immutable"
 	Tag *BackupTag `json:"tag,omitempty"`
+
+	// Expiration configures recurring removal of old backup data with FDB restorability checks.
+	// Omitting this field disables new expiration Jobs
+	Expiration *BackupExpiration `json:"expiration,omitempty"`
+}
+
+// BackupExpiration configures recurring backup retention
+// +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || self.restorableForSeconds <= self.expireAfterSeconds",message="restorableForSeconds must not exceed expireAfterSeconds"
+// +kubebuilder:validation:XValidation:rule="!has(self.restorableForSeconds) || !has(self.restorableAfterVersion)",message="restorableForSeconds and restorableAfterVersion are mutually exclusive"
+type BackupExpiration struct {
+	// ExpireAfterSeconds expires data older than this duration, measured when each Job is created.
+	// The source cluster must be available to convert timestamps to FDB versions
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=315360000
+	ExpireAfterSeconds int64 `json:"expireAfterSeconds"`
+	// RestorableForSeconds requires restorability from this many seconds ago onward.
+	// Mutually exclusive with RestorableAfterVersion
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=315360000
+	RestorableForSeconds *int64 `json:"restorableForSeconds,omitempty"`
+	// RestorableAfterVersion is the oldest database version that must remain restorable after expiration.
+	// Mutually exclusive with RestorableForSeconds
+	// +kubebuilder:validation:Minimum=1
+	RestorableAfterVersion *int64 `json:"restorableAfterVersion,omitempty"`
+	// IntervalSeconds is the delay between successful expiration Jobs, defaulting to one hour.
+	// Failed Jobs use exponential backoff up to one day
+	// +kubebuilder:validation:Minimum=60
+	// +kubebuilder:validation:Maximum=86400
+	IntervalSeconds *int64 `json:"intervalSeconds,omitempty"`
+}
+
+// Interval returns the configured expiration interval or one hour
+func (expiration BackupExpiration) Interval() time.Duration {
+	return time.Duration(ptr.Deref(expiration.IntervalSeconds, 3600)) * time.Second
+}
+
+// BackupExpirationPhase describes the execution state of an expiration Job
+// +kubebuilder:validation:Enum=Running;Succeeded;Failed
+type BackupExpirationPhase string
+
+// Backup expiration Job phases
+const (
+	BackupExpirationPhaseRunning   BackupExpirationPhase = "Running"
+	BackupExpirationPhaseSucceeded BackupExpirationPhase = "Succeeded"
+	BackupExpirationPhaseFailed    BackupExpirationPhase = "Failed"
+)
+
+// BackupExpirationStatus records the most recent expiration Job and its schedule
+type BackupExpirationStatus struct {
+	// JobName identifies the Job executing this expiration
+	JobName string `json:"jobName"`
+	// Phase is Running from scheduling until the Job reaches a terminal condition
+	Phase BackupExpirationPhase `json:"phase"`
+	// Message provides the Job's failure reason, if any
+	Message string `json:"message,omitempty"`
+	// CompletionTime records when the operator observed a terminal Job
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+	// NextRunTime persists the next scheduled run across operator restarts and spec updates
+	NextRunTime *metav1.Time `json:"nextRunTime,omitempty"`
+	// FailureCount counts consecutive failed Jobs for exponential backoff
+	// +kubebuilder:validation:Minimum=0
+	FailureCount int `json:"failureCount,omitempty"`
 }
 
 // BackupTag defines the backup tag that should be used for the backup.
@@ -217,6 +281,9 @@ const (
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
 type FoundationDBBackupStatus struct {
+	// Expiration records the most recent expiration Job and the next scheduled run
+	Expiration *BackupExpirationStatus `json:"expiration,omitempty"`
+
 	// AgentCount provides the number of agents that are up-to-date, ready,
 	// and not terminated.
 	AgentCount int `json:"agentCount,omitempty"`
@@ -271,6 +338,15 @@ type BackupGenerationStatus struct {
 	// NeedsBackupReconfiguration provides the last generation that could not
 	// complete reconciliation because we need to modify backup parameters.
 	NeedsBackupReconfiguration int64 `json:"needsBackupModification,omitempty"`
+}
+
+// NeedsPendingWork reports whether any backup reconciliation step is pending
+func (status BackupGenerationStatus) NeedsPendingWork() bool {
+	return status.NeedsBackupAgentUpdate != 0 ||
+		status.NeedsBackupStart != 0 ||
+		status.NeedsBackupStop != 0 ||
+		status.NeedsBackupPauseToggle != 0 ||
+		status.NeedsBackupReconfiguration != 0
 }
 
 // BackupState defines the desired state of a backup
@@ -574,6 +650,41 @@ func (backup *FoundationDBBackup) GetBackupTag() BackupTag {
 // If multiple issues are found all of them will be returned in a single error.
 func (backup *FoundationDBBackup) Validate(allowedPodModifications *AllowedPodModifications) error {
 	var validations []string
+	if backup.Spec.Expiration != nil {
+		policy := backup.Spec.Expiration
+		if policy.RestorableAfterVersion != nil && *policy.RestorableAfterVersion < 1 {
+			validations = append(validations, "expiration.restorableAfterVersion must be positive")
+		}
+		if policy.RestorableAfterVersion != nil && policy.RestorableForSeconds != nil {
+			validations = append(
+				validations,
+				"expiration.restorableForSeconds and restorableAfterVersion are mutually exclusive",
+			)
+		}
+		if policy.ExpireAfterSeconds < 1 || policy.ExpireAfterSeconds > 315360000 {
+			validations = append(
+				validations,
+				"expiration.expireAfterSeconds must be between 1 and 315360000",
+			)
+		}
+		if policy.RestorableForSeconds != nil &&
+			(*policy.RestorableForSeconds < 1 || *policy.RestorableForSeconds > policy.ExpireAfterSeconds) {
+			validations = append(
+				validations,
+				"expiration.restorableForSeconds must be positive and not exceed expireAfterSeconds",
+			)
+		}
+		if policy.IntervalSeconds != nil &&
+			(*policy.IntervalSeconds < 60 || *policy.IntervalSeconds > 86400) {
+			validations = append(
+				validations,
+				"expiration.intervalSeconds must be between 60 and 86400",
+			)
+		}
+		if backup.GetBackupType() == BackupTypeUnmanaged {
+			validations = append(validations, "expiration is not supported for unmanaged backups")
+		}
+	}
 
 	if backup.Spec.PodTemplateSpec != nil {
 		err := PodSpecIsSanitized(&backup.Spec.PodTemplateSpec.Spec, allowedPodModifications)
