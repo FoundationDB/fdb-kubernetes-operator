@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -47,6 +48,7 @@ import (
 	"k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var firstStorageIndex = 13
@@ -4015,6 +4017,46 @@ var _ = Describe("cluster_controller", func() {
 					"locality_dcid = dc01",
 					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
+			})
+		})
+	})
+
+	Describe("controllerOptions", func() {
+		When("no maximum reconcile error backoff is defined", func() {
+			It("keeps the controller-runtime default rate limiter", func() {
+				options, err := (&FoundationDBClusterReconciler{}).controllerOptions(1)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(options.RateLimiter).To(BeNil())
+			})
+		})
+
+		When("a maximum reconcile error backoff is defined", func() {
+			It("caps the retry delay after repeated reconciliation errors", func() {
+				maxBackoff := 45 * time.Second
+				reconciler := &FoundationDBClusterReconciler{MaxReconcileErrorBackoff: maxBackoff}
+				options, err := reconciler.controllerOptions(1)
+				Expect(err).NotTo(HaveOccurred())
+				rateLimiter := options.RateLimiter
+				request := reconcile.Request{
+					NamespacedName: types.NamespacedName{Namespace: "default", Name: "test"},
+				}
+
+				// Each call records one more reconciliation error. Without the maximum, the
+				// delay after 40 errors would be the controller-runtime maximum of 1000 seconds.
+				var delay time.Duration
+				for range 40 {
+					delay = rateLimiter.When(request)
+					Expect(delay).To(BeNumerically("<=", maxBackoff))
+				}
+				Expect(delay).To(Equal(maxBackoff))
+			})
+		})
+
+		When("the maximum reconcile error backoff is negative", func() {
+			It("returns an error", func() {
+				reconciler := &FoundationDBClusterReconciler{MaxReconcileErrorBackoff: -time.Second}
+				_, err := reconciler.controllerOptions(1)
+				Expect(err).To(MatchError(ContainSubstring("must not be negative")))
 			})
 		})
 	})

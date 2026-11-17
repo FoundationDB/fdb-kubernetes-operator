@@ -128,6 +128,7 @@ type Options struct {
 	MinimumUptimeForCoordinatorChangeWithMissingProcess   time.Duration
 	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
 	MinimumUptimeForConfigurationChanges                  time.Duration
+	MaxReconcileErrorBackoff                              time.Duration
 	MinimumAgeForTerminalPodDeletion                      time.Duration
 	// AllowedAdditionalVolumeSources defines the allowed corev1.VolumeSources a user can define in the user provided
 	// corev1.PodSpec.
@@ -383,6 +384,12 @@ func (o *Options) BindFlags(fs *pflag.FlagSet) {
 		"the minimum uptime for the cluster before configuration changes are allowed.",
 	)
 	fs.DurationVar(
+		&o.MaxReconcileErrorBackoff,
+		"max-reconcile-error-backoff",
+		0,
+		"the maximum delay before a FoundationDBCluster reconciliation that returned an error is retried. Setting it to 0 uses the controller-runtime default. It must not be negative.",
+	)
+	fs.DurationVar(
 		&o.MinimumAgeForTerminalPodDeletion,
 		"minimum-age-for-terminal-pod-deletion",
 		30*time.Second,
@@ -576,6 +583,7 @@ func StartManager(
 		clusterReconciler.MinimumUptimeForCoordinatorChangeWithMissingProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithMissingProcess
 		clusterReconciler.MinimumUptimeForCoordinatorChangeWithUndesiredProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithUndesiredProcess
 		clusterReconciler.MinimumUptimeForConfigurationChanges = operatorOpts.MinimumUptimeForConfigurationChanges
+		clusterReconciler.MaxReconcileErrorBackoff = operatorOpts.MaxReconcileErrorBackoff
 		clusterReconciler.MinimumAgeForTerminalPodDeletion = operatorOpts.MinimumAgeForTerminalPodDeletion
 		clusterReconciler.AllowedPodModifications = allowedPodModifications
 

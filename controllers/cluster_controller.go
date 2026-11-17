@@ -51,6 +51,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -130,6 +131,9 @@ type FoundationDBClusterReconciler struct {
 	// MinimumUptimeForConfigurationChanges defines the minimum uptime for the cluster before configuration changes
 	// are allowed.
 	MinimumUptimeForConfigurationChanges time.Duration
+	// MaxReconcileErrorBackoff defines the maximum delay before the controller retries a reconciliation that returned
+	// an error. If zero, the controller-runtime default is used. A negative value is rejected.
+	MaxReconcileErrorBackoff time.Duration
 
 	// MinimumRecoveryTimeForInclusion defines the duration in seconds that a cluster must be up
 	// before new inclusions are allowed. The operator issuing frequent inclusions in a short time window
@@ -452,6 +456,11 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(
 		return err
 	}
 
+	options, err := r.controllerOptions(maxConcurrentReconciles)
+	if err != nil {
+		return err
+	}
+
 	// Only react on generation changes or annotation changes and only watch
 	// resources with the provided label selector.
 	// We cannot use the WithEventFilter method as that would also add the predicate to the node watch.
@@ -466,9 +475,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(
 	))
 
 	managerBuilder := ctrl.NewControllerManagedBy(mgr).
-		WithOptions(controller.Options{
-			MaxConcurrentReconciles: maxConcurrentReconciles},
-		).
+		WithOptions(options).
 		For(&fdbv1beta2.FoundationDBCluster{}, globalPredicate).
 		Owns(&corev1.Pod{}, globalPredicate).
 		Owns(&corev1.PersistentVolumeClaim{}, globalPredicate).
@@ -492,6 +499,32 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(
 	}
 
 	return managerBuilder.Complete(r)
+}
+
+// controllerOptions returns the options for the FoundationDBCluster controller.
+func (r *FoundationDBClusterReconciler) controllerOptions(
+	maxConcurrentReconciles int,
+) (controller.Options, error) {
+	if r.MaxReconcileErrorBackoff < 0 {
+		return controller.Options{}, fmt.Errorf(
+			"max reconcile error backoff must not be negative, got %s",
+			r.MaxReconcileErrorBackoff,
+		)
+	}
+
+	options := controller.Options{
+		MaxConcurrentReconciles: maxConcurrentReconciles,
+	}
+
+	if r.MaxReconcileErrorBackoff > 0 {
+		// This is the controller-runtime default rate limiter for the priority queue, with a lower maximum delay.
+		options.RateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](
+			5*time.Millisecond,
+			r.MaxReconcileErrorBackoff,
+		)
+	}
+
+	return options, nil
 }
 
 // // MapFunc is the signature required for enqueueing requests from a generic function.
