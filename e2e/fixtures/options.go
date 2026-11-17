@@ -52,6 +52,7 @@ type FactoryOptions struct {
 	fdbVersionTagMapping           string
 	synchronizationMode            string
 	nodeSelector                   string
+	monitorVersion                 string
 	enableChaosTests               bool
 	enableDataLoading              bool
 	cleanup                        bool
@@ -60,6 +61,7 @@ type FactoryOptions struct {
 	featureOperatorUnifiedImage    bool
 	featureOperatorServerSideApply bool
 	featureManagementAPI           bool
+	pinMonitorVersion              bool
 	dumpOperatorState              bool
 	defaultUnavailableThreshold    time.Duration
 }
@@ -206,6 +208,20 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"defines if the operator should make use of server side apply.",
 	)
 	fs.BoolVar(
+		&options.pinMonitorVersion,
+		"pin-monitor-version",
+		false,
+		"defines if the main container image of the created FDB clusters should be pinned to the version the cluster is created with, "+
+			"this keeps the image of the main container when the cluster is upgraded. Only used with the unified image.",
+	)
+	fs.StringVar(
+		&options.monitorVersion,
+		"monitor-version",
+		"",
+		"defines the version of the main container image that should be used for the created FDB clusters, independent of the version of the cluster. "+
+			"If set, this takes precedence over pin-monitor-version. Only used with the unified image.",
+	)
+	fs.BoolVar(
 		&options.featureManagementAPI,
 		"feature-management-api",
 		false,
@@ -279,6 +295,13 @@ func (options *FactoryOptions) validateFlags() error {
 
 	for _, flagData := range versionFlags {
 		err := validateVersion(flagData[0], flagData[1])
+		if err != nil {
+			return err
+		}
+	}
+
+	if options.monitorVersion != "" {
+		err := validateVersion("monitorVersion", options.monitorVersion)
 		if err != nil {
 			return err
 		}

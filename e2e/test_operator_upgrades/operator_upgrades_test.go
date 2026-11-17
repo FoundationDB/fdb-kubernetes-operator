@@ -125,50 +125,54 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				log.Println("cluster in rolling bounce phase.")
 			}
 
-			// 3. Until all pods are bounced, try deleting some Pods.
-			//
-			// We can't use a scheduled PodKill (https://chaos-mesh.org/docs/define-scheduling-rules)
-			// here since the PodSelector in Chaos-Mesh doesn't allow to select Pods based on
-			// the running image.
-			Eventually(func() bool {
-				pods := make([]corev1.Pod, 0)
-				for _, pod := range fdbCluster.GetPods(ctx).Items {
-					// Ignore pods that are in the deletion process.
-					if !pod.DeletionTimestamp.IsZero() {
-						continue
-					}
-
-					for _, container := range pod.Spec.Containers {
-						if container.Name != fdbv1beta2.MainContainerName {
+			// This test selects the Pods that still use the old main container image. With a pinned main container image
+			// the image doesn't change during the upgrade, which means the test would never find all Pods upgraded.
+			if !factory.UsePinnedMonitorVersion() {
+				// 3. Until all pods are bounced, try deleting some Pods.
+				//
+				// We can't use a scheduled PodKill (https://chaos-mesh.org/docs/define-scheduling-rules)
+				// here since the PodSelector in Chaos-Mesh doesn't allow to select Pods based on
+				// the running image.
+				Eventually(func() bool {
+					pods := make([]corev1.Pod, 0)
+					for _, pod := range fdbCluster.GetPods(ctx).Items {
+						// Ignore pods that are in the deletion process.
+						if !pod.DeletionTimestamp.IsZero() {
 							continue
 						}
 
-						if container.Image != prevImage {
-							log.Println(
-								"Pod",
-								pod.Name,
-								"is already upgraded and has image",
-								container.Image,
-								". Skipping.",
-							)
-							continue
+						for _, container := range pod.Spec.Containers {
+							if container.Name != fdbv1beta2.MainContainerName {
+								continue
+							}
+
+							if container.Image != prevImage {
+								log.Println(
+									"Pod",
+									pod.Name,
+									"is already upgraded and has image",
+									container.Image,
+									". Skipping.",
+								)
+								continue
+							}
+
+							pods = append(pods, pod)
 						}
-
-						pods = append(pods, pod)
 					}
-				}
 
-				if len(pods) == 0 {
-					log.Println("No more pods with older container image.")
-					return true
-				}
+					if len(pods) == 0 {
+						log.Println("No more pods with older container image.")
+						return true
+					}
 
-				selectedPod := factory.RandomPickOnePod(pods)
-				log.Println("deleting pod: ", selectedPod.Name)
-				factory.DeletePod(ctx, &selectedPod)
-				fdbCluster.WaitForPodRemoval(ctx, &selectedPod)
-				return false
-			}).WithTimeout(20 * time.Minute).WithPolling(3 * time.Minute).Should(BeTrue())
+					selectedPod := factory.RandomPickOnePod(pods)
+					log.Println("deleting pod: ", selectedPod.Name)
+					factory.DeletePod(ctx, &selectedPod)
+					fdbCluster.WaitForPodRemoval(ctx, &selectedPod)
+					return false
+				}).WithTimeout(20 * time.Minute).WithPolling(3 * time.Minute).Should(BeTrue())
+			}
 
 			// 5. Verify a final time that the cluster is reconciled, this should be quick.
 			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
@@ -299,6 +303,11 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"upgrading a cluster with a crash looping sidecar process",
 		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			// For version compatible upgrades the test expects that the upgrade finishes while the sidecar is crash looping,
+			// because the Pods are recreated. With a pinned main container image the upgrade is in-place and requires
+			// the sidecar to stage the new binary, so it's blocked like a version incompatible upgrade.
+			factory.SkipIfPodsAreNotRecreated(beforeVersion, targetVersion)
+
 			clusterSetup(ctx, beforeVersion, true)
 
 			Expect(fdbCluster.SetAutoReplacements(ctx, false, 20*time.Minute)).ToNot(HaveOccurred())
@@ -784,6 +793,11 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"one process cannot connect to the Kubernetes API",
 		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			// For version compatible upgrades the test expects that the Pods are recreated and therefore the partitioned
+			// Pod is not blocking the upgrade. With a pinned main container image the Pods are not recreated and the
+			// upgrade is blocked like for a version incompatible upgrade.
+			factory.SkipIfPodsAreNotRecreated(beforeVersion, targetVersion)
+
 			if !factory.ChaosTestsEnabled() {
 				Skip("Chaos tests are skipped for the operator")
 			}

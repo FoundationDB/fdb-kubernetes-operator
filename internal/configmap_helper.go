@@ -39,6 +39,12 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 	data[fdbv1beta2.ClusterFileKey] = connectionString
 	data[fdbv1beta2.RunningVersionKey] = cluster.Status.RunningVersion
 
+	// Pods that always start the binary of the sidecar make use of a version that is never protocol compatible. See
+	// UseSharedBinaryLauncher for more information.
+	if cluster.UsePinnedMainContainerImage() {
+		data[fdbv1beta2.SharedBinaryVersionKey] = fdbv1beta2.SharedBinaryVersionValue
+	}
+
 	var caFile strings.Builder
 	for _, ca := range cluster.Spec.TrustedCAs {
 		if caFile.Len() > 0 {

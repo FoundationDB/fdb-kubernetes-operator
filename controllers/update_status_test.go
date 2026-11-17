@@ -1662,16 +1662,15 @@ var _ = Describe("update_status", func() {
 
 					pod, err := internal.GetPod(cluster, processGroup)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(
-						updateSidecarImage(
-							context.Background(),
-							clusterReconciler,
-							logger,
-							cluster,
-							processGroup,
-							pod,
-						),
-					).To(Succeed())
+					_, err = updateSidecarImage(
+						context.Background(),
+						clusterReconciler,
+						logger,
+						cluster,
+						processGroup,
+						pod,
+					)
+					Expect(err).NotTo(HaveOccurred())
 				}
 
 				Expect(adminClient.KillProcesses(addresses)).NotTo(HaveOccurred())

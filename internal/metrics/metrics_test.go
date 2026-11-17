@@ -26,8 +26,34 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// getVersionInfoLabels collects the metrics of the cluster and returns the labels of the version info metric.
+func getVersionInfoLabels(cluster *fdbv1beta2.FoundationDBCluster) (map[string]string, float64) {
+	ch := make(chan prometheus.Metric, 100)
+	CollectMetrics(ch, cluster)
+	close(ch)
+
+	for metric := range ch {
+		if metric.Desc().String() != descClusterVersionInfo.String() {
+			continue
+		}
+
+		data := &dto.Metric{}
+		Expect(metric.Write(data)).To(Succeed())
+		labels := make(map[string]string, len(data.GetLabel()))
+		for _, label := range data.GetLabel() {
+			labels[label.GetName()] = label.GetValue()
+		}
+
+		return labels, data.GetGauge().GetValue()
+	}
+
+	return nil, 0
+}
 
 var _ = Describe("metrics", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
@@ -57,6 +83,45 @@ var _ = Describe("metrics", func() {
 				},
 			},
 		}
+	})
+
+	Context("Collecting the version metrics", func() {
+		BeforeEach(func() {
+			cluster.Name = "test"
+			cluster.Namespace = "default"
+			cluster.Spec.Version = "7.4.5"
+			cluster.Status.RunningVersion = "7.3.69"
+		})
+
+		It(
+			"should use the version of the cluster as monitor version if the main container image is not pinned",
+			func() {
+				labels, value := getVersionInfoLabels(cluster)
+				Expect(value).To(BeNumerically("==", 1))
+				Expect(labels).To(Equal(map[string]string{
+					"namespace":       "default",
+					"name":            "test",
+					"desired_version": "7.4.5",
+					"running_version": "7.3.69",
+					"monitor_version": "7.4.5",
+				}))
+			},
+		)
+
+		It(
+			"should use the desired version as running version if the running version is not known",
+			func() {
+				cluster.Status.RunningVersion = ""
+				labels, _ := getVersionInfoLabels(cluster)
+				Expect(labels).To(HaveKeyWithValue("running_version", "7.4.5"))
+			},
+		)
+
+		It("should use the pinned version as monitor version", func() {
+			cluster.Spec.MainContainer.MonitorVersion = new("7.3.69")
+			labels, _ := getVersionInfoLabels(cluster)
+			Expect(labels).To(HaveKeyWithValue("monitor_version", "7.3.69"))
+		})
 	})
 
 	Context("Collecting the processGroup metrics", func() {

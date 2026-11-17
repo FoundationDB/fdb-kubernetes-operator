@@ -247,7 +247,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				expectedProcessCounts += (processCounts.Total() - processCounts.Storage) * 2
 			}
 
-			// The sync.Map has not length method, so we have to calculate it.
+			// The sync.Map has no length method, so we have to calculate it.
 			var processCounts int
 			transactionSystemProcessGroups.Range(func(_, _ any) bool {
 				processCounts++
