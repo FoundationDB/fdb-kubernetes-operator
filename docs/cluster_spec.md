@@ -498,12 +498,13 @@ SynchronizationMode defines the synchronization mode.
 
 ## TaintReplacementOption
 
-TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node Example of TaintReplacementOption   - key: \"example.org/maintenance\"     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint.   - key: \"*\" # The wildcard would allow to define a catch all configuration     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint  Setting durationInSeconds to the maximum of int64 will practically disable the taint key. When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used.
+TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node Example of TaintReplacementOption   - key: \"example.org/maintenance\"     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint.   - key: \"*\" # The wildcard would allow to define a catch all configuration     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint  Setting durationInSeconds to the maximum of int64 will practically disable the taint key. When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used if its ProcessClasses includes the process class.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | key | Tainted key | *string | false |
 | durationInSeconds | The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint; DurationInSeconds cannot be a negative number. | *int64 | false |
+| processClasses | ProcessClasses restricts this option to the listed process classes. Omitted or empty means all classes. | [][ProcessClass](#processclass) | false |
 
 [Back to TOC](#table-of-contents)
 
