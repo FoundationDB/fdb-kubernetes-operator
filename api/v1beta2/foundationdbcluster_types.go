@@ -52,7 +52,7 @@ import (
 // +kubebuilder:printcolumn:name="ReconciledProcessGroups",type="integer",JSONPath=".status.reconciledProcessGroups",description="Number of reconciled process groups",priority=1
 // +kubebuilder:printcolumn:name="DesiredProcessGroups",type="integer",JSONPath=".status.desiredProcessGroups",description="Desired number of process groups",priority=1
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.runningVersion",description="Running version",priority=0
-// +kubebuilder:printcolumn:name="MonitorVersion",type="string",JSONPath=".status.monitorVersion",description="Version of the main container image",priority=0
+// +kubebuilder:printcolumn:name="MonitorVersion",type="string",JSONPath=".status.monitorVersion",description="Desired version of the main container image",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
 // +kubebuilder:ac:generate=true
@@ -315,8 +315,10 @@ type FoundationDBClusterStatus struct {
 	// currently running.
 	RunningVersion string `json:"runningVersion,omitempty"`
 
-	// MonitorVersion defines the version of the image of the main container, which runs fdb-kubernetes-monitor. This is
-	// the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set.
+	// MonitorVersion defines the desired version of the image of the main container, which runs fdb-kubernetes-monitor. This
+	// is the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set. The
+	// value is derived from the spec, it does not reflect the images of the running Pods, e.g. during a rolling update of
+	// the Pods or an upgrade of a cluster without a pinned main container image.
 	MonitorVersion string `json:"monitorVersion,omitempty"`
 
 	// ConnectionString defines the contents of the cluster file.

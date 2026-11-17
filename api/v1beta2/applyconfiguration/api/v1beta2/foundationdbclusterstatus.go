@@ -33,8 +33,10 @@ type FoundationDBClusterStatusApplyConfiguration struct {
 	// RunningVersion defines the version of FoundationDB that the cluster is
 	// currently running.
 	RunningVersion *string `json:"runningVersion,omitempty"`
-	// MonitorVersion defines the version of the image of the main container, which runs fdb-kubernetes-monitor. This is
-	// the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set.
+	// MonitorVersion defines the desired version of the image of the main container, which runs fdb-kubernetes-monitor. This
+	// is the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set. The
+	// value is derived from the spec, it does not reflect the images of the running Pods, e.g. during a rolling update of
+	// the Pods or an upgrade of a cluster without a pinned main container image.
 	MonitorVersion *string `json:"monitorVersion,omitempty"`
 	// ConnectionString defines the contents of the cluster file.
 	ConnectionString *string `json:"connectionString,omitempty"`

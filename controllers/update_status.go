@@ -121,7 +121,10 @@ func (c updateStatus) reconcile(
 		}
 	}
 	clusterStatus.RunningVersion = version
-	clusterStatus.MonitorVersion = cluster.GetMonitorVersionOrDefault()
+	// TODO: Populate the monitor version in the status in a follow-up release. The field was added to the CRD in this
+	// release. Writing it before the CRDs are updated, would make the status update fail with server-side apply (field
+	// not declared in schema) and silently drop the field otherwise.
+	// clusterStatus.MonitorVersion = cluster.GetMonitorVersionOrDefault()
 	// We update the running version of the cluster status here to make sure that the Pod Spec hash and other things
 	// are properly calculated based on the current observed running version. If we don't update the running version
 	// here, we could see a race condition where the updateStatus sub-reconciler runs for the first time after an upgrade

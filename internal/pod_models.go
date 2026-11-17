@@ -23,6 +23,7 @@ package internal
 import (
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -597,6 +598,51 @@ func needsSharedBinary(cluster *fdbv1beta2.FoundationDBCluster) bool {
 // configured with the option, see UseSharedBinaryConfig.
 func UseSharedBinaryLauncher(cluster *fdbv1beta2.FoundationDBCluster) bool {
 	return needsSharedBinary(cluster) && !cluster.MonitorSupportsSharedBinaryConfig()
+}
+
+// SharedBinaryDirectory is the directory in the main container where the staged binaries of the sidecar are located. The
+// monitor starts the fdbserver binary from a subdirectory with the version name, if the staged binary must be used.
+const SharedBinaryDirectory = "/var/fdb/shared-binaries/bin"
+
+// GetSharedBinaryDirectory returns the directory the monitor starts the fdbserver binary from, if it uses the binary that
+// was staged by the sidecar for the provided version.
+func GetSharedBinaryDirectory(version string) string {
+	parsedVersion, err := fdbv1beta2.ParseFdbVersion(version)
+	if err != nil {
+		return path.Join(SharedBinaryDirectory, version)
+	}
+
+	return path.Join(SharedBinaryDirectory, parsedVersion.String())
+}
+
+// MonitorMustUseStagedBinary returns true if the monitors of the Pods must start the fdbserver binary that was staged by
+// the sidecar for the version of the cluster, because the main container image is pinned to a different version. This is
+// the case for all Pods that are restarted in-place.
+func MonitorMustUseStagedBinary(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	return cluster.UsePinnedMainContainerImage() && !cluster.MonitorVersionEqualsVersion()
+}
+
+// monitorStartsStagedBinary returns true if the monitor of the Pod starts the staged binary of the version of the cluster.
+// The monitor always starts the staged binary if its version is not protocol compatible with the version of the cluster.
+// Otherwise, the monitor must be configured to do so. This is used to simulate the behavior of the monitor in tests.
+func monitorStartsStagedBinary(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) bool {
+	if !MonitorMustUseStagedBinary(cluster) {
+		return false
+	}
+
+	monitorVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetMonitorVersion())
+	if err != nil {
+		return false
+	}
+
+	version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return false
+	}
+
+	return !monitorVersion.IsProtocolCompatible(version) ||
+		UseSharedBinaryConfig(cluster) ||
+		PodUsesSharedBinaryLauncher(pod)
 }
 
 // UseSharedBinaryConfig returns true if the process configuration must contain the UseSharedBinary option, to make the

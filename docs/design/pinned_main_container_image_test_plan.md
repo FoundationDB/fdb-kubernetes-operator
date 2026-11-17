@@ -34,7 +34,7 @@ These checks are used by the e2e tests (and partly by the controller tests):
 | `MonitorVersionEqualsVersion` with RC and `-PRERELEASE` versions and with an unparsable value | Gap |
 | Split image with a leftover `monitorVersion`: pinned helpers return false | Done (partly) |
 
-### 2.1b Shared binary config (monitor 7.4.10+, 8.0.2+)
+### 2.1b Shared binary config (monitor 7.4.11+, 8.0.1+)
 
 | Test | Status |
 |---|---|
@@ -46,7 +46,7 @@ These checks are used by the e2e tests (and partly by the controller tests):
 | Disable annotation (`true`/`True`/`1` disable, `false`/empty/invalid do not): API, Pod spec, process config, hash/capability check, controller test that replaces the Pods | Done |
 | Switching `monitorVersion` from an old to a supporting version while `spec.version` is a different patch version | Gap |
 | Mixed fleet during that switch: old Pods ignore the option and are replaced, not bounced | Gap |
-| E2E on the real monitor images 7.4.10 and 8.0.2 (and the last version without the features) | Gap |
+| E2E on the real monitor images 7.4.11 and 8.0.1 (and the last version without the features) | Gap |
 
 ### 2.2 Pod spec (`internal/pod_models_test.go`)
 
@@ -157,6 +157,7 @@ Add fixture helpers first:
 | E12 | Chaos from the existing upgrade-with-chaos suite (pod kill, network partition, node failure) while upgrading in place | The upgrade completes, no data loss |
 | E13 | Replace a process group / scale up / scale down after the upgrade | New Pods get the pinned main image and the new sidecar and work |
 | E14 | Node drain after the in-place upgrade | Pod is recreated with the right spec and runs the right version |
+| E15b | A monitor that doesn't honor the shared binary config (for example by forcing the option on a monitor without support, or by setting the disable annotation after the Pods were created) | The restart is skipped, the event `MonitorNotUsingStagedBinary` is emitted, the processes are not restarted repeatedly. Covered by a controller test, add an e2e case if possible |
 | E15 | Sidecar fails to stage the binary (crash-loop the sidecar through the buggify option) | The bounce does not happen, the cluster keeps running the old version, recovery after the sidecar is healthy |
 
 #### Stragglers that miss the restart (incompatible upgrades)
@@ -188,10 +189,52 @@ expected to document a limitation and not to pass without manual recovery.
 | E17 | Multiple storage servers per Pod, log processes with multiple servers |
 | E18 | TLS enabled, IPv6, DNS names (the `BINARY_DIR` substitution in the command line) |
 | E19 | HA cluster (multi-region, three data hall) with the upgrade order across operators and synchronization mode `global` |
+| E30 | Create a new cluster with `monitorVersion` that differs from `version` (older and newer; patch and incompatible; with and without the shared binary config). Covered by a controller test, add an e2e case for the cold start (the first start depends on the sidecar staging the binary) | The cluster is created and reconciled without manual steps, `status.monitorVersion` shows the pin |
 | E19b | Multi-region details (verify together with E19): (1) incompatible upgrade with locks and `synchronizationMode: global` (every operator patches its sidecars and waits for its monitors before the kill), (2) compatible in-place patch upgrade with `synchronizationMode: global` (no upgrade lock path, normal "all operators ready" wait), also with an old monitor where the first patch upgrade replaces Pods that are excluded from the bounce, (3) different `monitorVersion` or different support for the shared binary option per DC, (4) every operator has the `fdbcli` for the target minor version, (5) stragglers are only handled for the own DC |
 | E20 | Maintenance mode and exclusions during an in-place upgrade |
 | E21 | Backup and restore agents keep working after upgrades |
 | E22 | Matrix of monitor images: the oldest and the newest supported unified image for `M`, including the oldest version that has `--version-file` |
+
+### 4.0 Test framework support
+
+The e2e framework (`e2e/fixtures`) can create all clusters with a pinned main container image, so the existing suites run
+unchanged in a second job:
+
+| Option (make variable) | Meaning |
+|---|---|
+| `--pin-monitor-version` (`PIN_MONITOR_VERSION=true`) | The main container image is pinned to the version the cluster is created with |
+| `--monitor-version` (`MONITOR_VERSION=7.4.10`) | The main container image is pinned to this version, takes precedence |
+| `ClusterConfig.MonitorVersion` | Overrides the options for a single cluster |
+
+The Makefile chooses `PIN_MONITOR_VERSION` randomly (once per `make` invocation) if the variable is not defined, so every
+run covers one of the two modes. The chosen value is printed at the start of the run. Set the variable to reproduce a run.
+Both options are ignored without the unified image. Tests that cannot handle a pinned image skip themselves with
+`factory.UsePinnedMonitorVersion()`:
+
+| Test | Skipped when pinned | Reason |
+|---|---|---|
+| `test_operator_upgrades`: random Pod deleted during rolling bounce | always | Selects Pods by the old main container image, which never changes |
+| `test_operator_upgrades`: crash looping sidecar | compatible upgrades | Expects the upgrade to finish while the sidecar crash loops. In-place upgrades need the sidecar to stage the binary |
+| `test_operator_upgrades`: one process cannot connect to the Kubernetes API | compatible upgrades | Expects that the Pod is recreated. In-place upgrades are blocked like incompatible upgrades |
+| `test_operator_upgrades_with_chaos`: partitioned Pod which eventually gets replaced | compatible upgrades | Expects the upgrade to proceed without removing the partition |
+
+Reviewed without changes needed for pinned runs (`test_operator_ha_upgrades`): every DC cluster is created through the same
+spec builder, so the pin applies to all DCs. The tests only assert upper bounds (replaced transaction Pods, recovery count)
+or the running version, none of them depends on the main container image or on Pod recreation. Points to watch:
+* "locality based exclusions ... resources are limited in a satellite namespace" (ResourceQuota): an in-place upgrade needs no
+  additional Pods, so it passes without testing the replacement under quota (it still does for the first patch upgrade with
+  a monitor without the shared binary config).
+* "temporary partition": for compatible upgrades the other operators are expected to move forward. This holds with
+  `synchronizationMode: local`. With `global`, an in-place compatible upgrade waits for all operators to be ready (the normal
+  restart coordination), so a partitioned operator blocks the others until the partition is removed.
+* "random pod deleted during the staging phase" is a good cold start test for pinned runs: new Pods need the sidecar to stage
+  the binary before `fdbserver` starts.
+* The backup specs copy the cluster `MainContainer` settings, including `monitorVersion`, which the backup agent ignores.
+
+Not skipped but worth a look in the first runs: `test_operator_upgrades_with_chaos` "one process is missing the new binary"
+is skipped for the unified image today ("the operator doesn't validate the binary"). With a pinned image the monitor does
+not accept a configuration without the binary, so the upgrade should be blocked until the binary is back. It should be
+enabled for the unified image once the behavior is confirmed.
 
 ### 4.4 Tooling and limits
 
@@ -200,7 +243,7 @@ expected to document a limitation and not to pass without manual recovery.
 | E23 | `kubectl fdb` commands that exec into the main container (version skew: `fdbcli` of the pinned version against a newer cluster) | Documented behavior, fails with a clear message or uses the staged `fdbcli` |
 | E24 | Shared volume growth after N upgrades (no pruning with current monitors) | Usage stays within the documented `sizeLimit` guidance; with a monitor that prunes, old versions are removed and a process of a pending bounce is never affected |
 | E25 | Invalid configurations: split image, `monitorVersion` on the sidecar, unsupported version | Warning event, no Pod touched |
-| E26 | Compare an in-place upgrade against a classic upgrade: duration, number of recoveries, Pod restarts | In-place is not worse; record numbers for the documentation |
+| E26 | Compare an in-place upgrade against a classic upgrade: duration, number of recoveries, Pod restarts | In-place is not worse; record numbers for the documentation. `test_operator_stress` "creating and upgrading a cluster multiple times" records the upgrade duration, the recoveries and the recreated Pods of 10 runs per version pair and reports min, median, mean and max. The suite has the same test for a multi-region cluster (5 runs per pair, as creating and upgrading it takes a lot longer). Run it once with `PIN_MONITOR_VERSION=true` and once with `false` to compare. The results for the 7.3.69 to 7.4.5 upgrade are in the design doc |
 
 ## 5. Exploratory / manual checks before the first release
 

@@ -290,7 +290,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | hasIncorrectServiceConfig | HasIncorrectServiceConfig indicates whether the cluster has service config that is out of date with the cluster spec. | bool | false |
 | needsNewCoordinators | NeedsNewCoordinators indicates whether the cluster needs to recruit new coordinators to fulfill its fault tolerance requirements. | bool | false |
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
-| monitorVersion | MonitorVersion defines the version of the image of the main container, which runs fdb-kubernetes-monitor. This is the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set. | string | false |
+| monitorVersion | MonitorVersion defines the desired version of the image of the main container, which runs fdb-kubernetes-monitor. This is the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set. The value is derived from the spec, it does not reflect the images of the running Pods, e.g. during a rolling update of the Pods or an upgrade of a cluster without a pinned main container image. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | hasListenIPsForAllPods | HasListenIPsForAllPods defines whether every pod has an environment variable for its listen address. | bool | false |

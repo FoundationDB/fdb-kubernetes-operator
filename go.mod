@@ -5,8 +5,8 @@ go 1.26.0
 require (
 	// Binding version for 7.1.67
 	github.com/apple/foundationdb/bindings/go v0.0.0-20250115161953-f1ab8147ed1c
-	// fdbkubernetesmonitor version for 7.1.67
-	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20250115161953-f1ab8147ed1c
+	// fdbkubernetesmonitor version for 8.0.1
+	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20261117083047-9aaa93799b2b
 	github.com/fatih/color v1.18.0
 	github.com/go-logr/logr v1.4.3
 	// TODO (j-scheuermann): Get rid of this dependency we don't really need it
@@ -120,6 +120,3 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
-
-// TODO (johscheuer): Change to the actual version before merging.
-replace github.com/apple/foundationdb/fdbkubernetesmonitor => github.com/johscheuer/foundationdb/fdbkubernetesmonitor v0.0.0-20261110154942-c080d863c2c2

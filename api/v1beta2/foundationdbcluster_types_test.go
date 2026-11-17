@@ -5478,7 +5478,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			When("the monitor version supports the shared binary config", func() {
 				BeforeEach(func() {
-					cluster.Spec.MainContainer.MonitorVersion = new("7.4.10")
+					cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
 				})
 
 				It("should support the shared binary config", func() {

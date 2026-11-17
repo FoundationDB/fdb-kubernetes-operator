@@ -400,11 +400,7 @@ func getPodsToUpdate(
 			"processGroupID",
 			processGroup.ProcessGroupID,
 			"reason",
-			fmt.Sprintf(
-				"specHash has changed from %s to %s",
-				specHash,
-				pod.Annotations[fdbv1beta2.LastSpecKey],
-			),
+			internal.GetSpecDifferenceReason(pod, specHash),
 		)
 
 		podClient, message := reconciler.getPodClient(cluster, pod)

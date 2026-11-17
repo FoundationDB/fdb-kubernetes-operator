@@ -743,9 +743,9 @@ var _ = Describe("pod_models", func() {
 					var config monitorapi.ProcessConfiguration
 
 					BeforeEach(func() {
-						cluster.Status.RunningVersion = "7.4.10"
-						cluster.Spec.MainContainer.MonitorVersion = new("7.4.10")
-						cluster.Spec.Version = "7.4.11"
+						cluster.Status.RunningVersion = "7.4.11"
+						cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
+						cluster.Spec.Version = "7.4.12"
 
 						spec, err = GetPodSpec(
 							cluster,
@@ -767,16 +767,16 @@ var _ = Describe("pod_models", func() {
 						Expect(UseSharedBinaryConfig(cluster)).To(BeTrue())
 						Expect(config.UseSharedBinary).To(HaveValue(BeTrue()))
 						Expect(spec.Containers[0].Args).NotTo(ContainElement("--version-file"))
-						Expect(spec.Containers[0].Image).To(HaveSuffix("7.4.10"))
+						Expect(spec.Containers[0].Image).To(HaveSuffix("7.4.11"))
 					})
 
 					It(
 						"should create the same sidecar arguments as for a Pod of the pinned version",
 						func() {
-							Expect(spec.Containers[1].Image).To(HaveSuffix("7.4.11"))
+							Expect(spec.Containers[1].Image).To(HaveSuffix("7.4.12"))
 							Expect(
 								spec.Containers[1].Args,
-							).To(ContainElements("--main-container-version", "7.4.10"))
+							).To(ContainElements("--main-container-version", "7.4.11"))
 						},
 					)
 
@@ -825,8 +825,8 @@ var _ = Describe("pod_models", func() {
 
 					When("the version is equal to the monitor version", func() {
 						BeforeEach(func() {
-							cluster.Status.RunningVersion = "7.4.10"
-							cluster.Spec.Version = "7.4.10"
+							cluster.Status.RunningVersion = "7.4.11"
+							cluster.Spec.Version = "7.4.11"
 							config, err = GetMonitorProcessConfiguration(
 								cluster,
 								fdbv1beta2.ProcessClassStorage,

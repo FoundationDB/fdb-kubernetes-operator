@@ -46,9 +46,13 @@ func (updateSidecarVersions) reconcile(
 	_ *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
-	// We don't need to upgrade the sidecar in-place if no upgrade is in progress, or if the Pods are replaced as part of
-	// the upgrade, we can skip any further work here.
-	if !cluster.UpdatesSidecarInPlace() {
+	// If the main container image is pinned, the sidecar image is not part of the Pod spec hash, which means a change of
+	// the sidecar image, e.g. a changed image config, is never rolled out by recreating the Pods. In this case the sidecar
+	// image must be converged in-place, independent of an ongoing upgrade.
+	updatesSidecarInPlace := cluster.UpdatesSidecarInPlace()
+	if !updatesSidecarInPlace && !cluster.UsePinnedMainContainerImage() {
+		// We don't need to upgrade the sidecar in-place if no upgrade is in progress, or if the Pods are replaced as part of
+		// the upgrade, we can skip any further work here.
 		return nil
 	}
 
@@ -75,13 +79,24 @@ func (updateSidecarVersions) reconcile(
 			continue
 		}
 
-		err = updateSidecarImage(ctx, r, logger, cluster, processGroup, pod)
+		// Pods that are replaced or recreated because of a changed Pod spec, e.g. because the pinned main container image
+		// is changed, get the correct sidecar image when they are recreated.
+		if !updatesSidecarInPlace &&
+			processGroup.GetConditionTime(fdbv1beta2.IncorrectPodSpec) != nil {
+			logger.V(1).Info("Ignore process group that will be recreated",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		updated, err := updateSidecarImage(ctx, r, logger, cluster, processGroup, pod)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
 
-		upgraded++
+		if updated {
+			upgraded++
+		}
 	}
 
 	if upgraded > 0 {
@@ -113,10 +128,10 @@ func updateSidecarImage(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	processGroup *fdbv1beta2.ProcessGroupStatus,
 	pod *corev1.Pod,
-) error {
+) (bool, error) {
 	image, err := internal.GetSidecarImage(cluster, processGroup.ProcessClass)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	for containerIndex, container := range pod.Spec.Containers {
@@ -139,12 +154,12 @@ func updateSidecarImage(
 				image,
 			)
 			if err != nil {
-				return err
+				return false, err
 			}
 
-			break
+			return true, nil
 		}
 	}
 
-	return nil
+	return false, nil
 }

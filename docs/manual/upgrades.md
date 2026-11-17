@@ -151,8 +151,11 @@ spec:
 ```
 
 `monitorVersion` must be a valid FDB version (the same format as `version`) and is only supported with the unified image.
-The version the main container image is using is shown in `status.monitorVersion` and in the `MonitorVersion` column of `kubectl get fdb`.
-If `monitorVersion` is not set, the status shows the `version` of the cluster.
+The desired version of the main container image is exposed by the metric `fdb_operator_cluster_version_info` (label `monitor_version`).
+If `monitorVersion` is not set, the metric shows the `version` of the cluster.
+The value is derived from the spec and does not reflect the images of the running Pods, which can still use the previous image while the Pods are updated.
+The field `status.monitorVersion` and the `MonitorVersion` column of `kubectl get fdb` exist in the CRD, but the operator doesn't populate them yet.
+This is done in a follow-up release, to make sure that the CRDs contain the field before the operator writes it.
 
 #### Upgrade flows compared
 
@@ -187,7 +190,7 @@ For protocol compatible (patch) upgrades the flow depends on the version of the 
 
 ```mermaid
 flowchart TD
-    A["Patch upgrade"] --> B{"monitorVersion supports<br/>the useSharedBinary option?<br/>7.4.10+, 8.0.2+, 8.1+"}
+    A["Patch upgrade"] --> B{"monitorVersion supports<br/>the useSharedBinary option?<br/>7.4.11+, 8.0.1+, 8.1+"}
     B -->|"yes"| C["Staging phase<br/>sidecar image updated in-place<br/>useSharedBinary set in the configuration"]
     C --> D["Restart phase<br/>processes start from the staged binary"]
     D --> G["Upgrade done<br/>no Pod was recreated"]
@@ -198,19 +201,40 @@ flowchart TD
     F --> G
 ```
 
+#### Measured effect
+
+In the e2e stress test an upgrade from 7.3.69 to 7.4.5 (version incompatible) took the following median time with a pinned
+main container image and without:
+
+| Cluster | Pinned | Classic | Pods recreated (pinned / classic) | Recoveries (pinned / classic) |
+|---|---|---|---|---|
+| Single cluster, 19 Pods, 10 runs | 39 seconds | 4 minutes 13 seconds | 0 / 19 | 1 / 2 |
+| Multi-region cluster, 46 Pods, 5 runs | 1 minute 23 seconds | 15 minutes 21 seconds | 0 / 46 | 1 / 5 |
+
+The difference is bigger for a multi-region cluster, because the classic upgrade recreates the Pods of every data center.
+The numbers depend on the environment and on the size of the cluster, see the [design](../design/pinned_main_container_image.md#measurements) for the details.
+
+```mermaid
+xychart-beta
+    title "Median upgrade duration in seconds (7.3.69 to 7.4.5)"
+    x-axis ["Pinned (single cluster)", "Classic (single cluster)", "Pinned (multi-region)", "Classic (multi-region)"]
+    y-axis "Seconds" 0 --> 1000
+    bar [39, 253, 83, 921]
+```
+
 #### Rollout
 
 | Change | What the operator does |
 |---|---|
 | Set `monitorVersion` to the current `version` | Nothing is restarted or recreated. The operator only updates the `foundationdb.org/last-applied-spec` annotation of the Pods. Enable the setting before you start an upgrade. |
 | Version incompatible upgrade (major or minor) | The [Staging Phase](#staging-phase) and the [Restart Phase](#restart-phase) run as before, the sidecar image is updated in-place and the processes are restarted with the staged binary. The Recreation of Pods Phase does not happen, no Pod is recreated. |
-| Patch upgrade, `monitorVersion` of at least `7.4.10`, `8.0.2` or `8.1.0` | In-place as well: the operator writes the option `useSharedBinary` into the process configuration, updates the sidecar image and restarts the processes with the staged binary. |
+| Patch upgrade, `monitorVersion` of at least `7.4.11`, `8.0.1` or `8.1.0` | In-place as well: the operator writes the option `useSharedBinary` into the process configuration, updates the sidecar image and restarts the processes with the staged binary. |
 | Patch upgrade, older `monitorVersion` | The first patch upgrade away from `monitorVersion` replaces the Pods once (according to the [Pod update strategy](../cluster_spec.md#podupdatestrategy)) with Pods that always start the staged binary. All further patch upgrades are in-place. |
 | Set `monitorVersion` and `version` to the same new version | Normal upgrade with a rolling update of the Pods, like for a cluster without `monitorVersion`. Use this to roll the pinned image forward, for example for base image or monitor fixes. The following upgrades are in-place again. |
 | Change only `monitorVersion` | Rolling update of the Pods to the new main container image. |
 | Remove `monitorVersion` | Rolling update of the Pods back to the images of the `version`. |
 
-The monitor versions that support the `useSharedBinary` option are `7.4.10` and newer 7.4 patches, `8.0.2` and newer 8.0 patches and `8.1.0` and newer.
+The monitor versions that support the `useSharedBinary` option are `7.4.11` and newer 7.4 patches, `8.0.1` and newer 8.0 patches and `8.1.0` and newer.
 They also retry to start the process if the sidecar has not finished staging the binary yet.
 These changes are not available for `7.3` and older versions, which use the first patch upgrade rollout from the table.
 
@@ -227,9 +251,20 @@ The restart is done with the same `kill` command that is used for all other rest
   The staged `fdbcli` of the running version is available in the shared volume at `/var/fdb/shared-binaries/bin/$fdb_version/fdbcli`.
 - **Dependency on the sidecar**: a Pod can only start `fdbserver` if the sidecar has staged the binary.
   If the sidecar of a new Pod cannot copy the binary, the process of this Pod will not start.
-  Monitors before `7.4.10` and `8.0.2` do not retry, the operator triggers a reload of the configuration until the monitor has accepted it.
+  Monitors before `7.4.11` and `8.0.1` do not retry, the operator triggers a reload of the configuration until the monitor has accepted it.
   A Process Group with this problem has the `MissingProcesses` condition and the Pod has no `foundationdb.org/launcher-environment` annotation.
   If the operator does not do this, you can trigger the reload manually: `kubectl annotate pod pod-1 foundationdb.org/outdated-config-map-seen="$(date +%s)" --overwrite`.
+  To trigger the reload, the operator updates the annotation `foundationdb.org/outdated-config-map-seen` of the Pod in every reconciliation, until the monitor reports its configuration.
+  This is one metadata update per Pod and reconciliation, limited to Pods that did not report a configuration yet, which is normally only the short time while the Pod starts.
+  If the sidecar can never stage the binary, the operator keeps updating the annotation of this Pod until the problem is solved.
+  Monitors with support for the `useSharedBinary` option retry on their own and the operator does not update the annotation.
+- **Update the CRDs**: this release adds the field `status.monitorVersion` and the `MonitorVersion` print column to the CRD, but the operator doesn't write the field yet.
+  Install the new CRDs with this release, a later release will populate the field.
+  This prevents failing status updates (`field not declared in schema` with `--server-side-apply`) for clusters that still use the old CRD.
+- **Monitors that don't start the staged binary**: before the operator restarts the processes of an in-place upgrade it checks the directory of the `fdbserver` binary that every monitor reports in the Pod annotations.
+  If a monitor reports another directory than the directory of the staged binary (`/var/fdb/shared-binaries/bin/$fdb_version`), the operator skips the restart, logs the process groups, emits the warning event `MonitorNotUsingStagedBinary` and tries again after 30 seconds.
+  This protects against a monitor that ignores the configuration to start the staged binary, which would restart the processes with the old binary again and again.
+  In this case set the annotation `foundationdb.org/disable-shared-binary-config: "true"` on the `FoundationDBCluster`, or update `monitorVersion` to a version that supports the option.
 - **Disk usage**: the staged binaries of old versions stay in the shared volume (an `emptyDir`) until the Pod is recreated, every upgrade adds the `fdbserver` and `fdbcli` binaries of the new version.
   Monitor versions with support for the `useSharedBinary` option remove the staged versions that are not used anymore.
   For other versions plan for the versions you expect to deploy during the life time of a Pod, the volume is reset when the Pod is recreated, for example when you change `monitorVersion`.

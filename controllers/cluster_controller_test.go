@@ -148,10 +148,6 @@ var _ = Describe("cluster_controller", func() {
 				generationGap = 0
 			})
 
-			It("should default the monitor version in the status to the version", func() {
-				Expect(cluster.Status.MonitorVersion).To(Equal(cluster.Spec.Version))
-			})
-
 			It("should create pods", func() {
 				pods := &corev1.PodList{}
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
@@ -2223,6 +2219,105 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		Context("when creating a new cluster with a pinned main container image", func() {
+			BeforeEach(func() {
+				// The cluster of the test setup is not changed, the tests create their own cluster.
+				generationGap = 0
+			})
+
+			DescribeTable(
+				"when creating a new cluster with a monitor version that is different from the version",
+				func(version string, monitorVersion string, expectVersionFile bool, expectSharedBinaryConfig bool) {
+					k8sClient.Clear()
+					mock.ClearMockAdminClients()
+					mock.ClearMockLockClients()
+
+					newCluster := internal.CreateDefaultCluster()
+					newCluster.Spec.Version = version
+					newCluster.Spec.MainContainer.ImageConfigs = nil
+					newCluster.Spec.SidecarContainer.ImageConfigs = nil
+					newCluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+					newCluster.Spec.MainContainer.MonitorVersion = new(monitorVersion)
+					// A new cluster has no running version before the first reconciliation, otherwise the creation
+					// would be an upgrade from the default version of the test cluster.
+					newCluster.Status.RunningVersion = ""
+					Expect(k8sClient.Create(context.TODO(), newCluster)).To(Succeed())
+
+					result, reconcileErr := reconcileCluster(newCluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(BeZero())
+					_, reconcileErr = reloadCluster(newCluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+
+					Expect(newCluster.Status.RunningVersion).To(Equal(version))
+
+					pods := &corev1.PodList{}
+					Expect(
+						k8sClient.List(context.TODO(), pods, getListOptions(newCluster)...),
+					).To(Succeed())
+					Expect(pods.Items).To(HaveLen(17))
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(HaveSuffix(monitorVersion))
+						Expect(pod.Spec.Containers[1].Image).To(HaveSuffix(version))
+						Expect(
+							internal.PodUsesSharedBinaryLauncher(&pod),
+						).To(Equal(expectVersionFile))
+					}
+
+					configMap := &corev1.ConfigMap{}
+					Expect(k8sClient.Get(context.TODO(), client.ObjectKey{
+						Namespace: newCluster.Namespace,
+						Name:      fmt.Sprintf("%s-config", newCluster.Name),
+					}, configMap)).To(Succeed())
+					if expectSharedBinaryConfig {
+						Expect(
+							configMap.Data["fdbmonitor-conf-storage-json"],
+						).To(ContainSubstring(`"useSharedBinary":true`))
+					} else {
+						Expect(
+							configMap.Data["fdbmonitor-conf-storage-json"],
+						).NotTo(ContainSubstring("useSharedBinary"))
+					}
+				},
+				Entry(
+					"the monitor version is older and not protocol compatible",
+					"7.4.5",
+					"7.3.69",
+					false,
+					false,
+				),
+				Entry(
+					"the monitor version is newer and not protocol compatible",
+					"7.3.69",
+					"7.4.5",
+					false,
+					false,
+				),
+				Entry(
+					"the monitor version is an older patch version without support for the shared binary config",
+					"7.4.5",
+					"7.4.1",
+					true,
+					false,
+				),
+				Entry(
+					"the monitor version is a newer patch version without support for the shared binary config",
+					"7.4.1",
+					"7.4.5",
+					true,
+					false,
+				),
+				Entry(
+					"the monitor version is a newer patch version with support for the shared binary config",
+					"7.4.5",
+					"7.4.12",
+					false,
+					true,
+				),
+				Entry("the monitor version is the same version", "7.4.12", "7.4.12", false, false),
+			)
+		})
+
 		When("enabling a pinned main container image on a cluster with unified images", func() {
 			const testAnnotation = "foundationdb.org/test-pod-marker"
 
@@ -2315,9 +2410,6 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should not recreate any Pod and should update the last spec annotation", func() {
-				Expect(
-					cluster.Status.MonitorVersion,
-				).To(Equal(fdbv1beta2.Versions.Default.String()))
 				pods := &corev1.PodList{}
 				Expect(
 					k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
@@ -2379,9 +2471,6 @@ var _ = Describe("cluster_controller", func() {
 
 						It("should upgrade the cluster without recreating the Pods", func() {
 							Expect(cluster.Status.RunningVersion).To(Equal(secondVersion))
-							Expect(
-								cluster.Status.MonitorVersion,
-							).To(Equal(fdbv1beta2.Versions.Default.String()))
 							validatePods(
 								fdbv1beta2.Versions.Default.String(),
 								secondVersion,
@@ -2411,6 +2500,54 @@ var _ = Describe("cluster_controller", func() {
 					})
 				},
 			)
+
+			When("only the sidecar image is changed", func() {
+				JustBeforeEach(func() {
+					markPods()
+
+					// Change only the sidecar image, the image of the main container and the version stay the same.
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					if settings.PodTemplate == nil {
+						settings.PodTemplate = &corev1.PodTemplateSpec{}
+					}
+
+					settings.PodTemplate.Spec.Containers = append(
+						settings.PodTemplate.Spec.Containers,
+						corev1.Container{
+							Name:  fdbv1beta2.SidecarContainerName,
+							Image: "custom-registry/custom-sidecar",
+						},
+					)
+					if cluster.Spec.Processes == nil {
+						cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}
+					}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
+					Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
+
+					result, reconcileErr := reconcileCluster(cluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(BeZero())
+					_, reconcileErr = reloadCluster(cluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+				})
+
+				It("should update the sidecar image in-place without recreating the Pods", func() {
+					pods := &corev1.PodList{}
+					Expect(
+						k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+					).To(Succeed())
+					Expect(pods.Items).To(HaveLen(17))
+					for _, pod := range pods.Items {
+						Expect(pod.Annotations).To(HaveKeyWithValue(testAnnotation, "true"))
+						Expect(
+							pod.Spec.Containers[0].Image,
+						).To(HaveSuffix(fdbv1beta2.Versions.Default.String()))
+						Expect(pod.Spec.Containers[1].Image).To(Equal(
+							"custom-registry/custom-sidecar:" + fdbv1beta2.Versions.Default.String(),
+						))
+					}
+				})
+			})
 
 			When(
 				"changing the monitor version together with the version to a patch version",
@@ -2470,11 +2607,11 @@ var _ = Describe("cluster_controller", func() {
 					mock.ClearMockLockClients()
 
 					cluster = internal.CreateDefaultCluster()
-					cluster.Spec.Version = "7.4.10"
+					cluster.Spec.Version = "7.4.11"
 					cluster.Spec.MainContainer.ImageConfigs = nil
 					cluster.Spec.SidecarContainer.ImageConfigs = nil
 					cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
-					cluster.Spec.MainContainer.MonitorVersion = new("7.4.10")
+					cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
 					Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
 
 					result, reconcileErr := reconcileCluster(cluster)
@@ -2487,15 +2624,54 @@ var _ = Describe("cluster_controller", func() {
 					markPods()
 				})
 
-				When("performing a patch upgrade", func() {
+				When("performing a patch upgrade with locks", func() {
+					BeforeEach(func() {
+						// Locks are used for clusters that span multiple data centers, the upgrade is coordinated.
+						cluster.Spec.LockOptions.DisableLocks = new(false)
+					})
+
 					JustBeforeEach(func() {
-						upgradeCluster("7.4.11")
+						upgradeCluster("7.4.12")
 					})
 
 					It("should upgrade the cluster without recreating the Pods", func() {
-						Expect(cluster.Status.RunningVersion).To(Equal("7.4.11"))
-						Expect(cluster.Status.MonitorVersion).To(Equal("7.4.10"))
-						validatePods("7.4.10", "7.4.11", false, false)
+						Expect(cluster.Status.RunningVersion).To(Equal("7.4.12"))
+						validatePods("7.4.11", "7.4.12", false, false)
+					})
+
+					It("should restart all processes at once", func() {
+						adminClient, adminErr := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(adminErr).NotTo(HaveOccurred())
+						pods := &corev1.PodList{}
+						Expect(
+							k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+						).To(Succeed())
+						Expect(pods.Items).NotTo(BeEmpty())
+						// The processes of all Pods are restarted.
+						for _, pod := range pods.Items {
+							var killed bool
+							for address := range adminClient.KilledAddresses {
+								if strings.HasPrefix(address, pod.Status.PodIP+":") {
+									killed = true
+									break
+								}
+							}
+
+							Expect(
+								killed,
+							).To(BeTrue(), "processes of Pod %s were not restarted", pod.Name)
+						}
+					})
+				})
+
+				When("performing a patch upgrade", func() {
+					JustBeforeEach(func() {
+						upgradeCluster("7.4.12")
+					})
+
+					It("should upgrade the cluster without recreating the Pods", func() {
+						Expect(cluster.Status.RunningVersion).To(Equal("7.4.12"))
+						validatePods("7.4.11", "7.4.12", false, false)
 					})
 
 					It("should configure the monitors to use the staged binary", func() {
@@ -2515,12 +2691,12 @@ var _ = Describe("cluster_controller", func() {
 							cluster.Annotations = map[string]string{
 								fdbv1beta2.DisableSharedBinaryConfigAnnotation: "true",
 							}
-							upgradeCluster("7.4.11")
+							upgradeCluster("7.4.12")
 						})
 
 						It("should replace the Pods to use the version file", func() {
-							Expect(cluster.Status.RunningVersion).To(Equal("7.4.11"))
-							validatePods("7.4.10", "7.4.11", true, true)
+							Expect(cluster.Status.RunningVersion).To(Equal("7.4.12"))
+							validatePods("7.4.11", "7.4.12", true, true)
 						})
 					})
 
@@ -2529,13 +2705,13 @@ var _ = Describe("cluster_controller", func() {
 						func() {
 							JustBeforeEach(func() {
 								markPods()
-								upgradeCluster("7.4.12")
+								upgradeCluster("7.4.13")
 								upgradeCluster("8.0.2")
 							})
 
 							It("should upgrade the cluster without recreating the Pods", func() {
 								Expect(cluster.Status.RunningVersion).To(Equal("8.0.2"))
-								validatePods("7.4.10", "8.0.2", false, false)
+								validatePods("7.4.11", "8.0.2", false, false)
 							})
 						},
 					)

@@ -352,9 +352,9 @@ var _ = Describe("pod_helper", func() {
 				var pod *corev1.Pod
 
 				BeforeEach(func() {
-					cluster.Spec.MainContainer.MonitorVersion = new("7.4.10")
-					cluster.Spec.Version = "7.4.11"
-					cluster.Status.RunningVersion = "7.4.10"
+					cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
+					cluster.Spec.Version = "7.4.12"
+					cluster.Status.RunningVersion = "7.4.11"
 					Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
 
 					spec, err := GetPodSpec(cluster, processGroup)
@@ -368,6 +368,16 @@ var _ = Describe("pod_helper", func() {
 					cluster.Annotations = map[string]string{
 						fdbv1beta2.DisableSharedBinaryConfigAnnotation: "true",
 					}
+				})
+
+				It("should describe why the Pod doesn't have the desired spec", func() {
+					currentHash := pod.Annotations[fdbv1beta2.LastSpecKey]
+					Expect(GetSpecDifferenceReason(pod, "other")).To(
+						Equal("specHash has changed from " + currentHash + " to other"),
+					)
+					Expect(
+						GetSpecDifferenceReason(pod, currentHash),
+					).To(ContainSubstring("doesn't start the binary of the sidecar"))
 				})
 
 				It(
@@ -394,6 +404,105 @@ var _ = Describe("pod_helper", func() {
 			})
 		})
 	})
+
+	DescribeTable("when getting the directory of the staged binary",
+		func(version string, expected string) {
+			Expect(GetSharedBinaryDirectory(version)).To(Equal(expected))
+		},
+		Entry("a version", "7.4.11", "/var/fdb/shared-binaries/bin/7.4.11"),
+		Entry("an invalid version", "invalid", "/var/fdb/shared-binaries/bin/invalid"),
+	)
+
+	DescribeTable(
+		"when checking which binary the monitor starts",
+		func(version string, monitorVersion *string, usesVersionFile bool, annotation string, expectedMustUse bool, expectedStarts bool) {
+			cluster := CreateDefaultCluster()
+			cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+			cluster.Spec.Version = version
+			cluster.Status.RunningVersion = version
+			cluster.Spec.MainContainer.MonitorVersion = monitorVersion
+			if annotation != "" {
+				cluster.Annotations = map[string]string{
+					fdbv1beta2.DisableSharedBinaryConfigAnnotation: annotation,
+				}
+			}
+
+			pod := &corev1.Pod{}
+			if usesVersionFile {
+				pod.Spec.Containers = []corev1.Container{{
+					Name: fdbv1beta2.MainContainerName,
+					Args: []string{"--version-file", "/var/dynamic-conf/shared-binary-version"},
+				}}
+			}
+
+			Expect(MonitorMustUseStagedBinary(cluster)).To(Equal(expectedMustUse))
+			Expect(monitorStartsStagedBinary(cluster, pod)).To(Equal(expectedStarts))
+		},
+		Entry("the image is not pinned", "7.4.11", nil, false, "", false, false),
+		Entry(
+			"the version is the pinned version",
+			"7.4.10",
+			new("7.4.10"),
+			false,
+			"",
+			false,
+			false,
+		),
+		Entry(
+			"the version is not protocol compatible with the pinned version",
+			"7.4.5",
+			new("7.3.69"),
+			false,
+			"",
+			true,
+			true,
+		),
+		Entry(
+			"the monitor supports the config option",
+			"7.4.12",
+			new("7.4.11"),
+			false,
+			"",
+			true,
+			true,
+		),
+		Entry(
+			"the monitor doesn't support the config option and the Pod has no version file",
+			"7.4.5",
+			new("7.4.1"),
+			false,
+			"",
+			true,
+			false,
+		),
+		Entry(
+			"the monitor doesn't support the config option and the Pod has a version file",
+			"7.4.5",
+			new("7.4.1"),
+			true,
+			"",
+			true,
+			true,
+		),
+		Entry(
+			"the config option is disabled and the Pod has no version file",
+			"7.4.12",
+			new("7.4.11"),
+			false,
+			"true",
+			true,
+			false,
+		),
+		Entry(
+			"the config option is disabled and the Pod has a version file",
+			"7.4.12",
+			new("7.4.11"),
+			true,
+			"true",
+			true,
+			true,
+		),
+	)
 
 	When("merging labels", func() {
 		var metadata *metav1.ObjectMeta

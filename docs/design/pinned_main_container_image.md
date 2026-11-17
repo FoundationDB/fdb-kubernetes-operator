@@ -224,6 +224,10 @@ When `monitorVersion` is unset, the hash input is unchanged.
    mode it converges the sidecar image of every Pod in place whenever it differs from `GetSidecarImage` (the existing
    `container.Image != image` check in `updateSidecarImage`), so it also recovers after an operator restart. Patching
    the sidecar image restarts only the sidecar container, which stages the binary for its version.
+   The convergence runs for every pinned cluster, independent of an ongoing upgrade. The sidecar image is not part of the
+   hash, so a change of the sidecar image outside of an upgrade (for example a changed image config) would otherwise never
+   be rolled out. Process groups that have the `IncorrectPodSpec` condition are skipped outside of upgrades, because their
+   Pods are recreated with the correct sidecar image.
 5. **Upgrade flow** (see next section).
 6. **Status/observability.** Expose the pinned version in the cluster status (or a condition) so `kubectl fdb` and
    metrics can show how far the main image lags behind `spec.version`. A warning event or condition when the gap
@@ -231,6 +235,15 @@ When `monitorVersion` is unset, the hash input is unchanged.
 7. **Verification instead of monitor confirmation.** The operator verifies the mode with information it already has:
    the version the processes report in `fdbcli status` / `running_version` after the bounce, which must equal
    `spec.version`. A mismatch after the bounce blocks the upgrade and surfaces as a condition.
+   In addition the operator checks *before* the restart of an in-place upgrade that the monitors start the staged
+   binary: the monitor publishes the directory of the binary in the `BINARY_DIR` of the environment annotation of the Pod
+   once it accepted a configuration. If this is not the directory of the staged binary for `spec.version`
+   (`/var/fdb/shared-binaries/bin/<version>`), the restart is skipped, the process groups are logged, the warning event
+   `MonitorNotUsingStagedBinary` is emitted and the reconciliation is requeued (`checkMonitorsStartStagedBinary`). This turns
+   a monitor that silently ignores `useSharedBinary` (for example because of a wrong version gate) into a visible, bounded
+   failure, instead of a restart of the processes in every reconciliation. The check only runs for coordinated in-place
+   upgrades with a pinned image and works with all monitor versions, because `BINARY_DIR` is published by every unified
+   monitor. It does not set a condition, only an event and a log message.
 
 ### 5. Upgrade flow
 
@@ -249,6 +262,13 @@ Notes:
   (or replaced, depending on the `PodUpdateStrategy`) and starts with the new version.
 * The "compatible and not capable" case must be detected explicitly. Otherwise the sidecar would copy the new binary
   while the launcher silently restarts the old one, and the cluster would never converge.
+* **Coordinated restart.** If all Pods are restarted in-place (no process group has the `IncorrectPodSpec` condition), the
+  patch upgrade is coordinated like a version incompatible upgrade (`isCoordinatedUpgrade`): the process groups are
+  registered as pending upgrades with the lock client, the operator that holds the lock restarts all processes of the
+  cluster (all data centers) with one command, and the operator checks that enough processes are running before it restarts
+  them. For a multi-region cluster this reduces the recoveries (one instead of one per operator). If Pods must be replaced
+  first (the first patch upgrade with a monitor without support for the shared binary config), the coordination is skipped,
+  otherwise the processes of the Pods that are about to be replaced would be restarted again and again with the old binary.
 * **Implementation.** In-place compatible upgrades are restarted through the regular bounce path, like any other
   configuration change that requires a restart. `updateSidecarVersions` runs for every upgrade in pinned mode
   (`UpdatesSidecarInPlace`). The process version check is not skipped for compatible upgrades in pinned mode, so every
@@ -321,12 +341,12 @@ annotation). The operator keeps verifying the mode through the running version (
 `monitorVersion` is part of the spec, so the operator knows which monitor runs in the main container and does not have
 to detect support at runtime (an older monitor silently ignores the unknown `useSharedBinary` field, so the operator
 must never set it for a monitor that does not support it). The versions that contain the features are
-`Version.SupportsSharedBinaryConfig`: **7.4.10 and newer 7.4 patches, 8.0.2 and newer 8.0 patches, and 8.1 and newer**.
+`Version.SupportsSharedBinaryConfig`: **7.4.11 and newer 7.4 patches, 8.0.1 and newer 8.0 patches, and 8.1 and newer**.
 The features will not be backported to 7.3 and older releases.
 
 | `monitorVersion` | Mechanism |
 |---|---|
-| Does not support the features (7.3 and older, 7.4.x < 7.4.10, 8.0.0, 8.0.1) | Operator-only design as described above: fake `--version-file` on capable Pods, no `--main-container-version` flag, rolling update at the first patch upgrade, nudge of Pods whose monitor has not reported a configuration. |
+| Does not support the features (7.3 and older, 7.4.x < 7.4.11, 8.0.0) | Operator-only design as described above: fake `--version-file` on capable Pods, no `--main-container-version` flag, rolling update at the first patch upgrade, nudge of Pods whose monitor has not reported a configuration. |
 | Supports the features | `useSharedBinary: true` in the generated process configuration whenever the Pod version is a different patch version of `monitorVersion`. The Pod spec equals the non-capable spec (no `--version-file`), so there are no capable Pods and the first patch upgrade is in place too. The monitor retries to load the configuration if the binary is not staged yet. |
 
 **Escape hatch.** If the version table is wrong for a monitor (an old monitor ignores the option silently), the
@@ -432,6 +452,96 @@ Staged so that each stage is useful on its own:
 4. **Stage 4: docs.** Manual section on the mode, trade-offs and the process for rolling the pinned image forward.
 5. **Later (optional):** adopt the features of future monitor versions (`useSharedBinary`, retry, pruning) behind a
    minimum `monitorVersion`.
+
+## Measurements
+
+The e2e suite `test_operator_stress` creates a cluster, upgrades it and deletes it multiple times per mode and records the
+duration, the recoveries and the Pods that were recreated. It has a test for a single cluster ("creating and upgrading a
+cluster multiple times", 10 runs per mode) and a test for a multi-region cluster ("creating and upgrading a multi-region
+cluster multiple times", 5 runs per mode). The results below are for a version incompatible upgrade from 7.3.69 to 7.4.5.
+The numbers depend on the environment (for example how long volumes need to be reattached), they are meant to show the
+relation between the two modes and not absolute values.
+
+### Single cluster
+
+The cluster has 19 Pods (5 log, 5 storage and 9 stateless Pods).
+
+| Measurement (10 runs each) | Pinned main container image | Classic (not pinned) |
+|---|---|---|
+| Upgrade duration, min / median / mean / max | 18s / 39s / 34s / 47s | 3m28s / 4m13s / 4m13s / 5m7s |
+| Recoveries during the upgrade, min / median / max | 1 / 1 / 1 | 2 / 2 / 3 |
+| Pods recreated during the upgrade, min / median / max | 0 / 0 / 0 | 19 / 19 / 19 |
+| Create cluster duration, min / median / mean / max (not affected by the mode) | 58s / 1m14s / 1m12s / 1m18s | 56s / 1m2s / 1m20s / 2m31s |
+
+```mermaid
+xychart-beta
+    title "Median upgrade duration in seconds (7.3.69 to 7.4.5, 19 Pods, 10 runs)"
+    x-axis ["Pinned main container image", "Classic (not pinned)"]
+    y-axis "Seconds" 0 --> 300
+    bar [39, 253]
+```
+
+Observations:
+
+* The median upgrade is about 6.5 times faster (39s compared to 4m13s), the mean about 7 times. The variation is small in both
+  modes, the slowest pinned run (47s) is faster than the fastest classic run (3m28s).
+* With a pinned image no Pod is recreated. In the classic mode all 19 Pods are recreated, which explains most of the time.
+* The pinned upgrade needs one recovery (the restart of all processes). The classic upgrade has a second one in the
+  recreation phase, in the slowest runs a third.
+* The cluster creation takes the same time in both modes, as expected.
+* The cluster is small and the volumes are small. The difference should grow with the size of the cluster and with the time
+  Pods need to start (volume reattachment, image pulls).
+
+### Multi-region cluster
+
+The primary and the remote cluster have 19 Pods each (5 log, 5 storage and 9 stateless Pods), the two satellites have 4 log
+Pods each, which is 46 Pods in total.
+
+| Measurement (5 runs each) | Pinned main container image | Classic (not pinned) |
+|---|---|---|
+| Upgrade duration, min / median / mean / max | 1m16s / 1m23s / 1m23s / 1m30s | 11m25s / 15m21s / 16m1s / 24m49s |
+| Recoveries during the upgrade, min / median / max | 1 / 1 / 2 | 4 / 5 / 6 |
+| Pods recreated during the upgrade (of 46), min / median / max | 0 / 0 / 0 | 46 / 46 / 46 |
+| Create cluster duration, min / median / mean / max (not affected by the mode) | 3m37s / 3m41s / 3m50s / 4m27s | 3m18s / 3m31s / 4m14s / 7m14s |
+
+```mermaid
+xychart-beta
+    title "Median upgrade duration in seconds (7.3.69 to 7.4.5)"
+    x-axis ["Pinned (single cluster)", "Classic (single cluster)", "Pinned (multi-region)", "Classic (multi-region)"]
+    y-axis "Seconds" 0 --> 1000
+    bar [39, 253, 83, 921]
+```
+
+Observations:
+
+* The median upgrade is about 11 times faster (1m23s compared to 15m21s), the mean about 12 times. This is a bigger
+  difference than for the single cluster (about 6.5 times), as expected: the classic upgrade recreates the Pods of every data
+  center, the pinned upgrade does not recreate any of the 46 Pods.
+* The classic upgrade varies a lot (11m25s to 24m49s, standard deviation 4m42s), the pinned upgrade is very stable (standard
+  deviation 5s). Even the slowest pinned run (1m30s) is about 7.5 times faster than the fastest classic run.
+* The classic upgrade needs about 5 recoveries (4 to 6), the pinned upgrade needs one. The restart of all processes is
+  coordinated between the operators in both modes, the additional recoveries of the classic upgrade most likely come from the
+  recreation and replacement of the Pods in each data center afterwards. Two of the five pinned runs had a second recovery
+  (1, 1, 2, 1, 2 recoveries). The log of the run doesn't contain enough operator output to say why. The recoveries are
+  calculated from the increase of the cluster generation (two per recovery, rounded down), so a second recovery can also be
+  caused by something that is not part of the restart, for example a change of the cluster controller or of the coordinators,
+  or by a recovery after the upgrade finished (e.g. a deleted Pod of the transaction system). Because of this, the stress test
+  now waits until the generation is stable for 30 seconds before it takes the initial generation, records the raw generation
+  increase of the upgrade, and records the increase after the upgrade finished separately. These values were not available for
+  the results above, so the second recoveries cannot be attributed to the upgrade yet.
+* The cluster creation takes the same time in both modes (the slowest classic creation of 7m14s is an outlier of the
+  environment and not related to the mode).
+* Only 5 runs per mode were used, because creating and upgrading a multi-region cluster takes a long time.
+
+### Notes
+
+These measurements are for version incompatible upgrades. Patch upgrades are not measured yet. When measuring them, note that
+with a monitor without support for the shared binary config the first patch upgrade of a cluster is a normal rolling update
+of the Pods (the Pods must be replaced once to start the binary of the sidecar). Every run of the stress test creates a new
+cluster, so these runs measure the first patch upgrade. The experiment names of the stress test mark them and they must be
+excluded from the comparison with in-place upgrades. Monitors with support for the shared binary config upgrade in place from
+the first patch upgrade.
+Run the suite with `PIN_MONITOR_VERSION=true` and `PIN_MONITOR_VERSION=false` to reproduce the results.
 
 ## Related Links
 

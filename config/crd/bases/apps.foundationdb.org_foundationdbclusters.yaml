@@ -48,7 +48,7 @@ spec:
       jsonPath: .status.runningVersion
       name: Version
       type: string
-    - description: Version of the main container image
+    - description: Desired version of the main container image
       jsonPath: .status.monitorVersion
       name: MonitorVersion
       type: string

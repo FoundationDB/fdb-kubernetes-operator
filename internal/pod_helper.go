@@ -132,6 +132,18 @@ func PodHasDesiredSpec(
 	return true
 }
 
+// GetSpecDifferenceReason returns a message that describes why the Pod doesn't have the desired spec. This method should
+// only be used if PodHasDesiredSpec returned false for the Pod.
+func GetSpecDifferenceReason(pod *corev1.Pod, specHash string) string {
+	currentSpecHash := pod.Annotations[fdbv1beta2.LastSpecKey]
+	if currentSpecHash != specHash {
+		return fmt.Sprintf("specHash has changed from %s to %s", currentSpecHash, specHash)
+	}
+
+	return "the Pod doesn't start the binary of the sidecar but the main container image is pinned, the specHash is " +
+		"unchanged: " + specHash
+}
+
 // GetFullPodSpecHash builds the hash of the expected spec for a pod, including the sidecar image. This is the hash
 // that was used for all clusters before the main container image could be pinned.
 func GetFullPodSpecHash(

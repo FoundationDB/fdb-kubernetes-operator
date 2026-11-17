@@ -1140,9 +1140,10 @@ func (fdbCluster *FdbCluster) UpgradeCluster(
 	_ = fdbCluster.GetCluster(ctx)
 
 	log.Printf(
-		"Upgrading cluster from version %s to version %s",
+		"Upgrading cluster from version %s to version %s with pinned main container: %t",
 		fdbCluster.cluster.GetRunningVersion(),
 		version,
+		fdbCluster.cluster.UsePinnedMainContainerImage(),
 	)
 
 	fdbCluster.cluster.Spec.Version = version
