@@ -777,6 +777,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(int)
 		**out = **in
 	}
+	if in.InPlaceImageUpdateContainers != nil {
+		in, out := &in.InPlaceImageUpdateContainers, &out.InPlaceImageUpdateContainers
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.UseManagementAPI != nil {
 		in, out := &in.UseManagementAPI, &out.UseManagementAPI
 		*out = new(bool)
