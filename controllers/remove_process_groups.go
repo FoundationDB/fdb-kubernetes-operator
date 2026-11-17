@@ -97,9 +97,12 @@ func (u removeProcessGroups) reconcile(
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		if !allExcluded {
+			// Wait longer before the next try, e.g. if the exclude command failed for processes that are missing in
+			// the machine-readable status because the cluster is not yet reporting all the required information
+			// after an upgrade. FDB recommends to retry the exclude command after 30 seconds in this case.
 			return &requeue{
 				message: "Reconciliation needs to exclude more processes",
-				delay:   15 * time.Second,
+				delay:   30 * time.Second,
 			}
 		}
 

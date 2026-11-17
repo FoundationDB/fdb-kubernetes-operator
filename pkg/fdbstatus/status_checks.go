@@ -256,6 +256,13 @@ func CanSafelyRemoveFromStatus(
 		// and are still in progress, but we don't want to return an error to block further actions on the successfully excluded
 		// addresses.
 		if err != nil {
+			logger.Info(
+				"Exclude command for addresses missing in the status failed, assuming that they are not yet excluded",
+				"addresses",
+				exclusions.missingInStatus,
+				"error",
+				err.Error(),
+			)
 			notSafeToDelete = append(notSafeToDelete, exclusions.missingInStatus...)
 		}
 	}

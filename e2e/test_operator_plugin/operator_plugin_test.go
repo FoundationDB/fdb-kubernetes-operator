@@ -131,6 +131,16 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 					Expect(cluster.GetCluster(ctx).UseDNSInClusterFile()).To(Equal(shouldUseDNS))
 				}
 
+				// The recovery copies the coordinator state from a coordinator that survives in the recovered cluster. The
+				// coordinators are not guaranteed to be spread across all data centers, e.g. they can be placed in the
+				// primary, primary satellite and remote satellite only. In this case there is no coordinator state left
+				// in the remote after all other data centers are down and the cluster cannot be recovered.
+				if len(fdbCluster.GetRemote().GetCoordinators(ctx)) == 0 {
+					Skip(
+						"no coordinator is running in the remote data center, the recovery requires at least one surviving coordinator",
+					)
+				}
+
 				// This tests is a destructive test where the cluster will stop working for some period.
 				primary := fdbCluster.GetPrimary()
 				primary.SetSkipReconciliation(ctx, true)
