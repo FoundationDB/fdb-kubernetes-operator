@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("add_pods", func() {
@@ -159,6 +160,35 @@ var _ = Describe("add_pods", func() {
 				})
 			})
 		})
+
+		When("the pod-template-generation label is enabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig.IncludePodTemplateGenerationLabel = ptr.To(true)
+			})
+
+			It("should stamp the created pod with the generation hash", func() {
+				hash, hashErr := internal.GetPodGenerationHash(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+				)
+				Expect(hashErr).NotTo(HaveOccurred())
+				expectNewPodToHaveGenerationLabel(newPods, newProcessGroupID, hash)
+			})
+
+			When("the process group is being removed", func() {
+				BeforeEach(func() {
+					processGroupWithoutPod.MarkForRemoval()
+				})
+
+				It("should stamp the created pod with the removal sentinel", func() {
+					expectNewPodToHaveGenerationLabel(
+						newPods,
+						newProcessGroupID,
+						fdbv1beta2.PodTemplateGenerationRemovalValue,
+					)
+				})
+			})
+		})
 	})
 })
 
@@ -185,6 +215,29 @@ func expectNewPodToHaveBeenCreated(
 		Expect(
 			pod.OwnerReferences,
 		).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+		podHaveBeenChecked = true
+		break
+	}
+
+	Expect(podHaveBeenChecked).To(BeTrue())
+}
+
+func expectNewPodToHaveGenerationLabel(
+	newPods *corev1.PodList,
+	newProcessGroup fdbv1beta2.ProcessGroupID,
+	expectedValue string,
+) {
+	expectedPodName := string("operator-test-1-" + newProcessGroup)
+	var podHaveBeenChecked bool
+	for _, pod := range newPods.Items {
+		if pod.Name != expectedPodName {
+			continue
+		}
+
+		Expect(pod.Labels).To(HaveKeyWithValue(
+			fdbv1beta2.PodTemplateGenerationLabel,
+			expectedValue,
+		))
 		podHaveBeenChecked = true
 		break
 	}
