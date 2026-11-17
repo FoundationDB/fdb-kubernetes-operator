@@ -299,3 +299,17 @@ users:
 		})
 	})
 })
+
+var _ = Describe("BindFlags", func() {
+	DescribeTable("max-reconcile-error-backoff",
+		func(args []string, expected time.Duration) {
+			var options Options
+			flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+			options.BindFlags(flags)
+			Expect(flags.Parse(args)).To(Succeed())
+			Expect(options.MaxReconcileErrorBackoff).To(Equal(expected))
+		},
+		Entry("defaults to 0, the controller-runtime default", []string{}, time.Duration(0)),
+		Entry("accepts an override", []string{"--max-reconcile-error-backoff=45s"}, 45*time.Second),
+	)
+})
