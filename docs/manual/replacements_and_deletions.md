@@ -72,6 +72,11 @@ If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator wo
 The operator has an option to automatically replace ProcessGroups where the associated Pod is running on a tainted Node.
 This feature is disabled by default, but can be enabled by setting `automationOptions.replacements.taintReplacementOptions`.
 
+The operator only checks for taints when it reconciles the cluster. To reconcile the cluster when a Node hosting its Pods
+changes, start the operator with `--cluster-label-key-for-node-trigger` set to the label key that holds the cluster name
+on the Pods, usually `foundationdb.org/fdb-cluster-name`. Without this flag a taint, e.g. from a cordoned Node, is only
+noticed when something else triggers a reconciliation, which can delay the replacement indefinitely.
+
 Each option accepts a `processClasses` list; an omitted or empty list applies to all process classes. For each ProcessGroup, the operator filters options by process class, then prefers an exact taint key match over a wildcard (`"*"`) match.
 
 We use three examples below to illustrate how to set up the feature.
