@@ -71,6 +71,10 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - /manager
+        {{- with .Values.extraArgs }}
+        args:
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         env:
         {{- if not .Values.globalMode.enabled }}
         - name: WATCH_NAMESPACE
