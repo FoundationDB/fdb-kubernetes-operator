@@ -339,6 +339,7 @@ spec:
                     - double
                     - triple
                     - three_data_hall
+                    - three_data_hall_fallback
                     maxLength: 100
                     type: string
                   regions:
@@ -4730,6 +4731,7 @@ spec:
                     - double
                     - triple
                     - three_data_hall
+                    - three_data_hall_fallback
                     maxLength: 100
                     type: string
                   regions:

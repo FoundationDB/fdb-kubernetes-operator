@@ -25,6 +25,7 @@ import (
 
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 // ScheduleInjectPodKill schedules a Pod Kill action.
@@ -91,6 +92,33 @@ func (factory *Factory) scheduleInjectPod(
 								PodSelector: target,
 							},
 						},
+					},
+				},
+			},
+		})
+}
+
+// InjectPodFailure makes the containers of all selected Pods fail until the experiment is deleted.
+func (factory *Factory) InjectPodFailure(
+	ctx context.Context,
+	target chaosmesh.PodSelectorSpec,
+) *ChaosMeshExperiment {
+	ensurePodPhaseSelectorIsSet(&target)
+
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.PodChaos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      factory.RandStringRunes(32),
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
+			},
+			Spec: chaosmesh.PodChaosSpec{
+				Action:   chaosmesh.PodFailureAction,
+				Duration: ptr.To(ChaosDurationForever),
+				ContainerSelector: chaosmesh.ContainerSelector{
+					PodSelector: chaosmesh.PodSelector{
+						Selector: target,
+						Mode:     chaosmesh.AllMode,
 					},
 				},
 			},

@@ -221,6 +221,17 @@ It is possible to gracefully migrate a cluster in single, double or triple repli
 
 This procedure mitigates temporary issues (`1031` timeouts) which may happen with sustained traffic when data distributor and master are being reallocated while redundancy mode is changed and/or data is being moved.
 
+### Three-Data-Hall-Fallback Replication
+
+The [three-data-hall-fallback](https://apple.github.io/foundationdb/configuration.html#single-datacenter-modes) replication is intended as a temporary measure to restore cluster health during a data hall outage.
+To enable it, start from a three-data-hall cluster, and change `redundancy_mode` to `three_data_hall_fallback`.
+In this mode, the redundancy level is reduced to two. The number of [coordinators](#coordinators) is reduced to 5. This allows the cluster to operate with only two data halls available, but with reduced fault tolerance.
+
+Once the failed data hall is restored, change the `redundancy_mode` back to `three_data_hall`.
+
+The operator can change to three-data-hall-fallback, even when the cluster is in an unhealthy state.
+When changing back to three-data-hall, there are extra checks in place to ensure that the cluster will be healthy after the change. These checks can be bypassed by changing the redundancy mode manually in `fdbcli`.
+
 ## Multi-Region Replication
 
 The replication strategies above all describe how data is replicated within a data center or a single region.
@@ -415,6 +426,9 @@ The number of coordinators is currently a hardcoded mechanism based on the [foll
 ```go
 // DesiredCoordinatorCount returns the number of coordinators to recruit for a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+    if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHallFallback {
+        return 5
+    }
     if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 || cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
         return 9
     }
@@ -424,6 +438,7 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 ```
 
 For all clusters that use more than one region or uses `three_data_hall`, the operator will recruit 9 coordinators.
+Except for `three_data_hall_fallback`, which only recruits 5 coordinators, since it has to keep working when a data hall is lost.
 If the number of regions is `1` the number of recruited coordinators depends on the redundancy mode.
 The number of coordinators is chosen based on the fact that the coordinators use a consensus protocol (Paxos) that needs a majority of processes to be up.
 A common pattern in majority based system is to run `n * 2 + 1` processes, where `n` defines the failures that should be tolerated.
