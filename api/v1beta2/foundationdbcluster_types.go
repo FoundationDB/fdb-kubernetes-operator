@@ -2267,6 +2267,8 @@ type ContainerOverrides struct {
 	// main container also contains fdbcli and other binaries of the pinned version, which can differ from the version
 	// of the running fdbserver. Only supported with the unified image type and ignored on the sidecar container.
 	// +kubebuilder:validation:Pattern:=(\d+)\.(\d+)\.(\d+)
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=254
 	// +optional
 	MonitorVersion *string `json:"monitorVersion,omitempty"`
 }

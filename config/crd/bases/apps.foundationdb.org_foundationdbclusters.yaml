@@ -492,6 +492,8 @@ spec:
                     maxItems: 100
                     type: array
                   monitorVersion:
+                    maxLength: 254
+                    minLength: 1
                     pattern: (\d+)\.(\d+)\.(\d+)
                     type: string
                   peerVerificationRules:
@@ -4644,6 +4646,8 @@ spec:
                     maxItems: 100
                     type: array
                   monitorVersion:
+                    maxLength: 254
+                    minLength: 1
                     pattern: (\d+)\.(\d+)\.(\d+)
                     type: string
                   peerVerificationRules:
