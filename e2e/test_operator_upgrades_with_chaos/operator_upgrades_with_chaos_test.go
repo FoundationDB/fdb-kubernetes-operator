@@ -138,6 +138,11 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 	DescribeTable(
 		"with a partitioned pod which eventually gets replaced",
 		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			// For version compatible upgrades the test expects that the upgrade proceeds because the partitioned Pod is
+			// recreated. With a pinned main container image the upgrade is in-place and a Pod that cannot report its
+			// configuration blocks the restart, like for a version incompatible upgrade.
+			factory.SkipIfPodsAreNotRecreated(beforeVersion, targetVersion)
+
 			clusterSetup(ctx, beforeVersion)
 			Expect(fdbCluster.SetAutoReplacements(ctx, false, 5*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for too long

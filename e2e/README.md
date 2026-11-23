@@ -35,6 +35,27 @@ make -C e2e test_operator.run
 
 Every test suite will create at least one namespace, HA cluster tests will create all the required namespaces.
 
+### Running with a pinned main container image
+
+With the unified image the image of the main container (which runs the `fdb-kubernetes-monitor`) can be pinned with the `monitorVersion` setting, this keeps the image when the cluster is upgraded.
+The test suites create the clusters with a pinned main container image if one of the following options is set, the options are ignored if the unified image is not used:
+
+```bash
+# Keep the main container image at the version the cluster is created with.
+make -C e2e test_operator_upgrades.run PIN_MONITOR_VERSION=true
+# Create the clusters without a pinned main container image.
+make -C e2e test_operator_upgrades.run PIN_MONITOR_VERSION=false
+# Use an explicit version for the main container image, this takes precedence over PIN_MONITOR_VERSION.
+make -C e2e test_operator_upgrades.run MONITOR_VERSION=7.4.10
+```
+
+If `PIN_MONITOR_VERSION` is not defined, the Makefile randomly chooses `true` or `false` once per `make` invocation (all suites that are started with the same `make` command use the same value) and prints the chosen value at the start.
+Set the variable to reproduce a run.
+The options are `--pin-monitor-version` and `--monitor-version` for the test binary, the flag itself defaults to `false`.
+Test cases that cannot handle a pinned main container image check `factory.UsePinnedMonitorVersion()` and skip themselves.
+A test case can set `MonitorVersion` in the `ClusterConfig` to define the version for a single cluster, independent of the options.
+The image of the explicit version must be available in the registry.
+
 ### Running against a custom operator version
 
 By default, the tests will test the "latest" official version (`docker.io/fdb-kubernetes-operator:latest`). To test

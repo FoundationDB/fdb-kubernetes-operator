@@ -23,6 +23,13 @@ type ContainerOverridesApplyConfiguration struct {
 	// ImageConfigs allows customizing the image that we use for
 	// a container.
 	ImageConfigs []ImageConfigApplyConfiguration `json:"imageConfigs,omitempty"`
+	// MonitorVersion pins the FDB version of the image used for the main container, which runs fdb-kubernetes-monitor.
+	// The value must be a valid FDB version and selects the unified image tag for the main container. When set,
+	// the main container image does not change when spec.version changes, and fdbserver is run from the binaries
+	// staged by the sidecar whenever spec.version is not the version of the main container image. The image of the
+	// main container also contains fdbcli and other binaries of the pinned version, which can differ from the version
+	// of the running fdbserver. Only supported with the unified image type and ignored on the sidecar container.
+	MonitorVersion *string `json:"monitorVersion,omitempty"`
 }
 
 // ContainerOverridesApplyConfiguration constructs a declarative configuration of the ContainerOverrides type for use with
@@ -73,5 +80,13 @@ func (b *ContainerOverridesApplyConfiguration) WithImageConfigs(values ...*Image
 		}
 		b.ImageConfigs = append(b.ImageConfigs, *values[i])
 	}
+	return b
+}
+
+// WithMonitorVersion sets the MonitorVersion field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the MonitorVersion field is set to the value of the last call.
+func (b *ContainerOverridesApplyConfiguration) WithMonitorVersion(value string) *ContainerOverridesApplyConfiguration {
+	b.MonitorVersion = &value
 	return b
 }

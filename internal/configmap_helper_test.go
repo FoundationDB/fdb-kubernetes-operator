@@ -92,6 +92,26 @@ var _ = Describe("configmap_helper", func() {
 			})
 		})
 
+		When("the main container image is pinned", func() {
+			BeforeEach(func() {
+				cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+				cluster.Status.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageTypeUnified}
+				cluster.Spec.MainContainer.MonitorVersion = new(cluster.Spec.Version)
+			})
+
+			It("should add the version file for the shared binary launcher", func() {
+				Expect(
+					configMap.Data,
+				).To(HaveKeyWithValue(fdbv1beta2.SharedBinaryVersionKey, "0.0.0"))
+			})
+		})
+
+		When("the main container image is not pinned", func() {
+			It("should not add the version file for the shared binary launcher", func() {
+				Expect(configMap.Data).NotTo(HaveKey(fdbv1beta2.SharedBinaryVersionKey))
+			})
+		})
+
 		When("only the unified image is enabled", func() {
 			BeforeEach(func() {
 				cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"unified"}

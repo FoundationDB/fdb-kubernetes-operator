@@ -117,6 +117,10 @@ type ClusterConfig struct {
 	TLSPeerVerification string
 	// Version used to create the FDB cluster with.
 	Version *string
+	// MonitorVersion defines the version of the main container image that is used for the cluster. If not set, the value
+	// depends on the command line options pin-monitor-version and monitor-version. This is only used if the cluster
+	// is created with the unified image.
+	MonitorVersion *string
 	// cloudProvider defines the cloud provider used to create the Kubernetes cluster. This value is set in the SetDefaults
 	// method.
 	cloudProvider cloudProvider
@@ -639,6 +643,7 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		SynchronizationMode:        config.SynchronizationMode,
 		EnableTLS:                  config.EnableTLS,
 		Version:                    config.Version,
+		MonitorVersion:             config.MonitorVersion,
 		ManagementAPI:              config.ManagementAPI,
 	}
 }

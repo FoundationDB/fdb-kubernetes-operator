@@ -51,6 +51,22 @@ FEATURE_SERVER_SIDE_APPLY=true
 # Per default the unified image is used for the e2e test cases, this can be changed by running the test suite with
 # FEATURE_UNIFIED_IMAGE=false.
 FEATURE_UNIFIED_IMAGE?=true
+# PIN_MONITOR_VERSION pins the image of the main container to the version the cluster is created with, which means the image
+# is not changed by upgrades (unified image only). If the PIN_MONITOR_VERSION variable is not defined the test suite will
+# randomly pin (true) or not pin (false) the image. The value is chosen once per make invocation, so all test suites that are
+# started together use the same value. If shuf is not available (e.g. on macOS) the image is not pinned. The chosen value is
+# printed when make starts, set PIN_MONITOR_VERSION=true or PIN_MONITOR_VERSION=false to reproduce a run.
+ifndef PIN_MONITOR_VERSION
+  ifeq ($(shell shuf -i 0-1 -n 1 2>/dev/null),1)
+    PIN_MONITOR_VERSION=true
+  else
+    PIN_MONITOR_VERSION=false
+  endif
+  $(info PIN_MONITOR_VERSION was not set, using PIN_MONITOR_VERSION=$(PIN_MONITOR_VERSION))
+endif
+# MONITOR_VERSION sets the version of the main container image explicitly. This takes precedence over PIN_MONITOR_VERSION
+# (unified image only).
+MONITOR_VERSION?=
 # The default storage engine for the operator e2e tests is RocksDB.
 STORAGE_ENGINE?="ssd-rocksdb-v1"
 # If the FEATURE_SYNCHRONIZATION_MODE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
@@ -172,6 +188,8 @@ foundationdb-nightly-tests: run
 	  --fdb-version-tag-mapping="$(FDB_VERSION_TAG_MAPPING)" \
 	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
 	  --feature-unified-image=$(FEATURE_UNIFIED_IMAGE) \
+	  --pin-monitor-version=$(PIN_MONITOR_VERSION) \
+	  --monitor-version=$(MONITOR_VERSION) \
 	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
 	  --feature-synchronization-mode=$(FEATURE_SYNCHRONIZATION_MODE) \
 	  --feature-dns=$(FEATURE_DNS) \

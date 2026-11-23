@@ -37,6 +37,7 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -289,6 +290,55 @@ func (factory *Factory) GetMainContainerOverrides(
 			false,
 			config.DebugSymbols,
 		),
+		MonitorVersion: factory.GetMonitorVersion(config),
+	}
+}
+
+// GetMonitorVersion returns the version of the main container image that should be pinned for the cluster, or nil if the
+// image should not be pinned. The version in the cluster config takes precedence over the explicit version from the
+// command line (monitor-version). If only pin-monitor-version is set, the image is pinned to the version the cluster is
+// created with. The main container image can only be pinned with the unified image.
+func (factory *Factory) GetMonitorVersion(config *ClusterConfig) *string {
+	if !config.GetUseUnifiedImage() {
+		return nil
+	}
+
+	if config.MonitorVersion != nil {
+		return config.MonitorVersion
+	}
+
+	if !factory.UsePinnedMonitorVersion() {
+		return nil
+	}
+
+	if factory.options.monitorVersion != "" {
+		return new(factory.options.monitorVersion)
+	}
+
+	// The version of the cluster is set in the SetDefaults method, fall back to the version used by the test suite.
+	if config.GetVersion() == "" {
+		return new(factory.GetFDBVersion().String())
+	}
+
+	return new(config.GetVersion())
+}
+
+// UsePinnedMonitorVersion returns true if the e2e tests should create the clusters with a pinned main container image. This
+// is only supported with the unified image, the options are ignored otherwise. Test cases that cannot handle a pinned main
+// container image should skip themselves if this method returns true.
+func (factory *Factory) UsePinnedMonitorVersion() bool {
+	return factory.UseUnifiedImage() &&
+		(factory.options.pinMonitorVersion || factory.options.monitorVersion != "")
+}
+
+// SkipIfPodsAreNotRecreated skips the current test if the upgrade from beforeVersion to targetVersion doesn't recreate
+// the Pods. This is the case for a version compatible upgrade with a pinned main container image, where the processes
+// are restarted in-place. Tests that expect the Pods to be recreated, e.g. to unblock a partitioned Pod or a crash
+// looping sidecar, can't be run in this case.
+func (factory *Factory) SkipIfPodsAreNotRecreated(beforeVersion string, targetVersion string) {
+	if factory.UsePinnedMonitorVersion() &&
+		VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+		ginkgo.Skip("this test expects that the Pods are recreated for version compatible upgrades")
 	}
 }
 

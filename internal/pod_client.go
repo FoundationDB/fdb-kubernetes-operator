@@ -531,7 +531,10 @@ func GetSubstitutionsFromClusterAndPod(
 		GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta),
 	)
 
-	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+	if GetImageType(pod) == fdbv1beta2.ImageTypeUnified && monitorStartsStagedBinary(cluster, pod) {
+		// If the main container image is pinned, the monitor starts the binary that was staged by the sidecar.
+		substitutions[fdbv1beta2.EnvNameBinaryDir] = GetSharedBinaryDirectory(cluster.Spec.Version)
+	} else if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		substitutions[fdbv1beta2.EnvNameBinaryDir] = fmt.Sprintf(
 			"/var/dynamic-conf/bin/%s",
 			cluster.Spec.Version,

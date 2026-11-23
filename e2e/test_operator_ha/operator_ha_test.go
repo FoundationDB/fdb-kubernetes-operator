@@ -367,7 +367,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					&chaosmesh.DelaySpec{
 						Latency:     "250ms",
 						Correlation: "100",
-						Jitter:      "0",
+						Jitter:      "0ms",
 					})
 
 				// TODO (johscheuer): Allow to have this as a long running task until the test is done.
@@ -500,7 +500,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					&chaosmesh.DelaySpec{
 						Latency:     "250ms",
 						Correlation: "100",
-						Jitter:      "0",
+						Jitter:      "0ms",
 					})
 
 				// TODO (johscheuer): Allow to have this as a long running task until the test is done.
