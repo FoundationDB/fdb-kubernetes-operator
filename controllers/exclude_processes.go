@@ -64,7 +64,7 @@ func (e excludeProcesses) reconcile(
 	adminClient.WithValues()
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
-		status, err = adminClient.GetStatus()
+		status, err = getDatabaseStatus(ctx, adminClient)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

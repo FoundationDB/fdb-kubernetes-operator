@@ -70,16 +70,30 @@ func (c updateStatus) reconcile(
 	processMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
 
 	if databaseStatus == nil {
-		var err error
-		databaseStatus, err = r.getStatusFromClusterOrDummyStatus(logger, cluster)
+		// If the status was cached for this reconciliation loop and the fetch failed, we don't try to fetch it again.
+		err := statusFetchErrorFromContext(ctx)
+		if err == nil {
+			databaseStatus, err = r.getStatusFromClusterOrDummyStatus(logger, cluster)
+		}
 		if err != nil {
 			// When the status cannot be fetched, we have to assume that the cluster is unavailable and unhealthy.
 			cluster.Status.Health.Available = false
 			cluster.Status.Health.Healthy = false
+			// The conditions of the process groups that only depend on Kubernetes resources (e.g. missing or failing
+			// Pods and tainted nodes) don't require the machine-readable status. We refresh them to make sure the
+			// information in the cluster status doesn't get stale while the database is unavailable.
+			refreshErr := refreshKubernetesOnlyProcessGroupConditions(ctx, r, logger, cluster)
+			if refreshErr != nil {
+				logger.Info(
+					"could not refresh process group conditions without machine-readable status",
+					"error",
+					refreshErr.Error(),
+				)
+			}
+
 			// Only update the status if it was changed.
-			if originalStatus.Health.Available != cluster.Status.Health.Available ||
-				originalStatus.Health.Healthy != cluster.Status.Health.Healthy {
-				logger.Info("database was marked as unavailable.")
+			if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
+				logger.Info("database status could not be fetched, updating the cluster status.")
 				// We ignore the error here since the controller will requeue anyways.
 				_ = r.updateOrApply(ctx, cluster)
 			}
@@ -961,6 +975,52 @@ func updateTaintCondition(
 	}
 
 	return nil
+}
+
+// refreshKubernetesOnlyProcessGroupConditions updates the process group conditions that can be determined without the
+// machine-readable status of the database, e.g. a missing or failing Pod or a tainted node. This allows the operator to
+// keep track of those conditions (and their timestamps) while the database is not reachable. Conditions that are derived
+// from the machine-readable status (e.g. missing processes) are not touched.
+//
+// Storage process groups are skipped, as the operator cannot determine if they are under maintenance without the
+// machine-readable status, and the conditions of a process group under maintenance would be misleading.
+func refreshKubernetesOnlyProcessGroupConditions(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) error {
+	clusterStatus := fdbv1beta2.FoundationDBClusterStatus{
+		ProcessGroups: cluster.Status.ProcessGroups,
+		Health:        cluster.Status.Health,
+	}
+
+	err := refreshProcessGroupStatus(ctx, r, logger, cluster, &clusterStatus)
+	if err != nil {
+		return err
+	}
+	cluster.Status.ProcessGroups = clusterStatus.ProcessGroups
+
+	configMap, err := internal.GetConfigMap(cluster)
+	if err != nil {
+		return err
+	}
+
+	// The process groups are pointers, so the changes will be reflected in the cluster status.
+	clusterStatus.ProcessGroups = make(
+		[]*fdbv1beta2.ProcessGroupStatus,
+		0,
+		len(cluster.Status.ProcessGroups),
+	)
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+			continue
+		}
+
+		clusterStatus.ProcessGroups = append(clusterStatus.ProcessGroups, processGroup)
+	}
+
+	return validateProcessGroups(ctx, r, cluster, &clusterStatus, nil, configMap, logger, "")
 }
 
 func checkIfNodeHasTaintsAndUpdateConditions(

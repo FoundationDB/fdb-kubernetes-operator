@@ -1692,6 +1692,107 @@ var _ = Describe("update_status", func() {
 		})
 	})
 
+	When("the machine-readable status cannot be fetched", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var statelessProcessGroup *fdbv1beta2.ProcessGroupStatus
+		var node *corev1.Node
+		var requeue *requeue
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			taintKey := "foundationdb/unhealthy"
+			taintDuration := int64(3600)
+			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+				{Key: &taintKey, DurationInSeconds: &taintDuration},
+			}
+			Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeZero())
+			_, err = reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cluster.Status.Health.Available).To(BeTrue())
+
+			statelessProcessGroup = internal.PickProcessGroups(
+				cluster,
+				fdbv1beta2.ProcessClassStateless,
+				1,
+			)[0]
+			pod, err := clusterReconciler.PodLifecycleManager.GetPod(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				statelessProcessGroup.GetPodName(cluster),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			node = &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName}}
+			node.Spec.Taints = []corev1.Taint{
+				{
+					Key:       taintKey,
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: &metav1.Time{Time: time.Now().Add(-10 * time.Minute)},
+				},
+			}
+			Expect(k8sClient.Update(context.TODO(), node)).To(Succeed())
+
+			adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			adminClient.MockError(fmt.Errorf("database is unavailable"))
+		})
+
+		JustBeforeEach(func() {
+			Expect(
+				internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{}),
+			).To(Succeed())
+			requeue = updateStatus{}.reconcile(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				nil,
+				globalControllerLogger,
+			)
+		})
+
+		AfterEach(func() {
+			adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			adminClient.MockError(nil)
+		})
+
+		It("should return a delayed requeue with the error", func() {
+			Expect(requeue).NotTo(BeNil())
+			Expect(requeue.delayedRequeue).To(BeTrue())
+			Expect(requeue.curError).To(HaveOccurred())
+		})
+
+		It("should mark the database as unavailable and persist the status", func() {
+			_, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cluster.Status.Health.Available).To(BeFalse())
+			Expect(cluster.Status.Health.Healthy).To(BeFalse())
+		})
+
+		It("should track the node taint without the machine-readable status", func() {
+			_, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			var found bool
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				if processGroup.ProcessGroupID != statelessProcessGroup.ProcessGroupID {
+					continue
+				}
+
+				found = true
+				Expect(
+					processGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+				).NotTo(BeNil())
+			}
+			Expect(found).To(BeTrue())
+		})
+	})
+
 	DescribeTable(
 		"when getting the running version from the running processes",
 		func(versionMap map[string]int, fallback string, expected string) {

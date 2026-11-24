@@ -40,7 +40,7 @@ type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
 func (u updateDatabaseConfiguration) reconcile(
-	_ context.Context,
+	ctx context.Context,
 	r *FoundationDBClusterReconciler,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -60,7 +60,7 @@ func (u updateDatabaseConfiguration) reconcile(
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
-		status, err = adminClient.GetStatus()
+		status, err = getDatabaseStatus(ctx, adminClient)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

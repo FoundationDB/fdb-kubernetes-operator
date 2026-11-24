@@ -39,7 +39,7 @@ type checkClientCompatibility struct{}
 
 // reconcile runs the reconciler's work.
 func (c checkClientCompatibility) reconcile(
-	_ context.Context,
+	ctx context.Context,
 	r *FoundationDBClusterReconciler,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -87,7 +87,7 @@ func (c checkClientCompatibility) reconcile(
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
-		status, err = adminClient.GetStatus()
+		status, err = getDatabaseStatus(ctx, adminClient)
 		if err != nil {
 			return &requeue{curError: err}
 		}

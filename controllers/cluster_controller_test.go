@@ -4261,3 +4261,37 @@ func getConfigMapHash(
 
 	return internal.GetDynamicConfHash(configMap, pClass, imageType, serversPerPod)
 }
+
+var _ = Describe("getDatabaseStatus", func() {
+	var cluster *fdbv1beta2.FoundationDBCluster
+
+	BeforeEach(func() {
+		cluster = internal.CreateDefaultCluster()
+		Expect(setupClusterForTest(cluster)).To(Succeed())
+	})
+
+	When("no status fetch error is stored in the context", func() {
+		It("should fetch the status from the cluster", func() {
+			adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			status, err := getDatabaseStatus(context.Background(), adminClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(status).NotTo(BeNil())
+		})
+	})
+
+	When("a status fetch error is stored in the context", func() {
+		It("should return the stored error without querying the cluster", func() {
+			adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			fetchErr := fmt.Errorf("database is unavailable")
+			ctx := contextWithStatusFetchError(context.Background(), fetchErr)
+			// The admin client would be able to return a status, so an error can only come from the context.
+			status, err := getDatabaseStatus(ctx, adminClient)
+			Expect(err).To(MatchError(fetchErr))
+			Expect(status).To(BeNil())
+		})
+	})
+})

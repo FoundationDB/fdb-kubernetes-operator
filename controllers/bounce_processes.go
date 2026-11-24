@@ -45,7 +45,7 @@ type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
 func (c bounceProcesses) reconcile(
-	_ context.Context,
+	ctx context.Context,
 	r *FoundationDBClusterReconciler,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -65,9 +65,11 @@ func (c bounceProcesses) reconcile(
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
-		status, err = adminClient.GetStatus()
+		status, err = getDatabaseStatus(ctx, adminClient)
 		if err != nil {
-			return &requeue{curError: err}
+			// Skip this step if the status is not available and continue with the next steps, e.g. those that
+			// only depend on Kubernetes resources.
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
