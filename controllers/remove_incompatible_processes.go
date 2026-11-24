@@ -86,7 +86,7 @@ func processIncompatibleProcesses(
 			_ = adminClient.Close()
 		}()
 
-		status, err = adminClient.GetStatus()
+		status, err = getDatabaseStatus(ctx, adminClient)
 		if err != nil {
 			return err
 		}

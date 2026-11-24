@@ -105,11 +105,69 @@ var _ = Describe("remove_process_groups", func() {
 			})
 		})
 
+		When("removing a stateless process group with degraded fault tolerance", func() {
+			var removedProcessGroup *fdbv1beta2.ProcessGroupStatus
+
+			BeforeEach(func() {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass.IsStateless() {
+						removedProcessGroup = processGroup
+						break
+					}
+				}
+				Expect(removedProcessGroup).NotTo(BeNil())
+				marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(
+					cluster.Status.ProcessGroups,
+					removedProcessGroup.ProcessGroupID,
+					removedProcessGroup.ProcessClass,
+					removedProcessGroup.Addresses[0],
+				)
+				Expect(marked).To(BeTrue())
+				Expect(processGroup).To(BeNil())
+
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				for _, address := range removedProcessGroup.Addresses {
+					adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
+				}
+				adminClient.TeamTracker = []fdbv1beta2.FoundationDBStatusTeamTracker{
+					{
+						Primary: true,
+						State: fdbv1beta2.FoundationDBStatusDataState{
+							Healthy:              false,
+							MinReplicasRemaining: 1,
+						},
+					},
+				}
+			})
+
+			It("should remove the stateless process group", func() {
+				Expect(result).To(BeNil())
+				include, err := confirmRemoval(
+					context.Background(),
+					globalControllerLogger,
+					clusterReconciler,
+					cluster,
+					removedProcessGroup,
+				)
+				Expect(err).To(BeNil())
+				Expect(include).To(BeTrue())
+			})
+		})
+
 		When("removing a process group", func() {
 			var removedProcessGroup *fdbv1beta2.ProcessGroupStatus
 
 			BeforeEach(func() {
-				removedProcessGroup = cluster.Status.ProcessGroups[0]
+				// Use a storage process group, as removals of stateless process groups are not blocked by a degraded
+				// fault tolerance.
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+						removedProcessGroup = processGroup
+						break
+					}
+				}
+				Expect(removedProcessGroup).NotTo(BeNil())
 				marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(
 					cluster.Status.ProcessGroups,
 					removedProcessGroup.ProcessGroupID,

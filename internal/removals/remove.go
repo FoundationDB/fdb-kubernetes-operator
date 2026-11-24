@@ -151,6 +151,12 @@ func GetRemainingMap(
 	// and processes that are currently missing from the machine-readable status. If it's not safe to run the exclude command
 	// we will block all further checks and assume that those processes are not yet excluded. This should reduce the risk
 	// of successive recoveries because of the exclusion call.
+	// If only stateless process groups are marked for removal, the time since the last recovery is not relevant, as
+	// removing those cannot reduce the fault tolerance of the stateful subsystems.
+	if onlyStatelessRemovals(cluster) {
+		minRecoverySeconds = 0
+	}
+
 	err := fdbstatus.CanSafelyExcludeProcessesWithRecoveryState(cluster, status, minRecoverySeconds)
 	if err != nil {
 		return nil, err
@@ -281,4 +287,15 @@ func RemovalAllowed(lastDeletion int64, currentTimestamp int64, waitTime int) (i
 	}
 
 	return 0, true
+}
+
+// onlyStatelessRemovals returns true if all process groups marked for removal have a stateless process class.
+func onlyStatelessRemovals(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.IsMarkedForRemoval() && !processGroup.ProcessClass.IsStateless() {
+			return false
+		}
+	}
+
+	return true
 }

@@ -60,7 +60,7 @@ func (c replaceFailedProcessGroups) reconcile(
 			_ = adminClient.Close()
 		}()
 
-		status, err = adminClient.GetStatus()
+		status, err = getDatabaseStatus(ctx, adminClient)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

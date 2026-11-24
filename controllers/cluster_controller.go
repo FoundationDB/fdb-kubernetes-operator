@@ -274,6 +274,8 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 				"error",
 				err.Error(),
 			)
+			// Remember the failure, to prevent that every sub-reconciler tries to fetch the status again.
+			ctx = contextWithStatusFetchError(ctx, err)
 			// In our e2e test cases we have observed cases where the operator got stuck fetching the latest machine-readable status from a cluster
 			// when all coordinator pods got restarted. This only happens when DNS entries are used in the connection string (otherwise the operator
 			// will be stuck). During testing we observed that restarting the operator process resolved the issue.
@@ -405,6 +407,38 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 }
 
 // runClusterSubReconciler will start the subReconciler and will log the duration of the subReconciler.
+// statusFetchErrorKey is the context key under which the error of a failed machine-readable status fetch is stored.
+type statusFetchErrorKey struct{}
+
+// contextWithStatusFetchError returns a context that carries the error of a failed status fetch. If the status was
+// cached for the reconciliation loop and the fetch failed, the sub-reconcilers use this error instead of fetching the
+// status again, which would be expected to fail (and block for the full timeout) as well.
+func contextWithStatusFetchError(ctx context.Context, err error) context.Context {
+	return context.WithValue(ctx, statusFetchErrorKey{}, err)
+}
+
+// statusFetchErrorFromContext returns the error of the failed status fetch, if the status fetch failed and the status
+// is cached for this reconciliation loop.
+func statusFetchErrorFromContext(ctx context.Context) error {
+	err, _ := ctx.Value(statusFetchErrorKey{}).(error)
+
+	return err
+}
+
+// getDatabaseStatus fetches the machine-readable status. If the status was cached for this reconciliation loop and the
+// fetch of the cached status failed, the error of the failed fetch is returned without querying the cluster again.
+func getDatabaseStatus(
+	ctx context.Context,
+	adminClient fdbadminclient.AdminClient,
+) (*fdbv1beta2.FoundationDBStatus, error) {
+	err := statusFetchErrorFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return adminClient.GetStatus()
+}
+
 func runClusterSubReconciler(
 	ctx context.Context,
 	logger logr.Logger,

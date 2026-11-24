@@ -64,7 +64,7 @@ func (e excludeProcesses) reconcile(
 	adminClient.WithValues()
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
-		status, err = adminClient.GetStatus()
+		status, err = getDatabaseStatus(ctx, adminClient)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
@@ -122,11 +122,26 @@ func (e excludeProcesses) reconcile(
 		}
 	}
 
+	// Excluding only stateless processes cannot make the storage or log subsystem less healthy. Waiting for a
+	// minimum time since the last recovery would only delay the replacement, e.g. if the recoveries are caused by the
+	// processes that should be excluded. The other safety checks still apply.
+	minimumRecoveryTime := r.MinimumRecoveryTimeForExclusion
+	onlyStatelessExclusions := true
+	for processClass := range fdbProcessesToExcludeByClass {
+		if !processClass.IsStateless() {
+			onlyStatelessExclusions = false
+			break
+		}
+	}
+	if onlyStatelessExclusions {
+		minimumRecoveryTime = 0
+	}
+
 	// Make sure it's safe to exclude processes.
 	err = fdbstatus.CanSafelyExcludeProcessesWithRecoveryState(
 		cluster,
 		status,
-		r.MinimumRecoveryTimeForExclusion,
+		minimumRecoveryTime,
 	)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true, delay: 10 * time.Second}
