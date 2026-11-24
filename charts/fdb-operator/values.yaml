@@ -47,6 +47,9 @@ nodeSelector: {}
 affinity: {}
 tolerations: {}
 extraEnv: []
+# Additional command-line flags for the operator, for example
+# --cluster-label-key-for-node-trigger=foundationdb.org/fdb-cluster-name.
+extraArgs: []
 volumes: []
 volumeMounts: []
 resources:
