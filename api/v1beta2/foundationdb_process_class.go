@@ -62,6 +62,22 @@ func (pClass ProcessClass) IsStateful() bool {
 		pClass == ProcessClassCoordinator
 }
 
+// IsStateless returns true if the process class can only host stateless FDB roles, e.g. the cluster controller or the
+// proxies. Removing a process of such a class cannot reduce the fault tolerance of the storage or log subsystem. The
+// general class is not considered stateless, as it can host any role including storage servers.
+func (pClass ProcessClass) IsStateless() bool {
+	switch pClass {
+	case ProcessClassStateless,
+		ProcessClassClusterController,
+		ProcessClassProxy,
+		ProcessClassCommitProxy,
+		ProcessClassGrvProxy:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsTransaction determines whether a process class could be part of the transaction system.
 func (pClass ProcessClass) IsTransaction() bool {
 	return pClass != ProcessClassStorage && pClass != ProcessClassGeneral

@@ -127,18 +127,29 @@ func (u removeProcessGroups) reconcile(
 	// We don't use the "cached" of the cluster status from the CRD to minimize the window between data loss (e.g. a node
 	// or a set of Pods is not reachable anymore). We still end up with the risk to actually query the FDB cluster and after that
 	// query the cluster gets into a degraded state.
-	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
-	// processGroupsToRemove slice.
 	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(
 		logger,
 		status,
 		cluster,
 	)
 	if !hasDesiredFaultTolerance {
-		return &requeue{
-			message: "Removals cannot proceed because cluster has degraded fault tolerance",
-			delay:   30 * time.Second,
+		// Removing a stateless process group cannot reduce the fault tolerance of the storage, log or coordinator
+		// subsystem, so those removals must not be blocked by a degraded fault tolerance. Otherwise, the removal can
+		// deadlock, e.g. when the degraded fault tolerance is caused by the process that should be removed.
+		statelessProcessGroups := filterStatelessProcessGroups(processGroupsToRemove)
+		if len(statelessProcessGroups) == 0 {
+			return &requeue{
+				message: "Removals cannot proceed because cluster has degraded fault tolerance",
+				delay:   30 * time.Second,
+			}
 		}
+
+		logger.Info(
+			"Cluster has degraded fault tolerance, only removing stateless process groups",
+			"stateless", len(statelessProcessGroups),
+			"blocked", len(processGroupsToRemove)-len(statelessProcessGroups),
+		)
+		processGroupsToRemove = statelessProcessGroups
 	}
 
 	// In addition to that we should add the same logic as in the exclude step
@@ -812,4 +823,18 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(
 	}
 
 	return removedProcessGroups
+}
+
+// filterStatelessProcessGroups returns only the process groups whose process class only hosts stateless roles.
+func filterStatelessProcessGroups(
+	processGroups []*fdbv1beta2.ProcessGroupStatus,
+) []*fdbv1beta2.ProcessGroupStatus {
+	result := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(processGroups))
+	for _, processGroup := range processGroups {
+		if processGroup.ProcessClass.IsStateless() {
+			result = append(result, processGroup)
+		}
+	}
+
+	return result
 }
