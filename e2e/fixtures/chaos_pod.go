@@ -96,3 +96,30 @@ func (factory *Factory) scheduleInjectPod(
 			},
 		})
 }
+
+// InjectPodFailure makes the containers of all selected Pods fail until the experiment is deleted.
+func (factory *Factory) InjectPodFailure(
+	ctx context.Context,
+	target chaosmesh.PodSelectorSpec,
+) *ChaosMeshExperiment {
+	ensurePodPhaseSelectorIsSet(&target)
+
+	return factory.CreateExperiment(ctx,
+		&chaosmesh.PodChaos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      factory.RandStringRunes(32),
+				Namespace: factory.GetChaosNamespace(),
+				Labels:    factory.GetDefaultLabels(),
+			},
+			Spec: chaosmesh.PodChaosSpec{
+				Action:   chaosmesh.PodFailureAction,
+				Duration: new(ChaosDurationForever),
+				ContainerSelector: chaosmesh.ContainerSelector{
+					PodSelector: chaosmesh.PodSelector{
+						Selector: target,
+						Mode:     chaosmesh.AllMode,
+					},
+				},
+			},
+		})
+}

@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -92,11 +93,31 @@ func (u updateDatabaseConfiguration) reconcile(
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 
-			err = fdbstatus.ConfigurationChangeAllowedWithMinimumUptime(
-				status,
-				r.MinimumUptimeForConfigurationChanges,
-				runningVersion.SupportsRecoveryState() && r.EnableRecoveryState,
-			)
+			// Three data hall fallback is intended as an emergency mode for when the cluster is in a degraded state
+			// where health checks are expected to fail.
+			skipHealthCheck := currentConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall &&
+				desiredConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback
+
+			// Conversely, when moving back to three data hall, we want to ensure that the cluster will be healthy
+			// after the configuration change.
+			extraHealthCheck := currentConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHallFallback &&
+				desiredConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall
+
+			if skipHealthCheck {
+				logger.Info(
+					"Skipping health check for three data hall fallback configuration change",
+				)
+			} else {
+				err = fdbstatus.ConfigurationChangeAllowedWithMinimumUptime(
+					status,
+					r.MinimumUptimeForConfigurationChanges,
+					runningVersion.SupportsRecoveryState() && r.EnableRecoveryState,
+				)
+
+				if err == nil && extraHealthCheck {
+					err = exitThreeDataHallFallbackAllowed(cluster, status)
+				}
+			}
 			if err != nil {
 				logger.Info(
 					"Changing current configuration is not safe",
@@ -157,6 +178,77 @@ func (u updateDatabaseConfiguration) reconcile(
 				delayedRequeue: true,
 			}
 		}
+	}
+
+	return nil
+}
+
+// exitThreeDataHallFallbackAllowed verifies that moving from three_data_hall_fallback back to
+// three_data_hall is safe for the given cluster.
+func exitThreeDataHallFallbackAllowed(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+) error {
+	localDataHall := cluster.Spec.DataHall
+	if localDataHall == "" {
+		return fmt.Errorf("cannot determine local data hall: spec.dataHall is not set")
+	}
+
+	processCountByDataHall := map[string]int{}
+	for _, process := range status.Cluster.Processes {
+		if process.Excluded {
+			continue
+		}
+		dataHall := process.Locality[fdbv1beta2.FDBLocalityDataHallKey]
+		if dataHall == "" {
+			continue
+		}
+		processCountByDataHall[dataHall]++
+	}
+
+	if len(processCountByDataHall) < 3 {
+		return fmt.Errorf(
+			"expected processes in 3 data halls, got %d: %v",
+			len(processCountByDataHall), processCountByDataHall)
+	}
+
+	// Fewest processes wins; ties are broken by the alphabetically smallest data hall name.
+	smallest := ""
+	for dataHall, count := range processCountByDataHall {
+		if smallest == "" ||
+			count < processCountByDataHall[smallest] ||
+			(count == processCountByDataHall[smallest] && dataHall < smallest) {
+			smallest = dataHall
+		}
+	}
+	if smallest != localDataHall {
+		return fmt.Errorf(
+			"local data hall %q is not the data hall with the fewest processes (%q): %v",
+			localDataHall, smallest, processCountByDataHall)
+	}
+
+	const maxReportedConditions = 10
+	errorConditions := cluster.GetConditionsThatNeedReplacement()
+
+	var conditions []string
+	for _, pg := range cluster.Status.ProcessGroups {
+		if pg.IsMarkedForRemoval() {
+			continue
+		}
+		for _, condition := range pg.ProcessGroupConditions {
+			if _, isError := errorConditions[condition.ProcessGroupConditionType]; !isError {
+				continue
+			}
+			conditions = append(conditions,
+				fmt.Sprintf("%s: %s", pg.ProcessGroupID, condition.ProcessGroupConditionType))
+		}
+	}
+	if len(conditions) > 0 {
+		message := strings.Join(conditions[:min(len(conditions), maxReportedConditions)], ", ")
+		if len(conditions) > maxReportedConditions {
+			message += fmt.Sprintf(", ... (%d total)", len(conditions))
+		}
+		return fmt.Errorf("process groups have error conditions: %s", message)
 	}
 
 	return nil
