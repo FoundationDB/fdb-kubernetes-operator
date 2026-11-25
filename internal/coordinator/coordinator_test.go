@@ -883,7 +883,9 @@ var _ = Describe("Change coordinators", func() {
 						Expect(candidates).NotTo(BeEmpty())
 						removedProcess := fdbv1beta2.ProcessGroupID(candidates[0].ID)
 
-						cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{removedProcess}
+						cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
+							removedProcess,
+						}
 						Expect(cluster.ProcessGroupIsBeingRemoved(removedProcess)).To(BeTrue())
 
 						newCandidates, err := selectCoordinatorsLocalities(

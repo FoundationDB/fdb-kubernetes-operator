@@ -409,11 +409,15 @@ var _ = Describe("exitThreeDataHallFallbackAllowed", func() {
 		}
 	})
 
-	DescribeTable("checking the process distribution across the data halls",
+	DescribeTable(
+		"checking the process distribution across the data halls",
 		func(localDataHall string, processesPerDataHall map[string]int, expectedError string) {
 			cluster.Spec.DataHall = localDataHall
 			expectFallbackExitError(
-				exitThreeDataHallFallbackAllowed(cluster, fallbackStatusWithDataHalls(processesPerDataHall)),
+				exitThreeDataHallFallbackAllowed(
+					cluster,
+					fallbackStatusWithDataHalls(processesPerDataHall),
+				),
 				expectedError,
 			)
 		},
@@ -424,9 +428,12 @@ var _ = Describe("exitThreeDataHallFallbackAllowed", func() {
 			`local data hall "dh2" is not the data hall with the fewest processes ("dh1")`),
 		Entry("the local data hall is tied for the fewest processes and is alphabetically first",
 			"dh1", map[string]int{"dh1": 3, "dh2": 3, "dh3": 5}, ""),
-		Entry("the local data hall is tied for the fewest processes but is not alphabetically first",
-			"dh2", map[string]int{"dh1": 3, "dh2": 3, "dh3": 5},
-			`local data hall "dh2" is not the data hall with the fewest processes ("dh1")`),
+		Entry(
+			"the local data hall is tied for the fewest processes but is not alphabetically first",
+			"dh2",
+			map[string]int{"dh1": 3, "dh2": 3, "dh3": 5},
+			`local data hall "dh2" is not the data hall with the fewest processes ("dh1")`,
+		),
 		Entry("processes are only running in two data halls",
 			"dh1", map[string]int{"dh1": 3, "dh2": 3},
 			"expected processes in 3 data halls, got 2"),
@@ -439,7 +446,10 @@ var _ = Describe("exitThreeDataHallFallbackAllowed", func() {
 		func(excludedDataHall string, excludedProcesses int, expectedError string) {
 			status := fallbackStatusWithDataHalls(map[string]int{"dh1": 3, "dh2": 3, "dh3": 3})
 			fallbackMarkProcessesExcluded(status, excludedDataHall, excludedProcesses)
-			expectFallbackExitError(exitThreeDataHallFallbackAllowed(cluster, status), expectedError)
+			expectFallbackExitError(
+				exitThreeDataHallFallbackAllowed(cluster, status),
+				expectedError,
+			)
 		},
 		Entry("excluded processes are not counted",
 			"dh2", 2,
@@ -449,7 +459,8 @@ var _ = Describe("exitThreeDataHallFallbackAllowed", func() {
 			"expected processes in 3 data halls, got 2"),
 	)
 
-	DescribeTable("checking the conditions of the process groups",
+	DescribeTable(
+		"checking the conditions of the process groups",
 		// Every condition type is added to its own process group, named storage-<index>.
 		func(conditionTypes []fdbv1beta2.ProcessGroupConditionType, expectedError types.GomegaMatcher) {
 			for idx, conditionType := range conditionTypes {
@@ -480,9 +491,14 @@ var _ = Describe("exitThreeDataHallFallbackAllowed", func() {
 			[]fdbv1beta2.ProcessGroupConditionType{
 				fdbv1beta2.IncorrectPodSpec, fdbv1beta2.NodeTaintDetected, fdbv1beta2.ReadyCondition,
 			}, nil),
-		Entry("only conditions that require a replacement are reported",
-			[]fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.IncorrectPodSpec, fdbv1beta2.MissingPod},
-			Equal("process groups have error conditions: storage-1: MissingPod")),
+		Entry(
+			"only conditions that require a replacement are reported",
+			[]fdbv1beta2.ProcessGroupConditionType{
+				fdbv1beta2.IncorrectPodSpec,
+				fdbv1beta2.MissingPod,
+			},
+			Equal("process groups have error conditions: storage-1: MissingPod"),
+		),
 		Entry("10 conditions are reported without truncation",
 			slices.Repeat([]fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.PodFailing}, 10),
 			And(ContainSubstring("storage-9: PodFailing"), Not(ContainSubstring("...")))),
@@ -496,7 +512,9 @@ var _ = Describe("exitThreeDataHallFallbackAllowed", func() {
 })
 
 // fallbackStatusWithDataHalls returns an available status with the given number of processes in each data hall.
-func fallbackStatusWithDataHalls(processesPerDataHall map[string]int) *fdbv1beta2.FoundationDBStatus {
+func fallbackStatusWithDataHalls(
+	processesPerDataHall map[string]int,
+) *fdbv1beta2.FoundationDBStatus {
 	processes := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	for dataHall, count := range processesPerDataHall {
 		for idx := range count {
@@ -516,7 +534,11 @@ func fallbackStatusWithDataHalls(processesPerDataHall map[string]int) *fdbv1beta
 }
 
 // fallbackMarkProcessesExcluded marks the given number of processes in the data hall as excluded.
-func fallbackMarkProcessesExcluded(status *fdbv1beta2.FoundationDBStatus, dataHall string, count int) {
+func fallbackMarkProcessesExcluded(
+	status *fdbv1beta2.FoundationDBStatus,
+	dataHall string,
+	count int,
+) {
 	for processGroupID, process := range status.Cluster.Processes {
 		if count == 0 {
 			return

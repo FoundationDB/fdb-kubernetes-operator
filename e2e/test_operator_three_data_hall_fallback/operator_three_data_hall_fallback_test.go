@@ -230,144 +230,160 @@ var _ = Describe("Operator with three data hall fallback", Label("e2e"), func() 
 		fdbCluster.EnsureTeamTrackersHaveMinReplicas(ctx)
 	})
 
-	It("should move to fallback with a failed data hall and back once the data hall recovered", func(ctx SpecContext) {
-		By("verifying the three_data_hall cluster is up")
-		status := fdbCluster.GetStatus(ctx)
-		Expect(
-			status.Cluster.DatabaseConfiguration.RedundancyMode,
-		).To(Equal(fdbv1beta2.RedundancyModeThreeDataHall))
-		Expect(status.Client.DatabaseStatus.Available).To(BeTrue())
-		// Data distribution can still be settling right after the cluster was created or the data loader started.
-		Eventually(func() bool {
-			return fdbCluster.GetStatus(ctx).Client.DatabaseStatus.Healthy
-		}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
-		status = fdbCluster.GetStatus(ctx)
-		Expect(fdbstatus.GetCoordinatorsFromStatus(status)).To(HaveLen(9))
-		counts := dataHallProcessCounts(status)
-		Expect(counts).To(HaveLen(3))
+	It(
+		"should move to fallback with a failed data hall and back once the data hall recovered",
+		func(ctx SpecContext) {
+			By("verifying the three_data_hall cluster is up")
+			status := fdbCluster.GetStatus(ctx)
+			Expect(
+				status.Cluster.DatabaseConfiguration.RedundancyMode,
+			).To(Equal(fdbv1beta2.RedundancyModeThreeDataHall))
+			Expect(status.Client.DatabaseStatus.Available).To(BeTrue())
+			// Data distribution can still be settling right after the cluster was created or the data loader started.
+			Eventually(func() bool {
+				return fdbCluster.GetStatus(ctx).Client.DatabaseStatus.Healthy
+			}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+			status = fdbCluster.GetStatus(ctx)
+			Expect(fdbstatus.GetCoordinatorsFromStatus(status)).To(HaveLen(9))
+			counts := dataHallProcessCounts(status)
+			Expect(counts).To(HaveLen(3))
 
-		dataHalls := make([]string, 0, len(counts))
-		for dataHall := range counts {
-			dataHalls = append(dataHalls, dataHall)
-		}
-		slices.Sort(dataHalls)
-		failedDataHall := dataHalls[len(dataHalls)-1]
-		survivingDataHall := dataHalls[0]
-		log.Println("data halls:", dataHalls, "failing:", failedDataHall)
-
-		// The failed processes must not be replaced by the operator, otherwise the failure is "fixed" automatically.
-		Expect(fdbCluster.SetAutoReplacements(ctx, false, 24*time.Hour)).NotTo(HaveOccurred())
-		// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
-		factory.DeleteChaosMeshExperiment(ctx, scheduleInjectPodKill)
-
-		By("failing one data hall")
-		failure = failDataHall(ctx, failedDataHall)
-		Eventually(func() bool {
-			return fdbCluster.GetStatus(ctx).Client.DatabaseStatus.Healthy
-		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeFalse())
-
-		By("changing to three_data_hall_fallback")
-		setRedundancyMode(ctx, fdbv1beta2.RedundancyModeThreeDataHallFallback, survivingDataHall)
-		Eventually(func() fdbv1beta2.RedundancyMode {
-			return fdbCluster.GetStatus(ctx).Cluster.DatabaseConfiguration.RedundancyMode
-		}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).
-			Should(Equal(fdbv1beta2.RedundancyModeThreeDataHallFallback))
-
-		By("verifying the coordinators were reduced to 5 and avoid the failed data hall")
-		Eventually(func() int {
-			return len(fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx)))
-		}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(Equal(5))
-		coordinatorHalls := coordinatorsPerDataHall(fdbCluster.GetStatus(ctx))
-		Expect(coordinatorHalls).NotTo(HaveKey(failedDataHall))
-		for dataHall, count := range coordinatorHalls {
-			Expect(count).To(BeNumerically("<=", 3), "data hall %s has too many coordinators", dataHall)
-		}
-
-		By("failing a coordinator Pod, forcing the coordinator to be replaced")
-		coordinators := fdbCluster.GetCoordinators(ctx)
-		Expect(coordinators).NotTo(BeEmpty())
-		failedCoordinator := factory.RandomPickOnePod(coordinators)
-		failedCoordinatorID := string(fixtures.GetProcessGroupID(failedCoordinator))
-		podFailure = factory.InjectPodFailure(
-			ctx,
-			fixtures.PodsSelector([]corev1.Pod{failedCoordinator}),
-		)
-		Eventually(func() map[string]fdbv1beta2.None {
-			return fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx))
-		}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).
-			ShouldNot(HaveKey(failedCoordinatorID))
-		Eventually(func() int {
-			return len(fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx)))
-		}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(Equal(5))
-		Expect(coordinatorsPerDataHall(fdbCluster.GetStatus(ctx))).NotTo(HaveKey(failedDataHall))
-
-		// Let the Pod recover so that it doesn't block the following exclusion.
-		factory.DeleteChaosMeshExperiment(ctx, podFailure)
-		podFailure = nil
-
-		By("failing a non-coordinator Pod")
-		status = fdbCluster.GetStatus(ctx)
-		coordinatorIDs := fdbstatus.GetCoordinatorsFromStatus(status)
-		var candidates []corev1.Pod
-		for _, pod := range podsOutsideDataHall(status, fdbCluster.GetPods(ctx).Items, failedDataHall) {
-			if _, isCoordinator := coordinatorIDs[string(fixtures.GetProcessGroupID(pod))]; !isCoordinator {
-				candidates = append(candidates, pod)
+			dataHalls := make([]string, 0, len(counts))
+			for dataHall := range counts {
+				dataHalls = append(dataHalls, dataHall)
 			}
-		}
-		Expect(candidates).NotTo(BeEmpty())
-		failedPod := factory.RandomPickOnePod(candidates)
-		failedPodID := string(fixtures.GetProcessGroupID(failedPod))
-		podFailure = factory.InjectPodFailure(ctx, fixtures.PodsSelector([]corev1.Pod{failedPod}))
-		Eventually(func() bool {
-			for _, process := range fdbCluster.GetStatus(ctx).Cluster.Processes {
-				if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] == failedPodID {
-					return false
+			slices.Sort(dataHalls)
+			failedDataHall := dataHalls[len(dataHalls)-1]
+			survivingDataHall := dataHalls[0]
+			log.Println("data halls:", dataHalls, "failing:", failedDataHall)
+
+			// The failed processes must not be replaced by the operator, otherwise the failure is "fixed" automatically.
+			Expect(fdbCluster.SetAutoReplacements(ctx, false, 24*time.Hour)).NotTo(HaveOccurred())
+			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
+			factory.DeleteChaosMeshExperiment(ctx, scheduleInjectPodKill)
+
+			By("failing one data hall")
+			failure = failDataHall(ctx, failedDataHall)
+			Eventually(func() bool {
+				return fdbCluster.GetStatus(ctx).Client.DatabaseStatus.Healthy
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeFalse())
+
+			By("changing to three_data_hall_fallback")
+			setRedundancyMode(
+				ctx,
+				fdbv1beta2.RedundancyModeThreeDataHallFallback,
+				survivingDataHall,
+			)
+			Eventually(func() fdbv1beta2.RedundancyMode {
+				return fdbCluster.GetStatus(ctx).Cluster.DatabaseConfiguration.RedundancyMode
+			}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).
+				Should(Equal(fdbv1beta2.RedundancyModeThreeDataHallFallback))
+
+			By("verifying the coordinators were reduced to 5 and avoid the failed data hall")
+			Eventually(func() int {
+				return len(fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx)))
+			}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(Equal(5))
+			coordinatorHalls := coordinatorsPerDataHall(fdbCluster.GetStatus(ctx))
+			Expect(coordinatorHalls).NotTo(HaveKey(failedDataHall))
+			for dataHall, count := range coordinatorHalls {
+				Expect(
+					count,
+				).To(BeNumerically("<=", 3), "data hall %s has too many coordinators", dataHall)
+			}
+
+			By("failing a coordinator Pod, forcing the coordinator to be replaced")
+			coordinators := fdbCluster.GetCoordinators(ctx)
+			Expect(coordinators).NotTo(BeEmpty())
+			failedCoordinator := factory.RandomPickOnePod(coordinators)
+			failedCoordinatorID := string(fixtures.GetProcessGroupID(failedCoordinator))
+			podFailure = factory.InjectPodFailure(
+				ctx,
+				fixtures.PodsSelector([]corev1.Pod{failedCoordinator}),
+			)
+			Eventually(func() map[string]fdbv1beta2.None {
+				return fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx))
+			}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).
+				ShouldNot(HaveKey(failedCoordinatorID))
+			Eventually(func() int {
+				return len(fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx)))
+			}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(Equal(5))
+			Expect(
+				coordinatorsPerDataHall(fdbCluster.GetStatus(ctx)),
+			).NotTo(HaveKey(failedDataHall))
+
+			// Let the Pod recover so that it doesn't block the following exclusion.
+			factory.DeleteChaosMeshExperiment(ctx, podFailure)
+			podFailure = nil
+
+			By("failing a non-coordinator Pod")
+			status = fdbCluster.GetStatus(ctx)
+			coordinatorIDs := fdbstatus.GetCoordinatorsFromStatus(status)
+			var candidates []corev1.Pod
+			for _, pod := range podsOutsideDataHall(status, fdbCluster.GetPods(ctx).Items, failedDataHall) {
+				if _, isCoordinator := coordinatorIDs[string(fixtures.GetProcessGroupID(pod))]; !isCoordinator {
+					candidates = append(candidates, pod)
 				}
 			}
+			Expect(candidates).NotTo(BeEmpty())
+			failedPod := factory.RandomPickOnePod(candidates)
+			failedPodID := string(fixtures.GetProcessGroupID(failedPod))
+			podFailure = factory.InjectPodFailure(
+				ctx,
+				fixtures.PodsSelector([]corev1.Pod{failedPod}),
+			)
+			Eventually(func() bool {
+				for _, process := range fdbCluster.GetStatus(ctx).Cluster.Processes {
+					if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] == failedPodID {
+						return false
+					}
+				}
 
-			return true
-		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
-		status = fdbCluster.GetStatus(ctx)
-		Expect(status.Client.DatabaseStatus.Available).To(BeTrue())
-		Expect(fdbstatus.GetCoordinatorsFromStatus(status)).To(HaveLen(5))
+				return true
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+			status = fdbCluster.GetStatus(ctx)
+			Expect(status.Client.DatabaseStatus.Available).To(BeTrue())
+			Expect(fdbstatus.GetCoordinatorsFromStatus(status)).To(HaveLen(5))
 
-		factory.DeleteChaosMeshExperiment(ctx, podFailure)
-		podFailure = nil
+			factory.DeleteChaosMeshExperiment(ctx, podFailure)
+			podFailure = nil
 
-		By("waiting for the cluster to report healthy with the data hall still failing")
-		Eventually(func() bool {
-			return fdbCluster.GetStatus(ctx).Cluster.Data.State.Healthy
-		}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+			By("waiting for the cluster to report healthy with the data hall still failing")
+			Eventually(func() bool {
+				return fdbCluster.GetStatus(ctx).Cluster.Data.State.Healthy
+			}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
-		By("verifying that changing back to three_data_hall is refused while the data hall is failing")
-		setRedundancyMode(ctx, fdbv1beta2.RedundancyModeThreeDataHall, survivingDataHall)
-		Consistently(func() fdbv1beta2.RedundancyMode {
-			return fdbCluster.GetStatus(ctx).Cluster.DatabaseConfiguration.RedundancyMode
-		}).WithTimeout(3 * time.Minute).WithPolling(15 * time.Second).
-			Should(Equal(fdbv1beta2.RedundancyModeThreeDataHallFallback))
+			By(
+				"verifying that changing back to three_data_hall is refused while the data hall is failing",
+			)
+			setRedundancyMode(ctx, fdbv1beta2.RedundancyModeThreeDataHall, survivingDataHall)
+			Consistently(func() fdbv1beta2.RedundancyMode {
+				return fdbCluster.GetStatus(ctx).Cluster.DatabaseConfiguration.RedundancyMode
+			}).WithTimeout(3 * time.Minute).WithPolling(15 * time.Second).
+				Should(Equal(fdbv1beta2.RedundancyModeThreeDataHallFallback))
 
-		By("removing the failure")
-		factory.DeleteChaosMeshExperiment(ctx, failure)
-		failure = nil
-		Eventually(func() int {
-			return len(dataHallProcessCounts(fdbCluster.GetStatus(ctx)))
-		}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(Equal(3))
-		Eventually(func() bool {
-			return fdbCluster.GetStatus(ctx).Cluster.Data.State.Healthy
-		}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+			By("removing the failure")
+			factory.DeleteChaosMeshExperiment(ctx, failure)
+			failure = nil
+			Eventually(func() int {
+				return len(dataHallProcessCounts(fdbCluster.GetStatus(ctx)))
+			}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(Equal(3))
+			Eventually(func() bool {
+				return fdbCluster.GetStatus(ctx).Cluster.Data.State.Healthy
+			}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
-		By("changing back to three_data_hall")
-		// The operator only allows the change from the data hall with the fewest processes.
-		setRedundancyMode(
-			ctx,
-			fdbv1beta2.RedundancyModeThreeDataHall,
-			smallestDataHall(dataHallProcessCounts(fdbCluster.GetStatus(ctx))),
-		)
-		Eventually(func() fdbv1beta2.RedundancyMode {
-			return fdbCluster.GetStatus(ctx).Cluster.DatabaseConfiguration.RedundancyMode
-		}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).
-			Should(Equal(fdbv1beta2.RedundancyModeThreeDataHall))
-		Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
-		Expect(fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx))).To(HaveLen(9))
-	})
+			By("changing back to three_data_hall")
+			// The operator only allows the change from the data hall with the fewest processes.
+			setRedundancyMode(
+				ctx,
+				fdbv1beta2.RedundancyModeThreeDataHall,
+				smallestDataHall(dataHallProcessCounts(fdbCluster.GetStatus(ctx))),
+			)
+			Eventually(func() fdbv1beta2.RedundancyMode {
+				return fdbCluster.GetStatus(ctx).Cluster.DatabaseConfiguration.RedundancyMode
+			}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).
+				Should(Equal(fdbv1beta2.RedundancyModeThreeDataHall))
+			Expect(fdbCluster.WaitForReconciliation(ctx)).NotTo(HaveOccurred())
+			Expect(fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus(ctx))).To(HaveLen(9))
+		},
+	)
 })
