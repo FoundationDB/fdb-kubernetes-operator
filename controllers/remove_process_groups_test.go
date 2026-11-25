@@ -37,6 +37,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("remove_process_groups", func() {
@@ -1188,6 +1189,47 @@ var _ = Describe("remove_process_groups", func() {
 					},
 				)
 			})
+		})
+	})
+
+	When("a process group must be removed shortly after a recovery", func() {
+		var removedProcessGroupID fdbv1beta2.ProcessGroupID
+		var reconcileResult reconcile.Result
+		var reconcileErr error
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			Expect(setupClusterForTest(cluster)).To(Succeed())
+
+			clusterReconciler.MinimumRecoveryTimeForExclusion = 120.0
+			adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			adminClient.SecondsSinceLastRecovered = new(10.0)
+
+			removedProcessGroupID = cluster.Status.ProcessGroups[0].ProcessGroupID
+			cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{removedProcessGroupID}
+			Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
+
+			reconcileResult, reconcileErr = reconcileObject(
+				clusterReconciler,
+				cluster.ObjectMeta,
+				0,
+			)
+		})
+
+		It("waits for the minimum recovery time without a reconciliation error", func() {
+			Expect(reconcileErr).NotTo(HaveOccurred())
+			Expect(reconcileResult.RequeueAfter).To(Equal(10 * time.Second))
+
+			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).
+				To(Succeed())
+			Expect(
+				fdbv1beta2.FindProcessGroupByID(
+					cluster.Status.ProcessGroups,
+					removedProcessGroupID,
+				),
+			).
+				NotTo(BeNil())
 		})
 	})
 })

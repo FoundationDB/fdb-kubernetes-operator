@@ -84,7 +84,7 @@ func (u removeProcessGroups) reconcile(
 		r.MinimumRecoveryTimeForExclusion,
 	)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true, delay: 10 * time.Second}
 	}
 
 	coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
