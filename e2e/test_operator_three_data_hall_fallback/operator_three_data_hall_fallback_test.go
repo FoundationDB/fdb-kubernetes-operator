@@ -36,7 +36,6 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -57,7 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
 	config := fixtures.DefaultClusterConfig(false)
 	config.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
-	config.UseUnifiedImage = ptr.To(true)
+	config.UseUnifiedImage = new(true)
 
 	fdbCluster = factory.CreateFdbCluster(ctx,
 		config,

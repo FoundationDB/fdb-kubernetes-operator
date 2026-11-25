@@ -25,7 +25,6 @@ import (
 
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
 // ScheduleInjectPodKill schedules a Pod Kill action.
@@ -114,7 +113,7 @@ func (factory *Factory) InjectPodFailure(
 			},
 			Spec: chaosmesh.PodChaosSpec{
 				Action:   chaosmesh.PodFailureAction,
-				Duration: ptr.To(ChaosDurationForever),
+				Duration: new(ChaosDurationForever),
 				ContainerSelector: chaosmesh.ContainerSelector{
 					PodSelector: chaosmesh.PodSelector{
 						Selector: target,
