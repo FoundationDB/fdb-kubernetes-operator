@@ -152,7 +152,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					Key:               &taintKeyMaintenance,
 					DurationInSeconds: &taintKeyMaintenanceDuration,
 				},
-			}, ptr.To(1))
+			}, new(1))
 
 			Expect(
 				len(
@@ -170,7 +170,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// Reset taint related options to default value in e2e test
 			fdbCluster.SetClusterTaintConfig(ctx,
 				[]fdbv1beta2.TaintReplacementOption{},
-				ptr.To(150),
+				new(150),
 			)
 			// untaint the nodes
 			log.Printf("AfterEach Cleanup: Untaint the single node:%s\n", taintedNode.Name)
@@ -278,7 +278,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						Key:               &taintKeyStar,
 						DurationInSeconds: &taintKeyStarDuration,
 					},
-				}, ptr.To(1))
+				}, new(1))
 
 				automationOptions := fdbCluster.GetAutomationOptions()
 				Expect(
@@ -375,7 +375,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				// Custom TaintReplacementOptions to taintKeyStar
 				fdbCluster.SetClusterTaintConfig(ctx,
 					[]fdbv1beta2.TaintReplacementOption{},
-					ptr.To(1),
+					new(1),
 				)
 
 				automationOptions := fdbCluster.GetAutomationOptions()
@@ -388,7 +388,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			It("should not remove any Pod whose Nodes are tainted", func(ctx SpecContext) {
 				targetPods := factory.RandomPickPod(initialPods.Items, numNodesTainted)
-				var targetPodProcessGroupIDs []fdbv1beta2.ProcessGroupID
+				targetPodProcessGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(targetPods))
 				for _, pod := range targetPods {
 					targetPodProcessGroupIDs = append(
 						targetPodProcessGroupIDs,
@@ -549,7 +549,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove(ctx)).NotTo(HaveOccurred())
 			// Make sure we reset the previous behaviour.
 			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
+			spec.AutomationOptions.UseLocalitiesForExclusion = new(
 				useLocalitiesForExclusion,
 			)
 			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
@@ -575,7 +575,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		When("IP addresses are used for exclusion", func() {
 			BeforeEach(func(ctx SpecContext) {
 				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
+				spec.AutomationOptions.UseLocalitiesForExclusion = new(false)
 				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 			})
 
@@ -598,7 +598,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 
 				spec := cluster.Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
+				spec.AutomationOptions.UseLocalitiesForExclusion = new(true)
 				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 				Expect(fdbCluster.GetCluster(ctx).UseLocalitiesForExclusion()).To(BeTrue())
 			})
@@ -857,7 +857,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						GetMaxConcurrentAutomaticReplacements()
 					// Allow to replace 1 Pod concurrently
 					spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(1)
+					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = new(1)
 					fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 
 					// Make sure we disable automatic replacements to prevent the case that the operator replaces one Pod
@@ -899,7 +899,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 				AfterEach(func(ctx SpecContext) {
 					spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(
+					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = new(
 						concurrentReplacements,
 					)
 					fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
@@ -1901,10 +1901,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		BeforeEach(func(ctx SpecContext) {
 			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			originalRoleCounts = spec.DatabaseConfiguration.RoleCounts
-			spec.DatabaseConfiguration.RoleCounts.Proxies = spec.DatabaseConfiguration.RoleCounts.GrvProxies + spec.DatabaseConfiguration.RoleCounts.CommitProxies
+			spec.DatabaseConfiguration.Proxies = spec.DatabaseConfiguration.GrvProxies + spec.DatabaseConfiguration.CommitProxies
 			// Reset the more specific GRV and Commit proxy count.
-			spec.DatabaseConfiguration.RoleCounts.GrvProxies = 0
-			spec.DatabaseConfiguration.RoleCounts.CommitProxies = 0
+			spec.DatabaseConfiguration.GrvProxies = 0
+			spec.DatabaseConfiguration.CommitProxies = 0
 
 			fmt.Println(
 				"Original:",
@@ -1929,12 +1929,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				// Make sure GRV and commit proxies are configured.
 				status := fdbCluster.GetStatus(ctx)
 				Expect(
-					status.Cluster.DatabaseConfiguration.RoleCounts.CommitProxies,
+					status.Cluster.DatabaseConfiguration.CommitProxies,
 				).To(BeNumerically(">", 0))
 				Expect(
-					status.Cluster.DatabaseConfiguration.RoleCounts.GrvProxies,
+					status.Cluster.DatabaseConfiguration.GrvProxies,
 				).To(BeNumerically(">", 0))
-				Expect(status.Cluster.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+				Expect(status.Cluster.DatabaseConfiguration.Proxies).NotTo(BeZero())
 
 				fmt.Println(
 					"Status configuration:",
@@ -1943,13 +1943,13 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				// Verify the FoundationDB Cluster resource
 				cluster := fdbCluster.GetCluster(ctx)
 				// Make sure that the spec of the FoundationDB resource only has proxies defined.
-				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
-				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
-				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+				Expect(cluster.Spec.DatabaseConfiguration.GrvProxies).To(BeZero())
+				Expect(cluster.Spec.DatabaseConfiguration.CommitProxies).To(BeZero())
+				Expect(cluster.Spec.DatabaseConfiguration.Proxies).NotTo(BeZero())
 				// Make sure that the status of the FoundationDB resource only has proxies defined.
-				Expect(cluster.Status.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
-				Expect(cluster.Status.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
-				Expect(cluster.Status.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+				Expect(cluster.Status.DatabaseConfiguration.GrvProxies).To(BeZero())
+				Expect(cluster.Status.DatabaseConfiguration.CommitProxies).To(BeZero())
+				Expect(cluster.Status.DatabaseConfiguration.Proxies).NotTo(BeZero())
 			},
 		)
 	})
@@ -2021,7 +2021,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			cluster := fdbCluster.GetCluster(ctx)
 			spec := cluster.Spec.DeepCopy()
 			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
-			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = ptr.To(
+			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = new(
 				true,
 			)
 			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
@@ -2085,7 +2085,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		AfterEach(func(ctx SpecContext) {
 			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
 			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
-			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = ptr.To(
+			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = new(
 				false,
 			)
 			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)

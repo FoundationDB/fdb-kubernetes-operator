@@ -25,17 +25,42 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/buggify"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
+
+// ignoringPodClient is a Pod client for a monitor that ignores the option to start the staged binary.
+type ignoringPodClient struct {
+	podclient.FdbPodClient
+	// withoutBinaryDir removes the binary directory from the substitutions, like a monitor that doesn't report it.
+	withoutBinaryDir bool
+}
+
+// GetVariableSubstitutions returns the substitutions with the binary directory of the main container.
+func (client *ignoringPodClient) GetVariableSubstitutions() (map[string]string, error) {
+	substitutions, err := client.FdbPodClient.GetVariableSubstitutions()
+	if err != nil {
+		return nil, err
+	}
+
+	if client.withoutBinaryDir {
+		delete(substitutions, fdbv1beta2.EnvNameBinaryDir)
+	} else {
+		substitutions[fdbv1beta2.EnvNameBinaryDir] = "/usr/bin"
+	}
+
+	return substitutions, nil
+}
 
 var _ = Describe("bounceProcesses", func() {
 	When("bouncing processes", func() {
@@ -47,7 +72,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			cluster.Spec.LockOptions.DisableLocks = ptr.To(false)
+			cluster.Spec.LockOptions.DisableLocks = new(false)
 			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
 			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
@@ -619,7 +644,7 @@ var _ = Describe("bounceProcesses", func() {
 
 				Context("with locks disabled", func() {
 					BeforeEach(func() {
-						cluster.Spec.LockOptions.DisableLocks = ptr.To(true)
+						cluster.Spec.LockOptions.DisableLocks = new(true)
 					})
 
 					It("should requeue", func() {
@@ -1378,6 +1403,238 @@ var _ = Describe("bounceProcesses", func() {
 			"7.1.56",
 			[]fdbv1beta2.ProcessAddress{{StringAddress: "192.168.0.2:4500:tls"}},
 			[]string{"5"},
+		),
+	)
+
+	When("the main container image is pinned and the processes are restarted in-place", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var adminClient *mock.AdminClient
+		var requeue *requeue
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+			cluster.Spec.Version = "7.4.11"
+			cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
+			cluster.Spec.LockOptions.DisableLocks = new(false)
+			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
+
+			var err error
+			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			// The processes are restarted during the creation of the cluster, only the restarts of the test are relevant.
+			adminClient.KilledAddresses = make(map[string]fdbv1beta2.None)
+
+			// Start a patch upgrade, the Pods are not updated, because the processes are restarted in-place.
+			Expect(cluster.Status.RunningVersion).To(Equal("7.4.11"))
+			cluster.Spec.Version = "7.4.12"
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
+			}
+		})
+
+		JustBeforeEach(func() {
+			requeue = bounceProcesses{}.reconcile(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				nil,
+				globalControllerLogger,
+			)
+		})
+
+		When("the monitors don't report the binary directory", func() {
+			BeforeEach(func() {
+				originalProvider := clusterReconciler.PodClientProvider
+				clusterReconciler.PodClientProvider = func(
+					cluster *fdbv1beta2.FoundationDBCluster,
+					pod *corev1.Pod,
+				) (podclient.FdbPodClient, error) {
+					client, err := originalProvider(cluster, pod)
+					if err != nil {
+						return nil, err
+					}
+
+					return &ignoringPodClient{FdbPodClient: client, withoutBinaryDir: true}, nil
+				}
+
+				DeferCleanup(func() {
+					clusterReconciler.PodClientProvider = originalProvider
+				})
+			})
+
+			It("should requeue and not kill any process", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(
+					requeue.message,
+				).To(ContainSubstring("to report the directory of the binary"))
+				Expect(adminClient.KilledAddresses).To(BeEmpty())
+			})
+		})
+
+		When("the monitors report that they start the staged binary", func() {
+			It("should kill the processes", func() {
+				Expect(adminClient.KilledAddresses).NotTo(BeEmpty())
+			})
+		})
+
+		When(
+			"the monitors ignore the configuration and report the binary of the main container",
+			func() {
+				BeforeEach(func() {
+					// The monitors ignore the option to start the staged binary, e.g. because they are older than expected, and
+					// report the binary of the main container.
+					originalProvider := clusterReconciler.PodClientProvider
+					clusterReconciler.PodClientProvider = func(
+						cluster *fdbv1beta2.FoundationDBCluster,
+						pod *corev1.Pod,
+					) (podclient.FdbPodClient, error) {
+						client, err := originalProvider(cluster, pod)
+						if err != nil {
+							return nil, err
+						}
+
+						return &ignoringPodClient{FdbPodClient: client}, nil
+					}
+
+					DeferCleanup(func() {
+						clusterReconciler.PodClientProvider = originalProvider
+					})
+				})
+
+				It("should requeue and not kill any process", func() {
+					Expect(requeue).NotTo(BeNil())
+					Expect(
+						requeue.message,
+					).To(ContainSubstring("doesn't start the binary that was staged for version 7.4.12"))
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
+				})
+			},
+		)
+	})
+
+	DescribeTable(
+		"when checking which monitors don't start the staged binary",
+		func(binaryDirs map[fdbv1beta2.ProcessGroupID]string, expected []fdbv1beta2.ProcessGroupID) {
+			cluster := &fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{Version: "7.4.11"},
+			}
+
+			Expect(getProcessGroupsWithoutStagedBinary(cluster, binaryDirs)).To(Equal(expected))
+		},
+		Entry("no process groups", map[fdbv1beta2.ProcessGroupID]string{}, nil),
+		Entry("all monitors start the staged binary",
+			map[fdbv1beta2.ProcessGroupID]string{
+				"storage-1": "/var/fdb/shared-binaries/bin/7.4.11",
+				"log-1":     "/var/fdb/shared-binaries/bin/7.4.11",
+			},
+			nil),
+		Entry("one monitor starts the binary of the main container",
+			map[fdbv1beta2.ProcessGroupID]string{
+				"storage-1": "/var/fdb/shared-binaries/bin/7.4.11",
+				"log-1":     "/usr/bin",
+			},
+			[]fdbv1beta2.ProcessGroupID{"log-1"}),
+		Entry("monitors start the staged binary of the old version",
+			map[fdbv1beta2.ProcessGroupID]string{
+				"storage-2": "/var/fdb/shared-binaries/bin/7.4.10",
+				"storage-1": "/var/fdb/shared-binaries/bin/7.4.10",
+			},
+			[]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"}),
+	)
+
+	DescribeTable(
+		"when checking if the upgrade is coordinated",
+		func(
+			version string,
+			runningVersion string,
+			monitorVersion *string,
+			podsNotCapable bool,
+			expected bool,
+		) {
+			cluster := &fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: version,
+					MainContainer: fdbv1beta2.ContainerOverrides{
+						MonitorVersion: monitorVersion,
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					RunningVersion: runningVersion,
+				},
+			}
+
+			// All Pods use the launcher that starts the staged binary, except the second Pod if podsNotCapable is set.
+			args := []string{"--version-file", "/var/fdb/version"}
+			pods := map[fdbv1beta2.ProcessGroupID]*corev1.Pod{}
+			for idx, id := range []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"} {
+				podArgs := args
+				if podsNotCapable && idx == 1 {
+					podArgs = nil
+				}
+
+				pods[id] = &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{Name: fdbv1beta2.MainContainerName, Args: podArgs},
+						},
+					},
+				}
+			}
+
+			Expect(isCoordinatedUpgrade(cluster, pods)).To(Equal(expected))
+		},
+		Entry("no upgrade", "7.4.5", "7.4.5", nil, false, false),
+		Entry(
+			"no upgrade with a pinned image",
+			"7.4.5",
+			"7.4.5",
+			new("7.4.5"),
+			false,
+			false,
+		),
+		Entry("version incompatible upgrade", "7.4.5", "7.3.69", nil, false, true),
+		Entry(
+			"version incompatible upgrade with a Pod that is not capable",
+			"7.4.5",
+			"7.3.69",
+			nil,
+			true,
+			true,
+		),
+		Entry("patch upgrade without a pinned image", "7.4.11", "7.4.10", nil, false, false),
+		Entry(
+			"patch upgrade with a pinned image and a monitor that supports the shared binary config",
+			"7.4.12",
+			"7.4.11",
+			new("7.4.11"),
+			true,
+			true,
+		),
+		Entry(
+			"patch upgrade with a pinned image and an older monitor, all Pods are capable",
+			"7.4.9",
+			"7.4.8",
+			new("7.4.8"),
+			false,
+			true,
+		),
+		Entry(
+			"patch upgrade with a pinned image and an older monitor, a Pod is not capable",
+			"7.4.9",
+			"7.4.8",
+			new("7.4.8"),
+			true,
+			false,
+		),
+		Entry(
+			"patch upgrade with the monitor version changed to the new version",
+			"7.4.11",
+			"7.4.10",
+			new("7.4.11"),
+			false,
+			false,
 		),
 	)
 })

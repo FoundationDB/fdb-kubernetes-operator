@@ -26,8 +26,6 @@ import (
 	"math"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"k8s.io/apimachinery/pkg/types"
@@ -116,7 +114,7 @@ var _ = Describe("update_status", func() {
 					clusterReconciler,
 					cluster,
 					pod,
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+					pod.Annotations[fdbv1beta2.LastConfigMapKey],
 					pickedProcessGroup,
 					cluster.IsTaintFeatureDisabled(),
 					logger,
@@ -145,7 +143,33 @@ var _ = Describe("update_status", func() {
 			})
 
 			When("the taint was just added long enough to to mark the Pod for replacement", func() {
+				var wildcardTaint, exactStorageTaint, exactStatelessTaint, exactAllClassesTaint fdbv1beta2.TaintReplacementOption
+
 				BeforeEach(func() {
+					wildcardTaint = fdbv1beta2.TaintReplacementOption{
+						Key:               &taintKeyWildcard,
+						DurationInSeconds: &taintKeyWildcardDuration,
+					}
+					exactStorageTaint = fdbv1beta2.TaintReplacementOption{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+						ProcessClasses: []fdbv1beta2.ProcessClass{
+							fdbv1beta2.ProcessClassStorage,
+						},
+					}
+					exactStatelessTaint = fdbv1beta2.TaintReplacementOption{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+						ProcessClasses: []fdbv1beta2.ProcessClass{
+							fdbv1beta2.ProcessClassStateless,
+						},
+					}
+					exactAllClassesTaint = fdbv1beta2.TaintReplacementOption{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+						ProcessClasses:    []fdbv1beta2.ProcessClass{},
+					}
+
 					node.Spec.Taints = []corev1.Taint{
 						{
 							Key:    taintKeyMaintenance,
@@ -167,6 +191,77 @@ var _ = Describe("update_status", func() {
 					Expect(
 						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
 					).NotTo(Equal(nil))
+				})
+
+				When("the exact rule has an empty process class filter", func() {
+					BeforeEach(func() {
+						cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+							wildcardTaint,
+							exactAllClassesTaint,
+						}
+					})
+
+					It("should use the exact rule's replacement delay", func() {
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).NotTo(BeNil())
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+						).NotTo(BeNil())
+					})
+				})
+
+				When("the exact rule selects storage", func() {
+					BeforeEach(func() {
+						cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+							wildcardTaint,
+							exactStorageTaint,
+						}
+					})
+
+					It("should use the exact rule's shorter replacement delay", func() {
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).NotTo(BeNil())
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+						).NotTo(BeNil())
+					})
+				})
+
+				When("the exact rule selects stateless and a wildcard rule is configured", func() {
+					BeforeEach(func() {
+						cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+							wildcardTaint,
+							exactStatelessTaint,
+						}
+					})
+
+					It("should wait for the wildcard rule's longer replacement delay", func() {
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).NotTo(BeNil())
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+						).To(BeNil())
+					})
+				})
+
+				When("only an exact stateless rule is configured", func() {
+					BeforeEach(func() {
+						cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+							exactStatelessTaint,
+						}
+					})
+
+					It("should not set taint conditions for storage", func() {
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).To(BeNil())
+						Expect(
+							pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+						).To(BeNil())
+					})
 				})
 			})
 
@@ -208,7 +303,7 @@ var _ = Describe("update_status", func() {
 						clusterReconciler,
 						cluster,
 						pod,
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+						pod.Annotations[fdbv1beta2.LastConfigMapKey],
 						pickedProcessGroup,
 						cluster.IsTaintFeatureDisabled(),
 						logger,
@@ -288,7 +383,7 @@ var _ = Describe("update_status", func() {
 						clusterReconciler,
 						cluster,
 						pod,
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+						pod.Annotations[fdbv1beta2.LastConfigMapKey],
 						pickedProcessGroup,
 						cluster.IsTaintFeatureDisabled(),
 						logger,
@@ -347,7 +442,7 @@ var _ = Describe("update_status", func() {
 							clusterReconciler,
 							cluster,
 							pod,
-							pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+							pod.Annotations[fdbv1beta2.LastConfigMapKey],
 							pickedProcessGroup,
 							cluster.IsTaintFeatureDisabled(),
 							logger,
@@ -874,7 +969,7 @@ var _ = Describe("update_status", func() {
 
 		When("the pod has the wrong spec", func() {
 			BeforeEach(func() {
-				storagePod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "bad"
+				storagePod.Annotations[fdbv1beta2.LastSpecKey] = "bad"
 				Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
 			})
 
@@ -920,7 +1015,7 @@ var _ = Describe("update_status", func() {
 		When("the pod has the wrong metadata", func() {
 			When("an annotation is missing", func() {
 				BeforeEach(func() {
-					delete(storagePod.ObjectMeta.Annotations, fdbv1beta2.NodeAnnotation)
+					delete(storagePod.Annotations, fdbv1beta2.NodeAnnotation)
 					Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
 				})
 
@@ -967,7 +1062,7 @@ var _ = Describe("update_status", func() {
 		When("the pod has the wrong config map hash", func() {
 			When("an annotation is missing", func() {
 				BeforeEach(func() {
-					storagePod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = "bad"
+					storagePod.Annotations[fdbv1beta2.LastConfigMapKey] = "bad"
 					Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
 				})
 
@@ -1494,7 +1589,7 @@ var _ = Describe("update_status", func() {
 		})
 
 		It("should mark the cluster as reconciled", func() {
-			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.Generation))
 		})
 
 		It("should set the fault domain and machine for all process groups", func() {
@@ -1509,7 +1604,7 @@ var _ = Describe("update_status", func() {
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.RequeueAfter).To(BeZero())
-				cluster.Spec.UseExplicitListenAddress = ptr.To(false)
+				cluster.Spec.UseExplicitListenAddress = new(false)
 			})
 
 			Context("when the cluster has not been reconciled", func() {
@@ -1567,16 +1662,15 @@ var _ = Describe("update_status", func() {
 
 					pod, err := internal.GetPod(cluster, processGroup)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(
-						updateSidecarImage(
-							context.Background(),
-							clusterReconciler,
-							logger,
-							cluster,
-							processGroup,
-							pod,
-						),
-					).To(Succeed())
+					_, err = updateSidecarImage(
+						context.Background(),
+						clusterReconciler,
+						logger,
+						cluster,
+						processGroup,
+						pod,
+					)
+					Expect(err).NotTo(HaveOccurred())
 				}
 
 				Expect(adminClient.KillProcesses(addresses)).NotTo(HaveOccurred())

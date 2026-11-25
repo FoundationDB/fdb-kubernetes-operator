@@ -178,7 +178,7 @@ func (manager *StandardPodLifecycleManager) GetPods(
 	for _, pod := range pods.Items {
 		ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
 		if !ownedByCluster {
-			for _, reference := range pod.ObjectMeta.OwnerReferences {
+			for _, reference := range pod.OwnerReferences {
 				if reference.UID == cluster.UID {
 					ownedByCluster = true
 					break

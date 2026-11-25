@@ -52,7 +52,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		cluster = internal.CreateDefaultCluster()
 		deprecationOptions = internal.DeprecationOptions{UseFutureDefaults: false}
 		Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
-		cluster.Spec.LabelConfig.FilterOnOwnerReferences = ptr.To(false)
+		cluster.Spec.LabelConfig.FilterOnOwnerReferences = new(false)
 	})
 
 	When("checking process groups for replacements", func() {
@@ -93,7 +93,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				spec, err := internal.GetPodSpec(cluster, processGroup)
 				Expect(err).NotTo(HaveOccurred())
 
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
+				pod.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
 					cluster,
 					processGroup,
 					spec,
@@ -150,7 +150,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("the public IP source is removed", func() {
 				BeforeEach(func() {
-					pod.ObjectMeta.Annotations = map[string]string{
+					pod.Annotations = map[string]string{
 						fdbv1beta2.PublicIPSourceAnnotation: string(
 							fdbv1beta2.PublicIPSourceService,
 						),
@@ -202,7 +202,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("the nodeSelector doesn't match but the PodSpecHash matches", func() {
 				BeforeEach(func() {
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
+					pod.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
 						cluster,
 						processGroup,
 						nil,
@@ -244,7 +244,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						spec, err := internal.GetPodSpec(cluster, processGroup)
 						Expect(err).NotTo(HaveOccurred())
 
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
+						pod.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
 							cluster,
 							processGroup,
 							spec,
@@ -279,7 +279,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("PodUpdateStrategyReplacement is set and the PodSpecHash doesn't match", func() {
 				BeforeEach(func() {
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
+					pod.Annotations[fdbv1beta2.LastSpecKey] = "-1"
 					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
 				})
 
@@ -293,7 +293,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				"PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match",
 				func() {
 					BeforeEach(func() {
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
+						pod.Annotations[fdbv1beta2.LastSpecKey] = "-1"
 						cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
 					})
 
@@ -353,7 +353,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("replacement for resource changes is activated", func() {
 				BeforeEach(func() {
-					cluster.Spec.ReplaceInstancesWhenResourcesChange = ptr.To(true)
+					cluster.Spec.ReplaceInstancesWhenResourcesChange = new(true)
 				})
 
 				When("the memory is increased", func() {
@@ -449,7 +449,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("replacement for resource changes is deactivated", func() {
 				BeforeEach(func() {
-					cluster.Spec.ReplaceInstancesWhenResourcesChange = ptr.To(false)
+					cluster.Spec.ReplaceInstancesWhenResourcesChange = new(false)
 				})
 
 				When("the memory is increased", func() {
@@ -524,7 +524,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			When("the securityContext doesn't match", func() {
 				When("the last applied spec hash is different from desired spec hash", func() {
 					BeforeEach(func() {
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "banana"
+						pod.Annotations[fdbv1beta2.LastSpecKey] = "banana"
 					})
 
 					When("FSGroup is changed", func() {
@@ -584,7 +584,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("the pod ip family is v4", func() {
 						BeforeEach(func() {
-							cluster.Spec.Routing.PodIPFamily = ptr.To(
+							cluster.Spec.Routing.PodIPFamily = new(
 								fdbv1beta2.PodIPFamilyIPv4,
 							)
 						})
@@ -644,7 +644,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("the pod ip family is v6", func() {
 						BeforeEach(func() {
-							cluster.Spec.Routing.PodIPFamily = ptr.To(
+							cluster.Spec.Routing.PodIPFamily = new(
 								fdbv1beta2.PodIPFamilyIPv6,
 							)
 						})
@@ -707,7 +707,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					When("the pod ip family at the pod is nil", func() {
 						When("the pod ip family at cluster level is v4", func() {
 							BeforeEach(func() {
-								cluster.Spec.Routing.PodIPFamily = ptr.To(
+								cluster.Spec.Routing.PodIPFamily = new(
 									fdbv1beta2.PodIPFamilyIPv4,
 								)
 							})
@@ -720,7 +720,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 						When("the pod ip family at cluster level is v6", func() {
 							BeforeEach(func() {
-								cluster.Spec.Routing.PodIPFamily = ptr.To(
+								cluster.Spec.Routing.PodIPFamily = new(
 									fdbv1beta2.PodIPFamilyIPv4,
 								)
 							})
@@ -747,7 +747,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 									)
 								}
 
-								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
+								pod.Annotations[fdbv1beta2.LastSpecKey] = ""
 							})
 
 							When("the pod ip family at cluster level is nil", func() {
@@ -763,7 +763,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v6", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = ptr.To(
+									cluster.Spec.Routing.PodIPFamily = new(
 										fdbv1beta2.PodIPFamilyIPv6,
 									)
 								})
@@ -798,7 +798,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(
 									currentConfig,
 								)
-								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
+								pod.Annotations[fdbv1beta2.LastSpecKey] = ""
 							})
 
 							When("the pod ip family at cluster level is nil", func() {
@@ -814,7 +814,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v6", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = ptr.To(
+									cluster.Spec.Routing.PodIPFamily = new(
 										fdbv1beta2.PodIPFamilyIPv6,
 									)
 								})
@@ -842,7 +842,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 									)
 								}
 
-								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
+								pod.Annotations[fdbv1beta2.LastSpecKey] = ""
 							})
 
 							When("the pod ip family at cluster level is nil", func() {
@@ -858,7 +858,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v4", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = ptr.To(
+									cluster.Spec.Routing.PodIPFamily = new(
 										fdbv1beta2.PodIPFamilyIPv4,
 									)
 								})
@@ -893,7 +893,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(
 									currentConfig,
 								)
-								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
+								pod.Annotations[fdbv1beta2.LastSpecKey] = ""
 							})
 
 							When("the pod ip family at cluster level is nil", func() {
@@ -909,7 +909,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v4", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = ptr.To(
+									cluster.Spec.Routing.PodIPFamily = new(
 										fdbv1beta2.PodIPFamilyIPv4,
 									)
 								})
@@ -946,7 +946,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				spec, err := internal.GetPodSpec(cluster, processGroup)
 				Expect(err).NotTo(HaveOccurred())
 
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
+				pod.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
 					cluster,
 					processGroup,
 					spec,
@@ -977,7 +977,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				"PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction",
 				func() {
 					BeforeEach(func() {
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
+						pod.Annotations[fdbv1beta2.LastSpecKey] = "-1"
 						cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
 					})
 
@@ -1055,7 +1055,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("No replacements are allowed", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(0)
+				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = new(0)
 			})
 
 			It("should not have a replacements", func() {
@@ -1085,7 +1085,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Two replacements are allowed", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(2)
+				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = new(2)
 			})
 
 			It("should have two replacements", func() {

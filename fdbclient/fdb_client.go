@@ -297,8 +297,7 @@ func (fdbClient *realFdbLibClient) getProcessAddresses(
 
 func checkError(err error) error {
 	if err != nil {
-		var fdbError fdb.Error
-		if errors.As(err, &fdbError) {
+		if fdbError, ok := errors.AsType[fdb.Error](err); ok {
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
 			// 1031: Operation aborted because the transaction timed out.
 			if fdbError.Code == 1031 {
@@ -415,8 +414,7 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 		// own onError() does not know about this — the underlying fdb.Error is always special_keys_api_failure,
 		// which is not one of the codes FDB's client considers automatically retryable — so we must honor the
 		// retriable flag ourselves and reset the transaction manually before trying again.
-		var specialKeysErr fdbv1beta2.SpecialKeysAPIFailureError
-		if errors.As(opErr, &specialKeysErr) {
+		if specialKeysErr, ok := errors.AsType[fdbv1beta2.SpecialKeysAPIFailureError](opErr); ok {
 			if !specialKeysErr.Retriable {
 				return opErr
 			}
@@ -426,8 +424,7 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 		}
 
 		// Otherwise fall back to letting FDB's client decide if the error is retryable (e.g. conflicts, timeouts).
-		var fdbErr fdb.Error
-		if errors.As(opErr, &fdbErr) {
+		if fdbErr, ok := errors.AsType[fdb.Error](opErr); ok {
 			if retryErr := tr.OnError(fdbErr).Get(); retryErr != nil {
 				return checkError(opErr) // not retryable, give up
 			}

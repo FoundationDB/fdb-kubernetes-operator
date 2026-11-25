@@ -91,7 +91,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 
-	originalGeneration := backup.ObjectMeta.Generation
+	originalGeneration := backup.Generation
 	backupLog := globalControllerLogger.WithValues(
 		"namespace",
 		backup.Namespace,
@@ -190,7 +190,7 @@ func (r *FoundationDBBackupReconciler) adminClientForBackup(
 	cluster := &fdbv1beta2.FoundationDBCluster{}
 	err := r.Get(
 		ctx,
-		types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName},
+		types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.ClusterName},
 		cluster,
 	)
 	if err != nil {
@@ -213,13 +213,6 @@ func (r *FoundationDBBackupReconciler) SetupWithManager(
 	maxConcurrentReconciles int,
 	selector metav1.LabelSelector,
 ) error {
-	err := mgr.GetFieldIndexer().
-		IndexField(context.Background(), &appsv1.Deployment{}, "metadata.name", func(o client.Object) []string {
-			return []string{o.(*appsv1.Deployment).Name}
-		})
-	if err != nil {
-		return err
-	}
 	labelSelectorPredicate, err := predicate.LabelSelectorPredicate(selector)
 	if err != nil {
 		return err

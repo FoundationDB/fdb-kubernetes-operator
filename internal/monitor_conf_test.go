@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -679,7 +677,7 @@ var _ = Describe("monitor_conf", func() {
 
 				When("using IPv6 as PodIPFamily", func() {
 					BeforeEach(func() {
-						cluster.Spec.Routing.PodIPFamily = ptr.To(fdbv1beta2.PodIPFamilyIPv6)
+						cluster.Spec.Routing.PodIPFamily = new(fdbv1beta2.PodIPFamilyIPv6)
 					})
 
 					It("specifies the IP family for the public address", func() {
@@ -723,7 +721,7 @@ var _ = Describe("monitor_conf", func() {
 
 				When("using IPv4 as PodIPFamily", func() {
 					BeforeEach(func() {
-						cluster.Spec.Routing.PodIPFamily = ptr.To(fdbv1beta2.PodIPFamilyIPv4)
+						cluster.Spec.Routing.PodIPFamily = new(fdbv1beta2.PodIPFamilyIPv4)
 					})
 
 					It("specifies the IP family for the public address", func() {
@@ -766,7 +764,7 @@ var _ = Describe("monitor_conf", func() {
 
 			When("using IPv6 as PodIPFamily", func() {
 				BeforeEach(func() {
-					cluster.Spec.Routing.PodIPFamily = ptr.To(fdbv1beta2.PodIPFamilyIPv6)
+					cluster.Spec.Routing.PodIPFamily = new(fdbv1beta2.PodIPFamilyIPv6)
 				})
 
 				It("specifies the IP family for the public address", func() {
@@ -800,7 +798,7 @@ var _ = Describe("monitor_conf", func() {
 
 			When("using IPv4 as PodIPFamily", func() {
 				BeforeEach(func() {
-					cluster.Spec.Routing.PodIPFamily = ptr.To(fdbv1beta2.PodIPFamilyIPv4)
+					cluster.Spec.Routing.PodIPFamily = new(fdbv1beta2.PodIPFamilyIPv4)
 				})
 
 				It("specifies the IP family for the public address", func() {
@@ -1575,7 +1573,7 @@ var _ = Describe("monitor_conf", func() {
 
 		Context("with DNS names in locality fields disabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 				conf, err = GetMonitorConf(
 					cluster,
 					fdbv1beta2.ProcessClassStorage,

@@ -130,6 +130,7 @@ ContainerOverrides provides options for customizing a container created by the o
 | enableTls | EnableTLS controls whether we should be listening on a TLS connection. | bool | false |
 | peerVerificationRules | PeerVerificationRules provides the rules for what client certificates the process should accept. | string | false |
 | imageConfigs | ImageConfigs allows customizing the image that we use for a container. | [][ImageConfig](#imageconfig) | false |
+| monitorVersion | MonitorVersion pins the FDB version of the image used for the main container, which runs fdb-kubernetes-monitor. The value must be a valid FDB version and selects the unified image tag for the main container. When set, the main container image does not change when spec.version changes, and fdbserver is run from the binaries staged by the sidecar whenever spec.version is not the version of the main container image. The image of the main container also contains fdbcli and other binaries of the pinned version, which can differ from the version of the running fdbserver. Only supported with the unified image type and ignored on the sidecar container. | *string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -289,6 +290,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | hasIncorrectServiceConfig | HasIncorrectServiceConfig indicates whether the cluster has service config that is out of date with the cluster spec. | bool | false |
 | needsNewCoordinators | NeedsNewCoordinators indicates whether the cluster needs to recruit new coordinators to fulfill its fault tolerance requirements. | bool | false |
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
+| monitorVersion | MonitorVersion defines the desired version of the image of the main container, which runs fdb-kubernetes-monitor. This is the monitorVersion of the main container, or the version of the cluster if the monitorVersion is not set. The value is derived from the spec, it does not reflect the images of the running Pods, e.g. during a rolling update of the Pods or an upgrade of a cluster without a pinned main container image. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | hasListenIPsForAllPods | HasListenIPsForAllPods defines whether every pod has an environment variable for its listen address. | bool | false |
@@ -498,12 +500,13 @@ SynchronizationMode defines the synchronization mode.
 
 ## TaintReplacementOption
 
-TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node Example of TaintReplacementOption   - key: \"example.org/maintenance\"     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint.   - key: \"*\" # The wildcard would allow to define a catch all configuration     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint  Setting durationInSeconds to the maximum of int64 will practically disable the taint key. When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used.
+TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node Example of TaintReplacementOption   - key: \"example.org/maintenance\"     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint.   - key: \"*\" # The wildcard would allow to define a catch all configuration     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint  Setting durationInSeconds to the maximum of int64 will practically disable the taint key. When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used if its ProcessClasses includes the process class.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | key | Tainted key | *string | false |
 | durationInSeconds | The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint; DurationInSeconds cannot be a negative number. | *int64 | false |
+| processClasses | ProcessClasses restricts this option to the listed process classes. Omitted or empty means all classes. | [][ProcessClass](#processclass) | false |
 
 [Back to TOC](#table-of-contents)
 

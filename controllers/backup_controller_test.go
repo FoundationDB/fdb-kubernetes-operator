@@ -115,7 +115,7 @@ var _ = Describe("backup_controller", func() {
 				),
 			).To(Succeed())
 
-			originalVersion = backup.ObjectMeta.Generation
+			originalVersion = backup.Generation
 			generationGap = 1
 		})
 
@@ -181,7 +181,7 @@ var _ = Describe("backup_controller", func() {
 				).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
 				Expect(status.Status.Running).To(BeTrue())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
-				Expect(status.Tag).To(Equal(ptr.To("default")))
+				Expect(status.Tag).To(Equal(new("default")))
 			})
 		})
 
@@ -289,9 +289,9 @@ var _ = Describe("backup_controller", func() {
 				err = k8sClient.List(context.TODO(), deployments)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(deployments.Items)).To(Equal(1))
-				Expect(deployments.Items[0].ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(deployments.Items[0].Labels).To(Equal(map[string]string{
 					"fdb-test":                    "test-value",
-					"foundationdb.org/backup-for": string(backup.ObjectMeta.UID),
+					"foundationdb.org/backup-for": string(backup.UID),
 				}))
 			})
 		})
@@ -303,7 +303,7 @@ var _ = Describe("backup_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(deployments.Items)).To(Equal(1))
 				deployment := deployments.Items[0]
-				deployment.ObjectMeta.Annotations["fdb-test-1"] = "test-value-1"
+				deployment.Annotations["fdb-test-1"] = "test-value-1"
 				err = k8sClient.Update(context.TODO(), &deployment)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -319,7 +319,7 @@ var _ = Describe("backup_controller", func() {
 				err = k8sClient.List(context.TODO(), deployments)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(deployments.Items)).To(Equal(1))
-				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
+				Expect(deployments.Items[0].Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",
 					"foundationdb.org/last-applied-spec": "5250c19ca170acf598f0e1437383ac279876e5d08db4d9dfd2b8121dac05e419",
@@ -412,7 +412,7 @@ var _ = Describe("backup_controller", func() {
 			When("changing snapshot time", func() {
 				BeforeEach(func() {
 					// Now change the snapshot period
-					backup.Spec.SnapshotPeriodSeconds = ptr.To(100000)
+					backup.Spec.SnapshotPeriodSeconds = new(100000)
 					Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
 					generationGap = 2
 				})
@@ -515,7 +515,7 @@ var _ = Describe("backup_controller", func() {
 				),
 			).To(Succeed())
 
-			backup.Spec.Tag = ptr.To(fdbv1beta2.BackupTag(customTag))
+			backup.Spec.Tag = new(fdbv1beta2.BackupTag(customTag))
 			Expect(k8sClient.Create(context.TODO(), backup)).To(Succeed())
 
 			result, err = reconcileBackup(backup)
@@ -533,7 +533,7 @@ var _ = Describe("backup_controller", func() {
 				),
 			).To(Succeed())
 
-			originalVersion = backup.ObjectMeta.Generation
+			originalVersion = backup.Generation
 			generationGap = 1
 		})
 
@@ -585,7 +585,7 @@ var _ = Describe("backup_controller", func() {
 				).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
 				Expect(status.Status.Running).To(BeTrue())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
-				Expect(status.Tag).To(Equal(ptr.To(customTag)))
+				Expect(status.Tag).To(Equal(new(customTag)))
 			})
 		})
 
@@ -611,7 +611,7 @@ var _ = Describe("backup_controller", func() {
 					Expect(status.Tag).To(BeNil())
 
 					// Reset the backup tag and fetch the status for the correct tag.
-					backup.Spec.Tag = ptr.To(fdbv1beta2.BackupTag(customTag))
+					backup.Spec.Tag = new(fdbv1beta2.BackupTag(customTag))
 					status, err = adminClient.GetBackupStatus(backup)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(
@@ -619,7 +619,7 @@ var _ = Describe("backup_controller", func() {
 					).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
 					Expect(status.Status.Running).To(BeTrue())
 					Expect(status.BackupAgentsPaused).To(BeFalse())
-					Expect(status.Tag).To(Equal(ptr.To(customTag)))
+					Expect(status.Tag).To(Equal(new(customTag)))
 				},
 			)
 		})

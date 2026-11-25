@@ -140,8 +140,6 @@ func convertConditions(inputConditions []string) ([]fdbv1beta2.ProcessGroupCondi
 	return res, nil
 }
 
-//
-//nolint:interfacer // golint has a false-positive here -> `cmd` can be `github.com/hashicorp/go-retryablehttp.Logger`
 func restartProcesses(
 	cmd *cobra.Command,
 	restConfig *rest.Config,
@@ -165,8 +163,8 @@ func restartProcesses(
 			cmd.Context(),
 			kubeClient,
 			restConfig,
-			pod,
 			namespace,
+			pod,
 			fdbv1beta2.MainContainerName,
 			"pkill fdbserver || true",
 			false,

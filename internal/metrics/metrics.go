@@ -60,6 +60,16 @@ var (
 		nil,
 	)
 
+	descClusterVersionInfo = prometheus.NewDesc(
+		"fdb_operator_cluster_version_info",
+		"information about the versions of the Fdb Cluster, the value is always 1. The desired version is the version in the "+
+			"spec, the running version is the version of the fdbserver processes and the monitor version is the desired version of "+
+			"the main container image, which runs the fdb-kubernetes-monitor. The monitor version is derived from the spec and "+
+			"does not reflect the images of the running Pods.",
+		append(descClusterDefaultLabels, "desired_version", "running_version", "monitor_version"),
+		nil,
+	)
+
 	descProcessGroupsToRemove = prometheus.NewDesc(
 		"fdb_operator_process_groups_to_remove_total",
 		"the count of process groups that should be removed from the cluster.",
@@ -130,10 +140,24 @@ func CollectMetrics(ch chan<- prometheus.Metric, cluster *fdbv1beta2.FoundationD
 		float64(cluster.Status.Health.DataMovementPriority),
 		"datamovementpriority",
 	)
+	monitorVersion := cluster.GetMonitorVersionOrDefault()
+	// The running version is not known while the cluster is created. In this case use the desired version, to prevent
+	// an empty label value and an additional time series once the running version is set.
+	runningVersion := cluster.Status.RunningVersion
+	if runningVersion == "" {
+		runningVersion = cluster.Spec.Version
+	}
+	addGauge(
+		descClusterVersionInfo,
+		1,
+		cluster.Spec.Version,
+		runningVersion,
+		monitorVersion,
+	)
 	addGauge(descClusterLastReconciled, float64(cluster.Status.Generations.Reconciled))
 	addGauge(
 		descClusterReconciled,
-		boolFloat64(cluster.ObjectMeta.Generation == cluster.Status.Generations.Reconciled),
+		boolFloat64(cluster.Generation == cluster.Status.Generations.Reconciled),
 	)
 	addGauge(descProcessGroupsToRemove, float64(len(cluster.Spec.ProcessGroupsToRemove)))
 	addGauge(

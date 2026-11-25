@@ -25,6 +25,7 @@ import (
 	"io"
 	"io/fs"
 	"math"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -34,7 +35,6 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/go-logr/logr"
@@ -44,11 +44,18 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/fdbclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"gopkg.in/natefinch/lumberjack.v2"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -121,6 +128,7 @@ type Options struct {
 	MinimumUptimeForCoordinatorChangeWithMissingProcess   time.Duration
 	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
 	MinimumUptimeForConfigurationChanges                  time.Duration
+	MaxReconcileErrorBackoff                              time.Duration
 	MinimumAgeForTerminalPodDeletion                      time.Duration
 	// AllowedAdditionalVolumeSources defines the allowed corev1.VolumeSources a user can define in the user provided
 	// corev1.PodSpec.
@@ -376,6 +384,12 @@ func (o *Options) BindFlags(fs *pflag.FlagSet) {
 		"the minimum uptime for the cluster before configuration changes are allowed.",
 	)
 	fs.DurationVar(
+		&o.MaxReconcileErrorBackoff,
+		"max-reconcile-error-backoff",
+		0,
+		"the maximum delay before a FoundationDBCluster reconciliation that returned an error is retried. Setting it to 0 uses the controller-runtime default. It must not be negative.",
+	)
+	fs.DurationVar(
 		&o.MinimumAgeForTerminalPodDeletion,
 		"minimum-age-for-terminal-pod-deletion",
 		30*time.Second,
@@ -502,7 +516,8 @@ func StartManager(
 	}
 
 	options := ctrl.Options{
-		Scheme: scheme,
+		Scheme:         scheme,
+		MapperProvider: newRESTMapper,
 		Metrics: metricsserver.Options{
 			// TODO (johscheuer): Fix: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1258
 			BindAddress: operatorOpts.MetricsAddr,
@@ -514,13 +529,15 @@ func StartManager(
 		RetryPeriod:            &operatorOpts.RetryPeriod,
 		Cache:                  cacheOptions,
 		HealthProbeBindAddress: operatorOpts.HealthProbeBindAddress,
-		ReadinessEndpointName:  operatorOpts.HealthProbeBindAddress,
-		LivenessEndpointName:   operatorOpts.HealthProbeBindAddress,
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+	if err := mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to register health check")
 		os.Exit(1)
 	}
 
@@ -566,6 +583,7 @@ func StartManager(
 		clusterReconciler.MinimumUptimeForCoordinatorChangeWithMissingProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithMissingProcess
 		clusterReconciler.MinimumUptimeForCoordinatorChangeWithUndesiredProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithUndesiredProcess
 		clusterReconciler.MinimumUptimeForConfigurationChanges = operatorOpts.MinimumUptimeForConfigurationChanges
+		clusterReconciler.MaxReconcileErrorBackoff = operatorOpts.MaxReconcileErrorBackoff
 		clusterReconciler.MinimumAgeForTerminalPodDeletion = operatorOpts.MinimumAgeForTerminalPodDeletion
 		clusterReconciler.AllowedPodModifications = allowedPodModifications
 
@@ -650,13 +668,44 @@ func StartManager(
 	return mgr, nil
 }
 
+func newRESTMapper(config *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
+	dynamicMapper, err := apiutil.NewDynamicRESTMapper(config, httpClient)
+	if err != nil {
+		return nil, err
+	}
+
+	// Known resource mappings must not depend on API discovery during setup or metrics collection
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		corev1.SchemeGroupVersion, appsv1.SchemeGroupVersion, fdbv1beta2.GroupVersion,
+	})
+	for _, kind := range []schema.GroupVersionKind{
+		corev1.SchemeGroupVersion.WithKind("Pod"),
+		corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"),
+		corev1.SchemeGroupVersion.WithKind("ConfigMap"),
+		corev1.SchemeGroupVersion.WithKind("Service"),
+		appsv1.SchemeGroupVersion.WithKind("Deployment"),
+		fdbv1beta2.GroupVersion.WithKind("FoundationDBCluster"),
+		fdbv1beta2.GroupVersion.WithKind("FoundationDBBackup"),
+		fdbv1beta2.GroupVersion.WithKind("FoundationDBRestore"),
+	} {
+		mapper.Add(kind, meta.RESTScopeNamespace)
+		// Namespace caches resolve the list kind's scope before selecting a cache
+		mapper.Add(kind.GroupVersion().WithKind(kind.Kind+"List"), meta.RESTScopeNamespace)
+	}
+	mapper.Add(corev1.SchemeGroupVersion.WithKind("Node"), meta.RESTScopeRoot)
+	mapper.Add(corev1.SchemeGroupVersion.WithKind("NodeList"), meta.RESTScopeRoot)
+	return meta.FirstHitRESTMapper{
+		MultiRESTMapper: meta.MultiRESTMapper{mapper, dynamicMapper},
+	}, nil
+}
+
 // generateAllowedPodModifications will generate the *internal.AllowedPodModifications based on the provided configuration.
 func (o *Options) generateAllowedPodModifications() *fdbv1beta2.AllowedPodModifications {
 	allowedPodModifications := &fdbv1beta2.AllowedPodModifications{
-		AllowAutomountServiceAccountToken: ptr.To(o.AllowAutomountServiceAccountToken),
-		AllowHostNetwork:                  ptr.To(o.AllowHostNetwork),
-		AllowHostPID:                      ptr.To(o.AllowHostPID),
-		AllowHostIPC:                      ptr.To(o.AllowHostIPC),
+		AllowAutomountServiceAccountToken: new(o.AllowAutomountServiceAccountToken),
+		AllowHostNetwork:                  new(o.AllowHostNetwork),
+		AllowHostPID:                      new(o.AllowHostPID),
+		AllowHostIPC:                      new(o.AllowHostIPC),
 		AllowedServiceAccountNames:        map[string]fdbv1beta2.None{},
 		AllowedAdditionalVolumeSources:    map[string]fdbv1beta2.None{},
 		AllowedAdditionalVolumeMounts:     map[string]fdbv1beta2.None{},

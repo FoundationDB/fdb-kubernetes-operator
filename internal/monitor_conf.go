@@ -110,11 +110,12 @@ func GetStartCommandWithSubstitutions(
 // referenced in the monitor conf.
 func extractPlaceholderEnvVars(env map[string]string, arguments []monitorapi.Argument) {
 	for _, argument := range arguments {
-		if argument.ArgumentType == monitorapi.EnvironmentArgumentType {
+		switch argument.ArgumentType {
+		case monitorapi.EnvironmentArgumentType:
 			if _, present := env[argument.Source]; !present {
 				env[argument.Source] = fmt.Sprintf("$%s", argument.Source)
 			}
-		} else if argument.ArgumentType == monitorapi.ConcatenateArgumentType {
+		case monitorapi.ConcatenateArgumentType:
 			extractPlaceholderEnvVars(env, argument.Values)
 		}
 	}
@@ -125,7 +126,7 @@ func getIPFamilyFromPodIfPresent(pod *corev1.Pod) *int {
 	if pod != nil {
 		ipFamily, err := getIPFamilyFromPod(pod)
 		if err == nil {
-			return ptr.To(ipFamily)
+			return new(ipFamily)
 		}
 	}
 
@@ -250,10 +251,16 @@ func GetMonitorProcessConfiguration(
 		Version: &version,
 	}
 
+	// Monitors that support the option start the binary that was staged by the sidecar, even if the version is protocol
+	// compatible with the version of the main container.
+	if imageType == fdbv1beta2.ImageTypeUnified && UseSharedBinaryConfig(cluster) {
+		configuration.UseSharedBinary = new(true)
+	}
+
 	if cluster.Status.ConnectionString == "" {
 		// Return a placeholder configuration with the servers off until we
 		// have the initial connection string.
-		configuration.RunServers = ptr.To(false)
+		configuration.RunServers = new(false)
 	}
 
 	logGroup := cluster.GetLogGroup()

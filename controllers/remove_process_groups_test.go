@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/errors"
-	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -537,7 +536,7 @@ var _ = Describe("remove_process_groups", func() {
 								k8sClient.Status().Update(context.Background(), cluster),
 							).To(Succeed())
 							// Set the wait time to the default value
-							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = ptr.To(
+							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = new(
 								60,
 							)
 							Expect(k8sClient.Update(context.Background(), cluster)).To(Succeed())
@@ -735,7 +734,7 @@ var _ = Describe("remove_process_groups", func() {
 								),
 							)
 							// Set the wait time to the default value
-							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = ptr.To(
+							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = new(
 								60,
 							)
 						})
@@ -868,7 +867,7 @@ var _ = Describe("remove_process_groups", func() {
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseLocalitiesForExclusion: ptr.To(true),
+						UseLocalitiesForExclusion: new(true),
 					},
 				},
 			}

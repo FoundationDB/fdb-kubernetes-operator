@@ -35,7 +35,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("[api] FoundationDBCluster", func() {
@@ -731,7 +730,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							Version: "7.1.0",
 							DatabaseConfiguration: DatabaseConfiguration{
 								StorageMigrationType:           &migrationType,
-								PerpetualStorageWiggle:         ptr.To(1),
+								PerpetualStorageWiggle:         new(1),
 								PerpetualStorageWiggleLocality: nil,
 							},
 						},
@@ -785,8 +784,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							Version: "7.1.0",
 							DatabaseConfiguration: DatabaseConfiguration{
 								StorageMigrationType:           &migrationType,
-								PerpetualStorageWiggle:         ptr.To(1),
-								PerpetualStorageWiggleLocality: ptr.To("dcid:remote"),
+								PerpetualStorageWiggle:         new(1),
+								PerpetualStorageWiggleLocality: new("dcid:remote"),
 								PerpetualStorageWiggleEngine:   &engine,
 							},
 						},
@@ -853,9 +852,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Running: true,
 					Name:    "Running",
 				},
-				Restorable: ptr.To(false),
-				UID:        ptr.To("3874300eea1e154e4079530b381f71c3"),
-				Tag:        ptr.To(DefaultBackupTagBackupTag),
+				Restorable: new(false),
+				UID:        new("3874300eea1e154e4079530b381f71c3"),
+				Tag:        new(DefaultBackupTagBackupTag),
 			}))
 		})
 	})
@@ -1096,7 +1095,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				newCoord[i], newCoord[j] = newCoord[j], newCoord[i]
 			})
 			Expect(str.HasCoordinators(newCoord)).To(BeTrue())
-			newCoord = make([]ProcessAddress, len(coordinators))
+			newCoord = make([]ProcessAddress, len(coordinators), len(coordinators)+1)
 			copy(newCoord, coordinators)
 			newCoord = append(
 				newCoord,
@@ -3768,7 +3767,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 			settings := cluster.GetProcessSettings(ProcessClassStorage)
 			Expect(
-				settings.PodTemplate.ObjectMeta.Labels,
+				settings.PodTemplate.Labels,
 			).To(Equal(map[string]string{"test-label": "label2"}))
 			Expect(
 				settings.CustomParameters,
@@ -3848,7 +3847,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	Describe("filter by condition", func() {
 		var status []*ProcessGroupStatus
 		BeforeEach(func() {
-			status = nil
+			status = make([]*ProcessGroupStatus, 0, 5)
 			status = append(status, &ProcessGroupStatus{
 				ProcessGroupID: "storage-1",
 			})
@@ -4324,12 +4323,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		It("is required with the flag set to true", func() {
-			cluster.Spec.UseExplicitListenAddress = ptr.To(true)
+			cluster.Spec.UseExplicitListenAddress = new(true)
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeTrue())
 		})
 
 		It("is not required with the flag set to false", func() {
-			cluster.Spec.UseExplicitListenAddress = ptr.To(false)
+			cluster.Spec.UseExplicitListenAddress = new(false)
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
 		})
 	})
@@ -4691,18 +4690,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				It("should always return true as the default is using DNS", func() {
 					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 
-					cluster.Spec.Routing.HeadlessService = ptr.To(true)
+					cluster.Spec.Routing.HeadlessService = new(true)
 					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 				})
 
 				It("can be overridden by the DNS in cluster file setting", func() {
-					cluster.Spec.Routing.HeadlessService = ptr.To(false)
-					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
+					cluster.Spec.Routing.HeadlessService = new(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = new(true)
 					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 				})
 
 				It("can be overridden by the DNS in locality setting", func() {
-					cluster.Spec.Routing.HeadlessService = ptr.To(false)
+					cluster.Spec.Routing.HeadlessService = new(false)
 					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 				})
 			})
@@ -4711,23 +4710,23 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				It("respects the value in the flag", func() {
 					Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
 
-					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 					Expect(cluster.UseDNSInClusterFile()).To(BeFalse())
 				})
 			})
 
 			When("checking whether we use DNS in the locality fields", func() {
 				It("respects the value in the flag", func() {
-					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 					Expect(cluster.DefineDNSLocalityFields()).To(BeFalse())
 
-					cluster.Spec.Routing.DefineDNSLocalityFields = ptr.To(true)
+					cluster.Spec.Routing.DefineDNSLocalityFields = new(true)
 					Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
 				})
 
 				It("can be overridden by the DNS in cluster file setting", func() {
-					cluster.Spec.Routing.DefineDNSLocalityFields = ptr.To(false)
-					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
+					cluster.Spec.Routing.DefineDNSLocalityFields = new(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = new(true)
 					Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
 				})
 			})
@@ -5297,7 +5296,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				},
-				&AllowedPodModifications{AllowHostNetwork: ptr.To(false)},
+				&AllowedPodModifications{AllowHostNetwork: new(false)},
 				nil,
 			),
 			Entry(
@@ -5317,7 +5316,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				},
-				&AllowedPodModifications{AllowHostNetwork: ptr.To(false)},
+				&AllowedPodModifications{AllowHostNetwork: new(false)},
 				fmt.Errorf(
 					"Forbidden PodSpec for storage: spec.HostNetwork is set to true, which is forbidden",
 				),
@@ -5338,7 +5337,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				},
-				&AllowedPodModifications{AllowHostNetwork: ptr.To(true)},
+				&AllowedPodModifications{AllowHostNetwork: new(true)},
 				nil,
 			),
 			Entry(
@@ -5441,7 +5440,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				}
-				mods := &AllowedPodModifications{AllowHostNetwork: ptr.To(false)}
+				mods := &AllowedPodModifications{AllowHostNetwork: new(false)}
 				err := cluster.Validate(mods)
 				Expect(err).To(HaveOccurred())
 				Expect(
@@ -5450,6 +5449,164 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(
 					err,
 				).To(MatchError(ContainSubstring("Forbidden PodSpec for log: spec.HostNetwork is set to true, which is forbidden")))
+			})
+		})
+	})
+
+	When("validating the monitor version of a cluster", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "7.4.6",
+					DatabaseConfiguration: DatabaseConfiguration{
+						StorageEngine: StorageEngineSSD2,
+					},
+				},
+			}
+		})
+
+		It("should not pin the main container image if the monitor version is unset", func() {
+			Expect(cluster.UsePinnedMainContainerImage()).To(BeFalse())
+			Expect(cluster.GetMonitorVersion()).To(BeEmpty())
+			Expect(cluster.Validate(nil)).To(Succeed())
+		})
+
+		It("should not support the shared binary config", func() {
+			Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(BeFalse())
+		})
+
+		It("should default the monitor version to the version", func() {
+			Expect(cluster.GetMonitorVersionOrDefault()).To(Equal("7.4.6"))
+		})
+
+		When("the monitor version is set", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.MonitorVersion = new("7.3.63")
+			})
+
+			It("should not support the shared binary config for an old monitor version", func() {
+				Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(BeFalse())
+			})
+
+			When("the monitor version supports the shared binary config", func() {
+				BeforeEach(func() {
+					cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
+				})
+
+				It("should support the shared binary config", func() {
+					Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(BeTrue())
+				})
+
+				When("the image type is split", func() {
+					BeforeEach(func() {
+						cluster.Spec.ImageType = new(ImageTypeSplit)
+					})
+
+					It("should not support the shared binary config", func() {
+						Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(BeFalse())
+					})
+				})
+
+				DescribeTable("when the disable annotation is set",
+					func(value string, expected bool) {
+						cluster.Annotations = map[string]string{
+							DisableSharedBinaryConfigAnnotation: value,
+						}
+						Expect(cluster.MonitorSupportsSharedBinaryConfig()).To(Equal(expected))
+					},
+					Entry("true", "true", false),
+					Entry("True", "True", false),
+					Entry("1", "1", false),
+					Entry("false", "false", true),
+					Entry("empty", "", true),
+					Entry("invalid", "disabled", true),
+				)
+			})
+
+			It("should pin the main container image", func() {
+				Expect(cluster.UsePinnedMainContainerImage()).To(BeTrue())
+				Expect(cluster.GetMonitorVersion()).To(Equal("7.3.63"))
+				Expect(cluster.GetMonitorVersionOrDefault()).To(Equal("7.3.63"))
+				Expect(cluster.Validate(nil)).To(Succeed())
+			})
+
+			When("the monitor version is equal to the version", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.3.63"
+				})
+
+				It("should be valid", func() {
+					Expect(cluster.Validate(nil)).To(Succeed())
+				})
+			})
+
+			When("the version is a different patch version of the monitor version", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.3.64"
+				})
+
+				It("should be valid", func() {
+					Expect(cluster.Validate(nil)).To(Succeed())
+				})
+			})
+
+			When("the monitor version is invalid", func() {
+				BeforeEach(func() {
+					cluster.Spec.MainContainer.MonitorVersion = new("invalid")
+				})
+
+				It("should return an error", func() {
+					Expect(
+						cluster.Validate(nil),
+					).To(MatchError(ContainSubstring("monitorVersion is not a valid version")))
+				})
+			})
+
+			When("the image type is split", func() {
+				BeforeEach(func() {
+					cluster.Spec.ImageType = new(ImageTypeSplit)
+				})
+
+				It("should return an error", func() {
+					Expect(
+						cluster.Validate(nil),
+					).To(MatchError(ContainSubstring("only supported with the unified image type")))
+					Expect(cluster.UsePinnedMainContainerImage()).To(BeFalse())
+				})
+			})
+
+			When("the monitor version is set on the sidecar container", func() {
+				BeforeEach(func() {
+					cluster.Spec.SidecarContainer.MonitorVersion = new("7.3.63")
+				})
+
+				It("should return an error", func() {
+					Expect(
+						cluster.Validate(nil),
+					).To(MatchError(ContainSubstring("not supported for the sidecar container")))
+				})
+			})
+
+			When("a patch upgrade is in progress", func() {
+				BeforeEach(func() {
+					cluster.Status.RunningVersion = "7.4.5"
+				})
+
+				It("should be valid", func() {
+					Expect(cluster.Validate(nil)).To(Succeed())
+				})
+			})
+
+			When("an upgrade to a protocol incompatible version is in progress", func() {
+				BeforeEach(func() {
+					cluster.Status.RunningVersion = "7.3.63"
+				})
+
+				It("should be valid", func() {
+					Expect(cluster.Validate(nil)).To(Succeed())
+				})
 			})
 		})
 	})

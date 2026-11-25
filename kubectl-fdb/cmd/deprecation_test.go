@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
-	"k8s.io/utils/ptr"
 
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -122,7 +121,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 									},
 								},
 							},
-							UseExplicitListenAddress: ptr.To(true),
+							UseExplicitListenAddress: new(true),
 							Processes: map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
 								fdbv1beta2.ProcessClassGeneral: {
 									PodTemplate: &corev1.PodTemplateSpec{
@@ -169,8 +168,8 @@ var _ = Describe("[plugin] deprecation command", func() {
 								},
 							},
 							SidecarContainer: fdbv1beta2.ContainerOverrides{
-								EnableLivenessProbe:  ptr.To(true),
-								EnableReadinessProbe: ptr.To(false),
+								EnableLivenessProbe:  new(true),
+								EnableReadinessProbe: new(false),
 								ImageConfigs: []fdbv1beta2.ImageConfig{
 									{
 										BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
@@ -180,11 +179,11 @@ var _ = Describe("[plugin] deprecation command", func() {
 							},
 							AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 								Replacements: fdbv1beta2.AutomaticReplacementOptions{
-									Enabled: ptr.To(true),
+									Enabled: new(true),
 								},
 							},
 							LabelConfig: fdbv1beta2.LabelConfig{
-								FilterOnOwnerReferences: ptr.To(true),
+								FilterOnOwnerReferences: new(true),
 								MatchLabels: map[string]string{
 									fdbv1beta2.FDBClusterLabel: clusterName,
 								},

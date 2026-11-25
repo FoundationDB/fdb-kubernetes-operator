@@ -596,7 +596,7 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 	config := &ClusterConfig{
 		DebugSymbols:    false,
-		UseUnifiedImage: ptr.To(factory.UseUnifiedImage()),
+		UseUnifiedImage: new(factory.UseUnifiedImage()),
 	}
 
 	if config.GetUseUnifiedImage() {
@@ -608,7 +608,6 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 	return factory.getSidecarConfigs(factory.GetSidecarContainerOverrides(config).ImageConfigs)
 }
 
-//nolint:revive
 func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 	cpuRequests := "500m"
 	MemoryRequests := "1024Mi"

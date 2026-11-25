@@ -202,15 +202,26 @@ func generateRequest(
 	return nil, fmt.Errorf("unknown HTTP method %s", method)
 }
 
+// getRequestURL returns the URL for the provided path on the sidecar. The host is built with net.JoinHostPort to make
+// sure IPv6 addresses are wrapped in brackets, otherwise the URL is invalid.
+func (client *realFdbPodSidecarClient) getRequestURL(path string) string {
+	target := url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort(client.getListenIP(), "8080"),
+		Path:   path,
+	}
+
+	if client.useTLS {
+		target.Scheme = "https"
+	}
+
+	return target.String()
+}
+
 // makeRequest submits a request to the sidecar.
 func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string, int, error) {
 	var err error
 
-	target := url.URL{
-		Scheme: "http",
-		Host:   client.getListenIP() + ":8080",
-		Path:   path,
-	}
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
 	retryClient.RetryWaitMax = 1 * time.Second
@@ -220,12 +231,11 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 
 	if client.useTLS {
 		retryClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
-		target.Scheme = "https"
 	}
 
 	req, err := generateRequest(
 		retryClient,
-		target.String(),
+		client.getRequestURL(path),
 		method,
 		client.getTimeout,
 		client.postTimeout,
@@ -498,13 +508,14 @@ func GetSubstitutionsFromClusterAndPod(
 
 	substitutions[fdbv1beta2.EnvNamePodIP] = substitutions[fdbv1beta2.EnvNamePublicIP]
 
-	if cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
+	switch cluster.Spec.FaultDomain.Key {
+	case fdbv1beta2.NoneFaultDomainKey:
 		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Name
 		substitutions[fdbv1beta2.EnvNameZoneID] = pod.Name
-	} else if cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
+	case "foundationdb.org/kubernetes-cluster":
 		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Spec.NodeName
 		substitutions[fdbv1beta2.EnvNameZoneID] = cluster.Spec.FaultDomain.Value
-	} else {
+	default:
 		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
 		if faultDomainSource == "" {
 			faultDomainSource = "spec.nodeName"
@@ -520,7 +531,10 @@ func GetSubstitutionsFromClusterAndPod(
 		GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta),
 	)
 
-	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+	if GetImageType(pod) == fdbv1beta2.ImageTypeUnified && monitorStartsStagedBinary(cluster, pod) {
+		// If the main container image is pinned, the monitor starts the binary that was staged by the sidecar.
+		substitutions[fdbv1beta2.EnvNameBinaryDir] = GetSharedBinaryDirectory(cluster.Spec.Version)
+	} else if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		substitutions[fdbv1beta2.EnvNameBinaryDir] = fmt.Sprintf(
 			"/var/dynamic-conf/bin/%s",
 			cluster.Spec.Version,

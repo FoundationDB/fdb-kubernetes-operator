@@ -24,8 +24,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 
@@ -46,7 +44,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = ptr.To(
+		cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = new(
 			true,
 		)
 		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())

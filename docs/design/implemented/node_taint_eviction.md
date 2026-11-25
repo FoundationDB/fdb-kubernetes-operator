@@ -4,7 +4,7 @@
 
 * Authors: @johscheuer, @xumengpanda
 * Created: 2023-02-14
-* Updated: 2023-05-11
+* Updated: 2026-11-13
 
 ## Background
 
@@ -41,7 +41,7 @@ automaticReplacementOptions:
 
 **Requirement 2.** The feature allows users to configure a set of specific taint keys to detect and replace.
 
-Users can configure the taint feature in the new field `taints` inside `automaticReplacementOptions`. The `taints` field is a list of `(key, durationInSeconds)` pairs, which defines operator's behavior on the taint key.
+Users can configure the taint feature in `taintReplacementOptions` inside `automaticReplacementOptions`. Each entry specifies a taint `key`, `durationInSeconds`, and an optional `processClasses` list. An omitted or empty `processClasses` list applies to all process classes. For each ProcessGroup, the operator filters options by process class, then prefers an exact taint key match over a wildcard match.
 
 Users can use `automaticReplacementOptions.taintReplacementTimeSeconds` to control how fast operator should replace Pods on tainted Nodes. Users can configure operator to replace Pods on tainted Nodes much faster than the normal replacement by setting a smaller value of `taintReplacementTimeSeconds`.
 
@@ -56,11 +56,12 @@ automaticReplacementOptions:
   enableNodeFailureDetection: true
   taintReplacementOptions:
   - key: "example.org/maintenance"
+    processClasses: [stateless] # Apply this option to stateless ProcessGroups.
     durationInSeconds: 7200 # Mark Pods to be replaced after this taint key has been on the Node for at least 7200 seconds (i.e., 2 hours).
   - key: "example.org/disconnected"
     durationInSeconds: 1200 # Mark Pods to be replaced after this taint key has been on the Node for at least 1200 seconds (i.e., 20 mins).
   - key: "*" # The wildcard will match all taint keys
-    durationInSeconds: 3600 # Mark Pods to be replaced after a taint key, which does not have exact match in the taints list, has been on the Node for at least 3600 seconds.
+    durationInSeconds: 3600 # Mark Pods to be replaced after a taint key, which does not have an exact match for the process class, has been on the Node for at least 3600 seconds.
   taintReplacementTimeSeconds: 1800 # A Pod marked to be replaced due to taints must stay in the to-be-replaced state for 1800 seconds before it is automatically replaced.
 ```
 

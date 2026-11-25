@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -45,9 +46,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/net"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var firstStorageIndex = 13
@@ -86,7 +87,7 @@ func getListOptions(cluster *fdbv1beta2.FoundationDBCluster) []client.ListOption
 
 func sortPodsByName(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[i].ObjectMeta.Name < pods.Items[j].ObjectMeta.Name
+		return pods.Items[i].Name < pods.Items[j].Name
 	})
 }
 
@@ -107,7 +108,7 @@ var _ = Describe("cluster_controller", func() {
 		BeforeEach(func() {
 			Expect(setupClusterForTest(cluster)).To(Succeed())
 			Expect(cluster.Generation).To(Equal(int64(1)))
-			originalVersion = cluster.ObjectMeta.Generation
+			originalVersion = cluster.Generation
 
 			originalPods = &corev1.PodList{}
 			err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
@@ -211,7 +212,7 @@ var _ = Describe("cluster_controller", func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+					pod.Annotations[fdbv1beta2.LastConfigMapKey],
 				).To(Equal(configMapHash))
 				Expect(len(cluster.Status.ProcessGroups)).To(Equal(len(pods.Items)))
 			})
@@ -376,7 +377,7 @@ var _ = Describe("cluster_controller", func() {
 				BeforeEach(func() {
 					generationGap = 2
 					// There is a bug in the fake client that when updating the status the spec is updated.
-					cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+					cluster.Spec.Routing.PodIPFamily = new(6)
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
@@ -396,7 +397,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("disabling the DNS names in the cluster file", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
@@ -432,7 +433,7 @@ var _ = Describe("cluster_controller", func() {
 
 				pod := pods.Items[firstStorageIndex]
 				Expect(
-					pod.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
+					pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
 				).To(Equal(string(processGroupID)))
 
 				mainContainer := pod.Spec.Containers[0]
@@ -518,7 +519,7 @@ var _ = Describe("cluster_controller", func() {
 				exclusionString := fmt.Sprintf(
 					"%s:%s",
 					fdbv1beta2.FDBLocalityExclusionPrefix,
-					removedItem.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
+					removedItem.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
 				)
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
 					exclusionString: true,
@@ -1181,7 +1182,7 @@ var _ = Describe("cluster_controller", func() {
 					generation, err := reloadCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(generation).To(Equal(originalVersion + generationGap))
-					originalVersion = cluster.ObjectMeta.Generation
+					originalVersion = cluster.Generation
 
 					err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
@@ -1209,7 +1210,7 @@ var _ = Describe("cluster_controller", func() {
 						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 						if internal.ProcessClassFromLabels(
 							cluster,
-							pod.ObjectMeta.Labels,
+							pod.Labels,
 						) == fdbv1beta2.ProcessClassStorage {
 							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = fdbv1beta2.None{}
 						}
@@ -1239,7 +1240,7 @@ var _ = Describe("cluster_controller", func() {
 					generation, err := reloadCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(generation).To(Equal(originalVersion + generationGap))
-					originalVersion = cluster.ObjectMeta.Generation
+					originalVersion = cluster.Generation
 
 					err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
@@ -1267,7 +1268,7 @@ var _ = Describe("cluster_controller", func() {
 						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 						if internal.ProcessClassFromLabels(
 							cluster,
-							pod.ObjectMeta.Labels,
+							pod.Labels,
 						) == fdbv1beta2.ProcessClassLog {
 							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = fdbv1beta2.None{}
 						}
@@ -1301,7 +1302,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pods.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+					Expect(item.Labels["fdb-label"]).To(Equal("value3"))
 				}
 			})
 
@@ -1310,14 +1311,14 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					Expect(item.Labels["fdb-label"]).To(Equal(""))
 				}
 
 				configMaps := &corev1.ConfigMapList{}
 				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					Expect(item.Labels["fdb-label"]).To(Equal(""))
 				}
 			})
 		})
@@ -1377,7 +1378,7 @@ var _ = Describe("cluster_controller", func() {
 					)
 					Expect(err).NotTo(HaveOccurred())
 					if pod.Name == pickedPod {
-						Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
+						Expect(pod.Annotations).To(Equal(map[string]string{
 							fdbv1beta2.LastConfigMapKey:            configMapHash,
 							fdbv1beta2.LastSpecKey:                 hash,
 							fdbv1beta2.PublicIPSourceAnnotation:    "pod",
@@ -1394,7 +1395,7 @@ var _ = Describe("cluster_controller", func() {
 						continue
 					}
 
-					Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(pod.Annotations).To(Equal(map[string]string{
 						fdbv1beta2.LastConfigMapKey:         configMapHash,
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
@@ -1413,7 +1414,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(item.Annotations).To(Equal(map[string]string{
 						fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 					}))
 				}
@@ -1422,7 +1423,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Annotations).To(BeNil())
+					Expect(item.Annotations).To(BeNil())
 				}
 			})
 		})
@@ -1449,7 +1450,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pvcs.Items {
-						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+						Expect(item.Labels["fdb-label"]).To(Equal("value3"))
 					}
 				})
 
@@ -1459,14 +1460,14 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pods.Items {
-						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+						Expect(item.Labels["fdb-label"]).To(Equal(""))
 					}
 
 					configMaps := &corev1.ConfigMapList{}
 					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range configMaps.Items {
-						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+						Expect(item.Labels["fdb-label"]).To(Equal(""))
 					}
 				})
 			})
@@ -1511,14 +1512,14 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pvcs.Items {
 						if item.Name == pickedPvc {
-							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							Expect(item.Annotations).To(Equal(map[string]string{
 								"fdb-annotation":                       "value1",
 								"foundationdb.org/existing-annotation": "test-value",
 								fdbv1beta2.LastSpecKey:                 "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 							}))
 							continue
 						}
-						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+						Expect(item.Annotations).To(Equal(map[string]string{
 							"fdb-annotation":       "value1",
 							fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 						}))
@@ -1553,7 +1554,7 @@ var _ = Describe("cluster_controller", func() {
 							&item,
 						)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+						Expect(item.Annotations).To(Equal(map[string]string{
 							fdbv1beta2.LastConfigMapKey:         configMapHash,
 							fdbv1beta2.LastSpecKey:              hash,
 							fdbv1beta2.PublicIPSourceAnnotation: "pod",
@@ -1569,7 +1570,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range configMaps.Items {
-						Expect(item.ObjectMeta.Annotations).To(BeNil())
+						Expect(item.Annotations).To(BeNil())
 					}
 				})
 
@@ -1593,7 +1594,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+					Expect(item.Labels["fdb-label"]).To(Equal("value3"))
 				}
 			})
 
@@ -1602,14 +1603,14 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pods.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					Expect(item.Labels["fdb-label"]).To(Equal(""))
 				}
 
 				pvcs := &corev1.PersistentVolumeClaimList{}
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					Expect(item.Labels["fdb-label"]).To(Equal(""))
 				}
 			})
 		})
@@ -1647,7 +1648,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(item.Annotations).To(Equal(map[string]string{
 						"fdb-annotation":                       "value1",
 						"foundationdb.org/existing-annotation": "test-value",
 					}))
@@ -1677,7 +1678,7 @@ var _ = Describe("cluster_controller", func() {
 						&item,
 					)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(item.Annotations).To(Equal(map[string]string{
 						fdbv1beta2.LastConfigMapKey:         configMapHash,
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
@@ -1693,7 +1694,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(item.Annotations).To(Equal(map[string]string{
 						fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 					}))
 				}
@@ -1888,7 +1889,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when enabling explicit listen addresses", func() {
 			BeforeEach(func() {
-				cluster.Spec.UseExplicitListenAddress = ptr.To(false)
+				cluster.Spec.UseExplicitListenAddress = new(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1899,7 +1900,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(cluster), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.UseExplicitListenAddress = ptr.To(true)
+				cluster.Spec.UseExplicitListenAddress = new(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2091,7 +2092,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a conversion to IPv6", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+				cluster.Spec.Routing.PodIPFamily = new(6)
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
@@ -2115,7 +2116,7 @@ var _ = Describe("cluster_controller", func() {
 				mock.ClearMockLockClients()
 
 				cluster = internal.CreateDefaultCluster()
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+				cluster.Spec.Routing.PodIPFamily = new(6)
 
 				Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
 
@@ -2127,7 +2128,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(generation).To(Equal(int64(1)))
 
-				originalVersion = cluster.ObjectMeta.Generation
+				originalVersion = cluster.Generation
 
 				originalPods = &corev1.PodList{}
 				Expect(
@@ -2216,6 +2217,550 @@ var _ = Describe("cluster_controller", func() {
 					}
 
 					Expect(coordinators).To(HaveLen(validatedCoordinators))
+				})
+			})
+		})
+
+		Context("when creating a new cluster with a pinned main container image", func() {
+			BeforeEach(func() {
+				// The cluster of the test setup is not changed, the tests create their own cluster.
+				generationGap = 0
+			})
+
+			DescribeTable(
+				"when creating a new cluster with a monitor version that is different from the version",
+				func(version string, monitorVersion string, expectVersionFile bool, expectSharedBinaryConfig bool) {
+					k8sClient.Clear()
+					mock.ClearMockAdminClients()
+					mock.ClearMockLockClients()
+
+					newCluster := internal.CreateDefaultCluster()
+					newCluster.Spec.Version = version
+					newCluster.Spec.MainContainer.ImageConfigs = nil
+					newCluster.Spec.SidecarContainer.ImageConfigs = nil
+					newCluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+					newCluster.Spec.MainContainer.MonitorVersion = new(monitorVersion)
+					// A new cluster has no running version before the first reconciliation, otherwise the creation
+					// would be an upgrade from the default version of the test cluster.
+					newCluster.Status.RunningVersion = ""
+					Expect(k8sClient.Create(context.TODO(), newCluster)).To(Succeed())
+
+					result, reconcileErr := reconcileCluster(newCluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(BeZero())
+					_, reconcileErr = reloadCluster(newCluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+
+					Expect(newCluster.Status.RunningVersion).To(Equal(version))
+
+					pods := &corev1.PodList{}
+					Expect(
+						k8sClient.List(context.TODO(), pods, getListOptions(newCluster)...),
+					).To(Succeed())
+					Expect(pods.Items).To(HaveLen(17))
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(HaveSuffix(monitorVersion))
+						Expect(pod.Spec.Containers[1].Image).To(HaveSuffix(version))
+						Expect(
+							internal.PodUsesSharedBinaryLauncher(&pod),
+						).To(Equal(expectVersionFile))
+					}
+
+					configMap := &corev1.ConfigMap{}
+					Expect(k8sClient.Get(context.TODO(), client.ObjectKey{
+						Namespace: newCluster.Namespace,
+						Name:      fmt.Sprintf("%s-config", newCluster.Name),
+					}, configMap)).To(Succeed())
+					if expectSharedBinaryConfig {
+						Expect(
+							configMap.Data["fdbmonitor-conf-storage-json"],
+						).To(ContainSubstring(`"useSharedBinary":true`))
+					} else {
+						Expect(
+							configMap.Data["fdbmonitor-conf-storage-json"],
+						).NotTo(ContainSubstring("useSharedBinary"))
+					}
+				},
+				Entry(
+					"the monitor version is older and not protocol compatible",
+					"7.4.5",
+					"7.3.69",
+					false,
+					false,
+				),
+				Entry(
+					"the monitor version is newer and not protocol compatible",
+					"7.3.69",
+					"7.4.5",
+					false,
+					false,
+				),
+				Entry(
+					"the monitor version is an older patch version without support for the shared binary config",
+					"7.4.5",
+					"7.4.1",
+					true,
+					false,
+				),
+				Entry(
+					"the monitor version is a newer patch version without support for the shared binary config",
+					"7.4.1",
+					"7.4.5",
+					true,
+					false,
+				),
+				Entry(
+					"the monitor version is a newer patch version with support for the shared binary config",
+					"7.4.5",
+					"7.4.12",
+					false,
+					true,
+				),
+				Entry("the monitor version is the same version", "7.4.12", "7.4.12", false, false),
+			)
+		})
+
+		When("enabling a pinned main container image on a cluster with unified images", func() {
+			const testAnnotation = "foundationdb.org/test-pod-marker"
+
+			upgradeCluster := func(version string) {
+				// The operator has to do multiple things before the cluster is reconciled.
+				originalRequeueLimit := requeueLimit
+				requeueLimit = 50
+				DeferCleanup(func() {
+					requeueLimit = originalRequeueLimit
+				})
+
+				cluster.Spec.Version = version
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
+
+				result, reconcileErr := reconcileCluster(cluster)
+				Expect(reconcileErr).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(BeZero())
+				_, reconcileErr = reloadCluster(cluster)
+				Expect(reconcileErr).NotTo(HaveOccurred())
+			}
+
+			markPods := func() {
+				pods := &corev1.PodList{}
+				Expect(
+					k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+				).To(Succeed())
+				Expect(pods.Items).To(HaveLen(17))
+				for idx := range pods.Items {
+					pods.Items[idx].Annotations[testAnnotation] = "true"
+					Expect(k8sClient.Update(context.TODO(), &pods.Items[idx])).To(Succeed())
+				}
+			}
+
+			// validatePods checks that the Pods have the expected images and if they were recreated.
+			validatePods := func(mainVersion string, sidecarVersion string, recreated bool, sharedBinaryLauncher bool) {
+				pods := &corev1.PodList{}
+				Expect(
+					k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+				).To(Succeed())
+				Expect(pods.Items).To(HaveLen(17))
+				for _, pod := range pods.Items {
+					if recreated {
+						Expect(pod.Annotations).NotTo(HaveKey(testAnnotation))
+					} else {
+						Expect(pod.Annotations).To(HaveKeyWithValue(testAnnotation, "true"))
+					}
+
+					Expect(pod.Spec.Containers[0].Image).To(
+						And(
+							HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage),
+							HaveSuffix(mainVersion),
+						),
+					)
+					Expect(pod.Spec.Containers[1].Image).To(
+						And(
+							HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage),
+							HaveSuffix(sidecarVersion),
+						),
+					)
+					Expect(
+						internal.PodUsesSharedBinaryLauncher(&pod),
+					).To(Equal(sharedBinaryLauncher))
+				}
+			}
+
+			BeforeEach(func() {
+				// Create the cluster with the unified image and mark all Pods, to detect if they are recreated.
+				k8sClient.Clear()
+				mock.ClearMockAdminClients()
+				mock.ClearMockLockClients()
+
+				cluster = internal.CreateDefaultCluster()
+				cluster.Spec.MainContainer.ImageConfigs = nil
+				cluster.Spec.SidecarContainer.ImageConfigs = nil
+				cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+				Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
+
+				result, reconcileErr := reconcileCluster(cluster)
+				Expect(reconcileErr).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(BeZero())
+				generation, reconcileErr := reloadCluster(cluster)
+				Expect(reconcileErr).NotTo(HaveOccurred())
+				originalVersion = generation
+				markPods()
+
+				cluster.Spec.MainContainer.MonitorVersion = new(
+					fdbv1beta2.Versions.Default.String(),
+				)
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
+			})
+
+			It("should not recreate any Pod and should update the last spec annotation", func() {
+				pods := &corev1.PodList{}
+				Expect(
+					k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+				).To(Succeed())
+				Expect(pods.Items).To(HaveLen(17))
+				Expect(
+					internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{}),
+				).To(Succeed())
+				for _, pod := range pods.Items {
+					Expect(pod.Annotations).To(HaveKeyWithValue(testAnnotation, "true"))
+
+					processGroup := cluster.Status.ProcessGroups[0]
+					for _, pg := range cluster.Status.ProcessGroups {
+						if pg.GetPodName(cluster) == pod.Name {
+							processGroup = pg
+						}
+					}
+
+					specHash, hashErr := internal.GetPodSpecHash(cluster, processGroup, nil)
+					Expect(hashErr).NotTo(HaveOccurred())
+					Expect(pod.Annotations).To(HaveKeyWithValue(fdbv1beta2.LastSpecKey, specHash))
+				}
+			})
+
+			When(
+				"performing a patch upgrade to a version compatible with the monitor version",
+				func() {
+					var secondVersion string
+
+					BeforeEach(func() {
+						secondVersion = "7.1.69"
+					})
+
+					JustBeforeEach(func() {
+						markPods()
+						upgradeCluster(fdbv1beta2.Versions.NextPatchVersion.String())
+					})
+
+					It(
+						"should recreate the Pods once, to be able to start the binary of the sidecar",
+						func() {
+							Expect(
+								cluster.Status.RunningVersion,
+							).To(Equal(fdbv1beta2.Versions.NextPatchVersion.String()))
+							validatePods(
+								fdbv1beta2.Versions.Default.String(),
+								fdbv1beta2.Versions.NextPatchVersion.String(),
+								true,
+								true,
+							)
+						},
+					)
+
+					When("performing another patch upgrade", func() {
+						JustBeforeEach(func() {
+							markPods()
+							upgradeCluster(secondVersion)
+						})
+
+						It("should upgrade the cluster without recreating the Pods", func() {
+							Expect(cluster.Status.RunningVersion).To(Equal(secondVersion))
+							validatePods(
+								fdbv1beta2.Versions.Default.String(),
+								secondVersion,
+								false,
+								true,
+							)
+						})
+					})
+
+					When("performing a version incompatible upgrade", func() {
+						JustBeforeEach(func() {
+							markPods()
+							upgradeCluster(fdbv1beta2.Versions.NextMajorVersion.String())
+						})
+
+						It("should upgrade the cluster without recreating the Pods", func() {
+							Expect(
+								cluster.Status.RunningVersion,
+							).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
+							validatePods(
+								fdbv1beta2.Versions.Default.String(),
+								fdbv1beta2.Versions.NextMajorVersion.String(),
+								false,
+								true,
+							)
+						})
+					})
+				},
+			)
+
+			When("only the sidecar image is changed", func() {
+				JustBeforeEach(func() {
+					markPods()
+
+					// Change only the sidecar image, the image of the main container and the version stay the same.
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					if settings.PodTemplate == nil {
+						settings.PodTemplate = &corev1.PodTemplateSpec{}
+					}
+
+					settings.PodTemplate.Spec.Containers = append(
+						settings.PodTemplate.Spec.Containers,
+						corev1.Container{
+							Name:  fdbv1beta2.SidecarContainerName,
+							Image: "custom-registry/custom-sidecar",
+						},
+					)
+					if cluster.Spec.Processes == nil {
+						cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}
+					}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
+					Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
+
+					result, reconcileErr := reconcileCluster(cluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(BeZero())
+					_, reconcileErr = reloadCluster(cluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+				})
+
+				It("should update the sidecar image in-place without recreating the Pods", func() {
+					pods := &corev1.PodList{}
+					Expect(
+						k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+					).To(Succeed())
+					Expect(pods.Items).To(HaveLen(17))
+					for _, pod := range pods.Items {
+						Expect(pod.Annotations).To(HaveKeyWithValue(testAnnotation, "true"))
+						Expect(
+							pod.Spec.Containers[0].Image,
+						).To(HaveSuffix(fdbv1beta2.Versions.Default.String()))
+						Expect(pod.Spec.Containers[1].Image).To(Equal(
+							"custom-registry/custom-sidecar:" + fdbv1beta2.Versions.Default.String(),
+						))
+					}
+				})
+			})
+
+			When(
+				"changing the monitor version together with the version to a patch version",
+				func() {
+					JustBeforeEach(func() {
+						markPods()
+						cluster.Spec.MainContainer.MonitorVersion = new(
+							fdbv1beta2.Versions.NextPatchVersion.String(),
+						)
+						upgradeCluster(fdbv1beta2.Versions.NextPatchVersion.String())
+					})
+
+					It("should perform a rolling update of the Pods", func() {
+						Expect(
+							cluster.Status.RunningVersion,
+						).To(Equal(fdbv1beta2.Versions.NextPatchVersion.String()))
+						validatePods(
+							fdbv1beta2.Versions.NextPatchVersion.String(),
+							fdbv1beta2.Versions.NextPatchVersion.String(),
+							true,
+							false,
+						)
+					})
+				},
+			)
+
+			When(
+				"changing the monitor version together with the version to a version incompatible version",
+				func() {
+					JustBeforeEach(func() {
+						markPods()
+						cluster.Spec.MainContainer.MonitorVersion = new(
+							fdbv1beta2.Versions.NextMajorVersion.String(),
+						)
+						upgradeCluster(fdbv1beta2.Versions.NextMajorVersion.String())
+					})
+
+					It("should recreate the Pods after the upgrade", func() {
+						Expect(
+							cluster.Status.RunningVersion,
+						).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
+						validatePods(
+							fdbv1beta2.Versions.NextMajorVersion.String(),
+							fdbv1beta2.Versions.NextMajorVersion.String(),
+							true,
+							false,
+						)
+					})
+				},
+			)
+
+			When("the monitor supports the shared binary config", func() {
+				BeforeEach(func() {
+					// Create a new cluster with a monitor version that supports the shared binary config.
+					k8sClient.Clear()
+					mock.ClearMockAdminClients()
+					mock.ClearMockLockClients()
+
+					cluster = internal.CreateDefaultCluster()
+					cluster.Spec.Version = "7.4.11"
+					cluster.Spec.MainContainer.ImageConfigs = nil
+					cluster.Spec.SidecarContainer.ImageConfigs = nil
+					cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+					cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
+					Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
+
+					result, reconcileErr := reconcileCluster(cluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(BeZero())
+					generation, reconcileErr := reloadCluster(cluster)
+					Expect(reconcileErr).NotTo(HaveOccurred())
+					originalVersion = generation
+					generationGap = 0
+					markPods()
+				})
+
+				When("performing a patch upgrade with locks", func() {
+					BeforeEach(func() {
+						// Locks are used for clusters that span multiple data centers, the upgrade is coordinated.
+						cluster.Spec.LockOptions.DisableLocks = new(false)
+					})
+
+					JustBeforeEach(func() {
+						upgradeCluster("7.4.12")
+					})
+
+					It("should upgrade the cluster without recreating the Pods", func() {
+						Expect(cluster.Status.RunningVersion).To(Equal("7.4.12"))
+						validatePods("7.4.11", "7.4.12", false, false)
+					})
+
+					It("should restart all processes at once", func() {
+						adminClient, adminErr := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(adminErr).NotTo(HaveOccurred())
+						pods := &corev1.PodList{}
+						Expect(
+							k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+						).To(Succeed())
+						Expect(pods.Items).NotTo(BeEmpty())
+						// The processes of all Pods are restarted.
+						for _, pod := range pods.Items {
+							var killed bool
+							for address := range adminClient.KilledAddresses {
+								if strings.HasPrefix(address, pod.Status.PodIP+":") {
+									killed = true
+									break
+								}
+							}
+
+							Expect(
+								killed,
+							).To(BeTrue(), "processes of Pod %s were not restarted", pod.Name)
+						}
+					})
+				})
+
+				When("performing a patch upgrade", func() {
+					JustBeforeEach(func() {
+						upgradeCluster("7.4.12")
+					})
+
+					It("should upgrade the cluster without recreating the Pods", func() {
+						Expect(cluster.Status.RunningVersion).To(Equal("7.4.12"))
+						validatePods("7.4.11", "7.4.12", false, false)
+					})
+
+					It("should configure the monitors to use the staged binary", func() {
+						configMap := &corev1.ConfigMap{}
+						Expect(k8sClient.Get(context.TODO(), client.ObjectKey{
+							Namespace: cluster.Namespace,
+							Name:      fmt.Sprintf("%s-config", cluster.Name),
+						}, configMap)).To(Succeed())
+						Expect(
+							configMap.Data["fdbmonitor-conf-storage-json"],
+						).To(ContainSubstring(`"useSharedBinary":true`))
+					})
+
+					When("disabling the shared binary config with the annotation", func() {
+						JustBeforeEach(func() {
+							markPods()
+							cluster.Annotations = map[string]string{
+								fdbv1beta2.DisableSharedBinaryConfigAnnotation: "true",
+							}
+							upgradeCluster("7.4.12")
+						})
+
+						It("should replace the Pods to use the version file", func() {
+							Expect(cluster.Status.RunningVersion).To(Equal("7.4.12"))
+							validatePods("7.4.11", "7.4.12", true, true)
+						})
+					})
+
+					When(
+						"performing another patch upgrade and a version incompatible upgrade",
+						func() {
+							JustBeforeEach(func() {
+								markPods()
+								upgradeCluster("7.4.13")
+								upgradeCluster("8.0.2")
+							})
+
+							It("should upgrade the cluster without recreating the Pods", func() {
+								Expect(cluster.Status.RunningVersion).To(Equal("8.0.2"))
+								validatePods("7.4.11", "8.0.2", false, false)
+							})
+						},
+					)
+				})
+			})
+
+			When("performing a patch upgrade after a version incompatible upgrade", func() {
+				JustBeforeEach(func() {
+					upgradeCluster(fdbv1beta2.Versions.NextMajorVersion.String())
+					markPods()
+					upgradeCluster("8.0.1")
+				})
+
+				It("should upgrade the cluster without recreating the Pods", func() {
+					Expect(cluster.Status.RunningVersion).To(Equal("8.0.1"))
+					validatePods(fdbv1beta2.Versions.Default.String(), "8.0.1", false, false)
+				})
+			})
+
+			When("performing a version incompatible upgrade", func() {
+				JustBeforeEach(func() {
+					upgradeCluster(fdbv1beta2.Versions.NextMajorVersion.String())
+				})
+
+				It("should upgrade the cluster without recreating the Pods", func() {
+					Expect(cluster.Status.RunningVersion).To(Equal(cluster.Spec.Version))
+
+					pods := &corev1.PodList{}
+					Expect(
+						k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+					).To(Succeed())
+					Expect(pods.Items).To(HaveLen(17))
+					for _, pod := range pods.Items {
+						Expect(pod.Annotations).To(HaveKeyWithValue(testAnnotation, "true"))
+						Expect(pod.Spec.Containers[0].Image).To(
+							And(
+								HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage),
+								HaveSuffix(fdbv1beta2.Versions.Default.String()),
+							),
+						)
+						Expect(pod.Spec.Containers[1].Image).To(
+							And(
+								HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage),
+								HaveSuffix(fdbv1beta2.Versions.NextMajorVersion.String()),
+							),
+						)
+					}
 				})
 			})
 		})
@@ -2610,7 +3155,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(k8sClient.List(context.TODO(), events)).NotTo(HaveOccurred())
 					var matchingEvents []corev1.Event
 					for _, event := range events.Items {
-						if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
+						if event.InvolvedObject.UID == cluster.UID &&
 							event.Reason == "UnsupportedClient" {
 							matchingEvents = append(matchingEvents, event)
 						}
@@ -2647,7 +3192,7 @@ var _ = Describe("cluster_controller", func() {
 						Expect(k8sClient.List(context.TODO(), events)).NotTo(HaveOccurred())
 
 						for _, event := range events.Items {
-							if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
+							if event.InvolvedObject.UID == cluster.UID &&
 								event.Reason == "UnsupportedClient" {
 								matchingEvents = append(matchingEvents, event)
 							}
@@ -2676,7 +3221,7 @@ var _ = Describe("cluster_controller", func() {
 
 						var matchingEvents []corev1.Event
 						for _, event := range events.Items {
-							if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
+							if event.InvolvedObject.UID == cluster.UID &&
 								event.Reason == "UnsupportedClient" {
 								matchingEvents = append(matchingEvents, event)
 							}
@@ -2820,7 +3365,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("enabling a headless service", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.HeadlessService = ptr.To(true)
+				cluster.Spec.Routing.HeadlessService = new(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2841,7 +3386,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("disabling a headless service", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.HeadlessService = ptr.To(true)
+				cluster.Spec.Routing.HeadlessService = new(true)
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 
 				_, err := reconcileCluster(cluster)
@@ -2851,8 +3396,8 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(generation).To(Equal(originalVersion + 1))
 
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
-				cluster.Spec.Routing.HeadlessService = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
+				cluster.Spec.Routing.HeadlessService = new(false)
 				generationGap = 2
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
@@ -2875,7 +3420,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.LockOptions.DenyList,
 					fdbv1beta2.LockDenyListEntry{ID: "dc2"},
 				)
-				cluster.Spec.LockOptions.DisableLocks = ptr.To(false)
+				cluster.Spec.LockOptions.DisableLocks = new(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3053,7 +3598,7 @@ var _ = Describe("cluster_controller", func() {
 
 					Expect(k8sClient.List(context.TODO(), events)).To(Succeed())
 					for _, event := range events.Items {
-						if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
+						if event.InvolvedObject.UID == cluster.UID &&
 							event.Reason == "UnsupportedClient" {
 							matchingEvents = append(matchingEvents, event)
 						}
@@ -3080,7 +3625,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 			})
@@ -3095,7 +3640,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 			})
@@ -3112,7 +3657,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 
@@ -3126,7 +3671,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are not matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).ToNot(Equal(cluster.Generation))
 					})
 				})
 			})
@@ -3143,7 +3688,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 
@@ -3156,7 +3701,7 @@ var _ = Describe("cluster_controller", func() {
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+						Expect(generations.Reconciled).To(Equal(cluster.Generation))
 					})
 				})
 			})
@@ -4020,6 +4565,46 @@ var _ = Describe("cluster_controller", func() {
 		})
 	})
 
+	Describe("controllerOptions", func() {
+		When("no maximum reconcile error backoff is defined", func() {
+			It("keeps the controller-runtime default rate limiter", func() {
+				options, err := (&FoundationDBClusterReconciler{}).controllerOptions(1)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(options.RateLimiter).To(BeNil())
+			})
+		})
+
+		When("a maximum reconcile error backoff is defined", func() {
+			It("caps the retry delay after repeated reconciliation errors", func() {
+				maxBackoff := 45 * time.Second
+				reconciler := &FoundationDBClusterReconciler{MaxReconcileErrorBackoff: maxBackoff}
+				options, err := reconciler.controllerOptions(1)
+				Expect(err).NotTo(HaveOccurred())
+				rateLimiter := options.RateLimiter
+				request := reconcile.Request{
+					NamespacedName: types.NamespacedName{Namespace: "default", Name: "test"},
+				}
+
+				// Each call records one more reconciliation error. Without the maximum, the
+				// delay after 40 errors would be the controller-runtime maximum of 1000 seconds.
+				var delay time.Duration
+				for range 40 {
+					delay = rateLimiter.When(request)
+					Expect(delay).To(BeNumerically("<=", maxBackoff))
+				}
+				Expect(delay).To(Equal(maxBackoff))
+			})
+		})
+
+		When("the maximum reconcile error backoff is negative", func() {
+			It("returns an error", func() {
+				reconciler := &FoundationDBClusterReconciler{MaxReconcileErrorBackoff: -time.Second}
+				_, err := reconciler.controllerOptions(1)
+				Expect(err).To(MatchError(ContainSubstring("must not be negative")))
+			})
+		})
+	})
+
 	Describe("GetProcessGroupIDFromProcessID", func() {
 		It("can parse a process ID", func() {
 			Expect(podmanager.GetProcessGroupIDFromProcessID("storage-1-1")).To(Equal("storage-1"))
@@ -4119,7 +4704,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v6 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+				cluster.Spec.Routing.PodIPFamily = new(6)
 				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 					ProcessGroupID: "storage-1",
@@ -4160,7 +4745,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v4 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
-				cluster.Spec.Routing.PodIPFamily = ptr.To(4)
+				cluster.Spec.Routing.PodIPFamily = new(4)
 				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 					ProcessGroupID: "storage-1",

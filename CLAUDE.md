@@ -24,7 +24,7 @@ The FoundationDB Kubernetes Operator is a sophisticated Kubernetes controller th
 ### Prerequisites
 
 ```bash
-# Go 1.24+ required
+# Go 1.26+ required
 go version
 
 # Install dependencies

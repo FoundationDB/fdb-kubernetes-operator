@@ -22,11 +22,13 @@ package internal
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -61,7 +63,7 @@ var _ = Describe("pod_models", func() {
 				It("should contain the process group's metadata", func() {
 					Expect(pod.Namespace).To(Equal("my-ns"))
 					Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
-					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(pod.Labels).To(Equal(map[string]string{
 						fdbv1beta2.FDBClusterLabel:        cluster.Name,
 						fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 						fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -102,7 +104,7 @@ var _ = Describe("pod_models", func() {
 				It("should contain the process group's metadata", func() {
 					Expect(pod.Namespace).To(Equal("my-ns"))
 					Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
-					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(pod.Labels).To(Equal(map[string]string{
 						"fdb-custom-name":                 cluster.Name,
 						"fdb-new-custom-name":             cluster.Name,
 						"fdb-managed-by-operator":         "true",
@@ -123,7 +125,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should contain the process group's metadata", func() {
 					Expect(pod.Name).To(Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
-					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(pod.Labels).To(Equal(map[string]string{
 						fdbv1beta2.FDBClusterLabel: cluster.Name,
 						fdbv1beta2.FDBProcessClassLabel: string(
 							fdbv1beta2.ProcessClassClusterController,
@@ -164,7 +166,7 @@ var _ = Describe("pod_models", func() {
 						&pod.Spec,
 					)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
+					Expect(pod.Annotations).To(Equal(map[string]string{
 						"fdb-annotation":                    "value1",
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
@@ -199,7 +201,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("should add the labels to the metadata", func() {
-					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(pod.Labels).To(Equal(map[string]string{
 						fdbv1beta2.FDBClusterLabel:        cluster.Name,
 						fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 						fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -580,6 +582,386 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.ImageType = &imageType
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("the main container image is pinned", func() {
+				var unpinnedSpec *corev1.PodSpec
+
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.3.63"
+					cluster.Status.RunningVersion = "7.3.63"
+					unpinnedSpec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					cluster.Spec.MainContainer.MonitorVersion = new("7.3.63")
+				})
+
+				When("the monitor version is equal to the version", func() {
+					It("should not change the pod spec", func() {
+						spec, err = GetPodSpec(
+							cluster,
+							GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(spec).To(Equal(unpinnedSpec))
+					})
+				})
+
+				When("the cluster is upgraded to a different patch version", func() {
+					BeforeEach(func() {
+						cluster.Spec.Version = "7.3.64"
+						spec, err = GetPodSpec(
+							cluster,
+							GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("should use the shared binary launcher", func() {
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+					})
+
+					It(
+						"should keep the main container image and use the new sidecar image",
+						func() {
+							Expect(spec.Containers[0].Image).To(HaveSuffix("7.3.63"))
+							Expect(spec.Containers[1].Image).To(HaveSuffix("7.3.64"))
+						},
+					)
+
+					It(
+						"should make the main container use a version that is never compatible",
+						func() {
+							Expect(spec.Containers[0].Args).To(Equal(append(
+								slices.Clone(unpinnedSpec.Containers[0].Args),
+								"--version-file", "/var/dynamic-conf/shared-binary-version",
+							)))
+							Expect(spec.Volumes).To(ContainElement(WithTransform(
+								func(volume corev1.Volume) []corev1.KeyToPath {
+									if volume.ConfigMap == nil {
+										return nil
+									}
+									return volume.ConfigMap.Items
+								},
+								ContainElement(corev1.KeyToPath{
+									Key:  fdbv1beta2.SharedBinaryVersionKey,
+									Path: "shared-binary-version",
+								}),
+							)))
+						},
+					)
+
+					It("should make the sidecar always copy the binaries", func() {
+						Expect(
+							spec.Containers[1].Args,
+						).NotTo(ContainElement("--main-container-version"))
+						Expect(spec.Containers[1].Args).NotTo(ContainElement("--version-file"))
+					})
+
+					When("the upgrade is done", func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "7.3.64"
+						})
+
+						It("should still use the shared binary launcher", func() {
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+						})
+					})
+				})
+
+				When(
+					"the monitor version is changed to the new version, together with a patch upgrade",
+					func() {
+						BeforeEach(func() {
+							cluster.Spec.Version = "7.3.64"
+							cluster.Spec.MainContainer.MonitorVersion = new("7.3.64")
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should use the new version for the images", func() {
+							Expect(cluster.PinnedImageDiffersFromVersion()).To(BeFalse())
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+							Expect(spec.Containers[0].Image).To(HaveSuffix("7.3.64"))
+							Expect(
+								spec.Containers[0].Args,
+							).To(Equal(unpinnedSpec.Containers[0].Args))
+							Expect(spec.Containers[1].Image).To(HaveSuffix("7.3.64"))
+							Expect(
+								spec.Containers[1].Args,
+							).To(ContainElements("--main-container-version", "7.3.64"))
+						})
+					},
+				)
+
+				When(
+					"the monitor version is changed together with a version incompatible upgrade",
+					func() {
+						BeforeEach(func() {
+							cluster.Spec.Version = "7.4.6"
+							cluster.Spec.MainContainer.MonitorVersion = new("7.4.6")
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It(
+							"should use the running version for the images until the upgrade is done",
+							func() {
+								Expect(cluster.PinnedImageDiffersFromVersion()).To(BeFalse())
+								Expect(spec).To(Equal(unpinnedSpec))
+							},
+						)
+
+						When("the upgrade is done", func() {
+							BeforeEach(func() {
+								cluster.Status.RunningVersion = "7.4.6"
+								spec, err = GetPodSpec(
+									cluster,
+									GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+								)
+								Expect(err).NotTo(HaveOccurred())
+							})
+
+							It("should use the new version for the images", func() {
+								Expect(spec.Containers[0].Image).To(HaveSuffix("7.4.6"))
+								Expect(spec.Containers[1].Image).To(HaveSuffix("7.4.6"))
+							})
+						})
+					},
+				)
+
+				When("the monitor supports the shared binary config", func() {
+					var config monitorapi.ProcessConfiguration
+
+					BeforeEach(func() {
+						cluster.Status.RunningVersion = "7.4.11"
+						cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
+						cluster.Spec.Version = "7.4.12"
+
+						spec, err = GetPodSpec(
+							cluster,
+							GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						)
+						Expect(err).NotTo(HaveOccurred())
+						config, err = GetMonitorProcessConfiguration(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							1,
+							fdbv1beta2.ImageTypeUnified,
+							nil,
+						)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("should configure the monitor instead of using the version file", func() {
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+						Expect(UseSharedBinaryConfig(cluster)).To(BeTrue())
+						Expect(config.UseSharedBinary).To(HaveValue(BeTrue()))
+						Expect(spec.Containers[0].Args).NotTo(ContainElement("--version-file"))
+						Expect(spec.Containers[0].Image).To(HaveSuffix("7.4.11"))
+					})
+
+					It(
+						"should create the same sidecar arguments as for a Pod of the pinned version",
+						func() {
+							Expect(spec.Containers[1].Image).To(HaveSuffix("7.4.12"))
+							Expect(
+								spec.Containers[1].Args,
+							).To(ContainElements("--main-container-version", "7.4.11"))
+						},
+					)
+
+					It("should not add the volume item for the version file", func() {
+						for _, volume := range spec.Volumes {
+							if volume.ConfigMap == nil {
+								continue
+							}
+
+							for _, item := range volume.ConfigMap.Items {
+								Expect(item.Key).NotTo(Equal(fdbv1beta2.SharedBinaryVersionKey))
+							}
+						}
+					})
+
+					When("the shared binary config is disabled with the annotation", func() {
+						BeforeEach(func() {
+							cluster.Annotations = map[string]string{
+								fdbv1beta2.DisableSharedBinaryConfigAnnotation: "true",
+							}
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+							config, err = GetMonitorProcessConfiguration(
+								cluster,
+								fdbv1beta2.ProcessClassStorage,
+								1,
+								fdbv1beta2.ImageTypeUnified,
+								nil,
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should use the version file instead of the config option", func() {
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+							Expect(UseSharedBinaryConfig(cluster)).To(BeFalse())
+							Expect(config.UseSharedBinary).To(BeNil())
+							Expect(spec.Containers[0].Args).To(ContainElement("--version-file"))
+							Expect(
+								spec.Containers[1].Args,
+							).NotTo(ContainElement("--main-container-version"))
+						})
+					})
+
+					When("the version is equal to the monitor version", func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "7.4.11"
+							cluster.Spec.Version = "7.4.11"
+							config, err = GetMonitorProcessConfiguration(
+								cluster,
+								fdbv1beta2.ProcessClassStorage,
+								1,
+								fdbv1beta2.ImageTypeUnified,
+								nil,
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should not set the shared binary option", func() {
+							Expect(UseSharedBinaryConfig(cluster)).To(BeFalse())
+							Expect(config.UseSharedBinary).To(BeNil())
+						})
+					})
+
+					When("the version is not compatible with the monitor version", func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "8.0.2"
+							cluster.Spec.Version = "8.0.2"
+							config, err = GetMonitorProcessConfiguration(
+								cluster,
+								fdbv1beta2.ProcessClassStorage,
+								1,
+								fdbv1beta2.ImageTypeUnified,
+								nil,
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should not set the shared binary option", func() {
+							Expect(UseSharedBinaryConfig(cluster)).To(BeFalse())
+							Expect(config.UseSharedBinary).To(BeNil())
+						})
+					})
+				})
+
+				It(
+					"should not set the shared binary option for a monitor that doesn't support it",
+					func() {
+						cluster.Spec.Version = "7.3.64"
+						config, configErr := GetMonitorProcessConfiguration(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							1,
+							fdbv1beta2.ImageTypeUnified,
+							nil,
+						)
+						Expect(configErr).NotTo(HaveOccurred())
+						Expect(config.UseSharedBinary).To(BeNil())
+						Expect(UseSharedBinaryConfig(cluster)).To(BeFalse())
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+					},
+				)
+
+				When(
+					"the cluster is running a patch version incompatible with the monitor version",
+					func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "7.4.5"
+							cluster.Spec.Version = "7.4.6"
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should not use the shared binary launcher", func() {
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+							Expect(spec.Containers[0].Args).NotTo(ContainElement("--version-file"))
+							Expect(
+								spec.Containers[1].Args,
+							).To(ContainElements("--main-container-version", "7.3.63"))
+						})
+					},
+				)
+
+				When("the main container image is not pinned", func() {
+					BeforeEach(func() {
+						cluster.Spec.MainContainer.MonitorVersion = nil
+						cluster.Spec.Version = "7.3.64"
+					})
+
+					It("should not use the shared binary launcher", func() {
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+					})
+				})
+
+				When("the cluster is upgraded to a protocol incompatible version", func() {
+					BeforeEach(func() {
+						cluster.Spec.Version = "7.4.6"
+						spec, err = GetPodSpec(
+							cluster,
+							GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It(
+						"should keep the main container image and the main container version of the sidecar",
+						func() {
+							Expect(spec.Containers[0].Image).To(HaveSuffix("7.3.63"))
+							Expect(
+								spec.Containers[1].Args,
+							).To(ContainElements("--main-container-version", "7.3.63"))
+							Expect(spec).To(Equal(unpinnedSpec))
+						},
+					)
+
+					When("the upgrade is done", func() {
+						BeforeEach(func() {
+							cluster.Status.RunningVersion = "7.4.6"
+							spec, err = GetPodSpec(
+								cluster,
+								GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+							)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It(
+							"should keep the main container image and use the new sidecar image",
+							func() {
+								Expect(spec.Containers[0].Image).To(HaveSuffix("7.3.63"))
+								Expect(
+									spec.Containers[0].Args,
+								).To(Equal(unpinnedSpec.Containers[0].Args))
+								Expect(spec.Containers[1].Image).To(HaveSuffix("7.4.6"))
+								Expect(
+									spec.Containers[1].Args,
+								).To(ContainElements("--main-container-version", "7.3.63"))
+							},
+						)
+					})
+				})
 			})
 
 			When("running one storage server per disk", func() {
@@ -1006,7 +1388,7 @@ var _ = Describe("pod_models", func() {
 				var podName string
 
 				BeforeEach(func() {
-					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
+					cluster.Spec.Routing.UseDNSInClusterFile = new(true)
 					Expect(
 						NormalizeClusterSpec(cluster, DeprecationOptions{}),
 					).NotTo(HaveOccurred())
@@ -1163,7 +1545,7 @@ var _ = Describe("pod_models", func() {
 
 		When("enabling DNS in the cluster file", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(true)
 				spec, err = GetPodSpec(
 					cluster,
 					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -1256,7 +1638,7 @@ var _ = Describe("pod_models", func() {
 
 		When("enabling DNS in the locality fields", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.DefineDNSLocalityFields = ptr.To(true)
+				cluster.Spec.Routing.DefineDNSLocalityFields = new(true)
 				spec, err = GetPodSpec(
 					cluster,
 					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -2050,8 +2432,8 @@ var _ = Describe("pod_models", func() {
 
 		Context("with no headless service", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
-				cluster.Spec.Routing.HeadlessService = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
+				cluster.Spec.Routing.HeadlessService = new(false)
 				spec, err = GetPodSpec(
 					cluster,
 					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -2574,11 +2956,11 @@ var _ = Describe("pod_models", func() {
 
 				Expect(traceVolumeCount).To(Equal(1))
 				Expect(traceVolume).NotTo(BeNil())
-				Expect(traceVolume.VolumeSource.EmptyDir).To(BeNil())
-				Expect(traceVolume.VolumeSource.HostPath).NotTo(BeNil())
-				Expect(traceVolume.VolumeSource.HostPath.Path).To(Equal("/var/log/fdb-trace-logs"))
+				Expect(traceVolume.EmptyDir).To(BeNil())
+				Expect(traceVolume.HostPath).NotTo(BeNil())
+				Expect(traceVolume.HostPath.Path).To(Equal("/var/log/fdb-trace-logs"))
 				Expect(
-					traceVolume.VolumeSource.HostPath.Type,
+					traceVolume.HostPath.Type,
 				).To(Equal(ptr.To(corev1.HostPathDirectoryOrCreate)))
 			})
 		})
@@ -3013,7 +3395,7 @@ var _ = Describe("pod_models", func() {
 			})
 			It("adds config-map volume that refers to custom map", func() {
 				Expect(
-					spec.Volumes[2].VolumeSource.ConfigMap.LocalObjectReference.Name,
+					spec.Volumes[2].ConfigMap.Name,
 				).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
 			})
 		})
@@ -3028,7 +3410,7 @@ var _ = Describe("pod_models", func() {
 			})
 			It("adds data volume that refers to default pvc", func() {
 				Expect(
-					spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName,
+					spec.Volumes[0].PersistentVolumeClaim.ClaimName,
 				).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 			})
 		})
@@ -3249,7 +3631,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the service", func() {
 				Expect(service.Namespace).To(Equal("my-ns"))
 				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
-				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(service.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -3276,7 +3658,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with podIPFamily 6", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+				cluster.Spec.Routing.PodIPFamily = new(6)
 				service, err = GetService(
 					cluster,
 					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
@@ -3329,7 +3711,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the service", func() {
 				Expect(service.Namespace).To(Equal("my-ns"))
 				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
-				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(service.Labels).To(Equal(map[string]string{
 					"fdb-custom-name":                 cluster.Name,
 					"fdb-managed-by-operator":         "true",
 					"fdb-new-custom-name":             cluster.Name,
@@ -3371,7 +3753,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the PVC", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -3412,7 +3794,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the PVC", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					"fdb-custom-name":                 cluster.Name,
 					"fdb-new-custom-name":             cluster.Name,
 					"fdb-managed-by-operator":         "true",
@@ -3479,11 +3861,11 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata on the PVC", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Annotations).To(Equal(map[string]string{
+				Expect(pvc.Annotations).To(Equal(map[string]string{
 					"fdb-annotation":                     "value1",
 					"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 				}))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
@@ -3518,7 +3900,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should include the prefix in the process group IDs", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "dc1-storage-1",
@@ -3563,7 +3945,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should include the prefix in the process group IDs", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
-				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(pvc.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "dc1-storage-1",
@@ -3600,16 +3982,17 @@ var _ = Describe("pod_models", func() {
 
 		Context("with the default config", func() {
 			It("should set the metadata on the service", func() {
-				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
-				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
-				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal("operator-test-1"))
+				Expect(service.Labels).To(Equal(map[string]string{
 					fdbv1beta2.FDBClusterLabel: "operator-test-1",
 				}))
 			})
 
 			It("should use the default service spec", func() {
 				Expect(service.Spec).To(Equal(corev1.ServiceSpec{
-					ClusterIP: "None",
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
 					Selector: map[string]string{
 						fdbv1beta2.FDBClusterLabel: "operator-test-1",
 					},
@@ -3619,15 +4002,15 @@ var _ = Describe("pod_models", func() {
 
 		Context("with IPFamily", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
+				cluster.Spec.Routing.PodIPFamily = new(6)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(true)
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should update the IPFamilies in the service spec", func() {
-				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
-				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal("operator-test-1"))
 				Expect(len(service.Spec.IPFamilies)).To(Equal(1))
 				Expect(service.Spec.IPFamilies).To(Equal([]corev1.IPFamily{corev1.IPv6Protocol}))
 			})
@@ -3647,9 +4030,9 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set the metadata on the service", func() {
-				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
-				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
-				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal("operator-test-1"))
+				Expect(service.Labels).To(Equal(map[string]string{
 					"fdb-custom-name":         "operator-test-1",
 					"fdb-new-custom-name":     "operator-test-1",
 					"fdb-managed-by-operator": "true",
@@ -3658,7 +4041,8 @@ var _ = Describe("pod_models", func() {
 
 			It("should use the default service spec", func() {
 				Expect(service.Spec).To(Equal(corev1.ServiceSpec{
-					ClusterIP: "None",
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
 					Selector: map[string]string{
 						"fdb-custom-name":         "operator-test-1",
 						"fdb-managed-by-operator": "true",
@@ -3669,7 +4053,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with the headless service disabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 				enabled = false
 			})
 
@@ -3680,7 +4064,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a nil headless flag", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = new(false)
 				cluster.Spec.Routing.HeadlessService = nil
 			})
 
@@ -3707,15 +4091,15 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set the metadata for the deployment", func() {
-				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
-				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
+				Expect(deployment.Name).To(Equal("operator-test-1-backup-agents"))
+				Expect(len(deployment.OwnerReferences)).To(Equal(1))
 				Expect(
-					deployment.ObjectMeta.OwnerReferences[0].UID,
-				).To(Equal(cluster.ObjectMeta.UID))
-				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
-					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
+					deployment.OwnerReferences[0].UID,
+				).To(Equal(cluster.UID))
+				Expect(deployment.Labels).To(Equal(map[string]string{
+					fdbv1beta2.BackupDeploymentLabel: string(cluster.UID),
 				}))
-				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
+				Expect(deployment.Annotations).To(Equal(map[string]string{
 					"foundationdb.org/last-applied-spec": "5250c19ca170acf598f0e1437383ac279876e5d08db4d9dfd2b8121dac05e419",
 				}))
 			})
@@ -3731,7 +4115,7 @@ var _ = Describe("pod_models", func() {
 				).To(Equal(metav1.LabelSelector{MatchLabels: map[string]string{
 					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
 				}}))
-				Expect(deployment.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(deployment.Spec.Template.Labels).To(Equal(map[string]string{
 					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
 				}))
 			})
@@ -3992,7 +4376,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should add the labels", func() {
-				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
+				Expect(deployment.Labels).To(Equal(map[string]string{
 					"foundationdb.org/backup-for": "",
 					"fdb-test":                    "test-value",
 				}))
@@ -4080,15 +4464,15 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set custom parameter in the args", func() {
-				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
-				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
+				Expect(deployment.Name).To(Equal("operator-test-1-backup-agents"))
+				Expect(len(deployment.OwnerReferences)).To(Equal(1))
 				Expect(
-					deployment.ObjectMeta.OwnerReferences[0].UID,
-				).To(Equal(cluster.ObjectMeta.UID))
-				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
-					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
+					deployment.OwnerReferences[0].UID,
+				).To(Equal(cluster.UID))
+				Expect(deployment.Labels).To(Equal(map[string]string{
+					"foundationdb.org/backup-for": string(cluster.UID),
 				}))
-				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
+				Expect(deployment.Annotations).To(Equal(map[string]string{
 					"foundationdb.org/last-applied-spec": "a8b98f7f18dc54eda28869efedf2718393b73fb8b0980cd2e88fb5153fbcd33b",
 				}))
 
@@ -4138,7 +4522,7 @@ var _ = Describe("pod_models", func() {
 
 		When("AllowTagOverride is set to true", func() {
 			BeforeEach(func() {
-				backup.Spec.AllowTagOverride = ptr.To(true)
+				backup.Spec.AllowTagOverride = new(true)
 				templateSpec := corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
@@ -4453,7 +4837,7 @@ var _ = Describe("pod_models", func() {
 
 	Describe("GetPodDNSName", func() {
 		It("builds the DNS name based on the cluster spec", func() {
-			cluster.Spec.Routing.DNSDomain = ptr.To("cluster.example")
+			cluster.Spec.Routing.DNSDomain = new("cluster.example")
 			Expect(
 				GetPodDNSName(cluster, "operator-test-storage-1"),
 			).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))

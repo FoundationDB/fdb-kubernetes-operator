@@ -76,8 +76,12 @@ var _ = Describe("[plugin] cordon command", func() {
 				}
 
 				clusterNames := []string{clusterName, secondClusterName}
-				var instancesToRemove []fdbv1beta2.ProcessGroupID
-				var instancesToRemoveWithoutExclusion []fdbv1beta2.ProcessGroupID
+				instancesToRemove := make([]fdbv1beta2.ProcessGroupID, 0, len(clusterNames))
+				instancesToRemoveWithoutExclusion := make(
+					[]fdbv1beta2.ProcessGroupID,
+					0,
+					len(clusterNames),
+				)
 				for _, clusterName := range clusterNames {
 					var resCluster fdbv1beta2.FoundationDBCluster
 					err = k8sClient.Get(context.Background(), client.ObjectKey{

@@ -24,10 +24,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"k8s.io/utils/ptr"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/buggify"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordination"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
@@ -38,6 +40,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // bounceProcesses provides a reconciliation step for bouncing fdbserver processes.
@@ -45,7 +48,7 @@ type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
 func (c bounceProcesses) reconcile(
-	_ context.Context,
+	ctx context.Context,
 	r *FoundationDBClusterReconciler,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -102,9 +105,22 @@ func (c bounceProcesses) reconcile(
 		return &requeue{curError: err}
 	}
 
+	// The pods are only required if the processes of a pinned cluster are restarted in-place, to decide if the upgrade is coordinated and to
+	// check the monitors. They are fetched once and shared between those checks.
+	var pods map[fdbv1beta2.ProcessGroupID]*corev1.Pod
+	if cluster.UsePinnedMainContainerImage() && cluster.UpdatesSidecarInPlace() {
+		pods, err = getPodsOfProcessGroups(ctx, r, cluster)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	coordinatedUpgrade := isCoordinatedUpgrade(cluster, pods)
+
 	addresses, updatesReadyForRestart, updatesPendingForRestart, req := getProcessesReadyForRestart(
 		logger,
 		cluster,
+		coordinatedUpgrade,
 		addressMap,
 		processesReadyForRestart,
 		processesPendingForRestart,
@@ -142,6 +158,16 @@ func (c bounceProcesses) reconcile(
 
 	logger.V(1).Info("processes that can be restarted", "addresses", addresses)
 
+	// If the processes are restarted in-place with the binary that was staged by the sidecar, make sure that the monitors
+	// will start this binary. A monitor that ignores the configuration would start the old binary again, which would lead
+	// to a restart of the processes in every reconciliation.
+	if coordinatedUpgrade && internal.MonitorMustUseStagedBinary(cluster) {
+		req = r.checkMonitorsStartStagedBinary(logger, cluster, pods)
+		if req != nil {
+			return req
+		}
+	}
+
 	// Check if the cluster can safely bounce processes.
 	err = fdbstatus.CanSafelyBounceProcesses(
 		currentMinimumUptime,
@@ -173,7 +199,7 @@ func (c bounceProcesses) reconcile(
 		return &requeue{curError: err}
 	}
 
-	upgrading := cluster.IsBeingUpgradedWithVersionIncompatibleVersion()
+	upgrading := coordinatedUpgrade
 	if useLocks && upgrading {
 		processGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(cluster.Status.ProcessGroups))
 		for _, processGroup := range cluster.Status.ProcessGroups {
@@ -306,18 +332,208 @@ func (c bounceProcesses) reconcile(
 	return nil
 }
 
+// checkMonitorsStartStagedBinary checks that the monitors of all Pods report that they start the binary that was staged by
+// the sidecar for the version of the cluster. This is a safety check: the monitor reports the directory of the binary in the
+// Pod annotations once it accepted the configuration. A monitor that doesn't support the options that make it use the staged
+// binary would ignore them, accept the configuration and start the old binary after the restart. If a monitor doesn't start
+// the staged binary the restart is skipped and an event is emitted.
+func (r *FoundationDBClusterReconciler) checkMonitorsStartStagedBinary(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pods map[fdbv1beta2.ProcessGroupID]*corev1.Pod,
+) *requeue {
+	binaryDirs := make(map[fdbv1beta2.ProcessGroupID]string, len(cluster.Status.ProcessGroups))
+	var missingBinaryDir []fdbv1beta2.ProcessGroupID
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		// Ignore process groups that are not part of the restart.
+		if processGroup.IsMarkedForRemoval() ||
+			processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil ||
+			processGroup.GetConditionTime(fdbv1beta2.MissingPod) != nil ||
+			processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil ||
+			processGroup.GetConditionTime(fdbv1beta2.MissingProcesses) != nil {
+			continue
+		}
+
+		pod, ok := pods[processGroup.ProcessGroupID]
+		if !ok {
+			continue
+		}
+
+		// This is a safety check, if the binary of the monitor can't be verified the restart is skipped.
+		podClient, message := r.getPodClient(cluster, pod)
+		if podClient == nil {
+			return &requeue{
+				message: fmt.Sprintf(
+					"could not get the Pod client of process group %s to check the binary of the monitor: %s",
+					processGroup.ProcessGroupID,
+					message,
+				),
+				delay: 30 * time.Second,
+			}
+		}
+
+		substitutions, err := podClient.GetVariableSubstitutions()
+		if err != nil {
+			return &requeue{
+				curError: fmt.Errorf(
+					"could not get the variable substitutions of process group %s to check the binary of the monitor: %w",
+					processGroup.ProcessGroupID,
+					err,
+				),
+				delayedRequeue: true,
+			}
+		}
+
+		// The monitor reports the directory when it accepted a configuration. As long as it's not reported, the
+		// binary of the monitor can't be verified and the restart is skipped.
+		binaryDir, ok := substitutions[fdbv1beta2.EnvNameBinaryDir]
+		if !ok {
+			missingBinaryDir = append(missingBinaryDir, processGroup.ProcessGroupID)
+			continue
+		}
+
+		binaryDirs[processGroup.ProcessGroupID] = binaryDir
+	}
+
+	if len(missingBinaryDir) > 0 {
+		slices.Sort(missingBinaryDir)
+		logger.Info("Skip restart because monitors don't report the binary directory",
+			"processGroupIDs", missingBinaryDir)
+
+		return &requeue{
+			message: fmt.Sprintf(
+				"waiting for the monitors of the process groups %v to report the directory of the binary",
+				missingBinaryDir,
+			),
+			delay: 30 * time.Second,
+		}
+	}
+
+	wrongProcessGroups := getProcessGroupsWithoutStagedBinary(cluster, binaryDirs)
+	if len(wrongProcessGroups) == 0 {
+		return nil
+	}
+
+	message := fmt.Sprintf(
+		"The monitor of the process groups %v doesn't start the binary that was staged for version %s, skipping the restart. "+
+			"The main container image is pinned to version %s, the monitor might not support the configuration to start the staged binary. "+
+			"Consider setting the annotation %s on the cluster.",
+		wrongProcessGroups,
+		cluster.Spec.Version,
+		cluster.GetMonitorVersion(),
+		fdbv1beta2.DisableSharedBinaryConfigAnnotation,
+	)
+	logger.Info(
+		"Skip restart because monitors don't start the staged binary",
+		"processGroupIDs", wrongProcessGroups,
+		"expectedBinaryDir", internal.GetSharedBinaryDirectory(cluster.Spec.Version),
+	)
+	r.Recorder.Event(cluster, corev1.EventTypeWarning, "MonitorNotUsingStagedBinary", message)
+
+	return &requeue{message: message, delay: 30 * time.Second}
+}
+
+// getProcessGroupsWithoutStagedBinary returns the process groups where the monitor reports a binary directory that is
+// not the directory of the staged binary for the version of the cluster. The result is sorted.
+func getProcessGroupsWithoutStagedBinary(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	binaryDirs map[fdbv1beta2.ProcessGroupID]string,
+) []fdbv1beta2.ProcessGroupID {
+	expectedBinaryDir := internal.GetSharedBinaryDirectory(cluster.Spec.Version)
+	var result []fdbv1beta2.ProcessGroupID
+	for processGroupID, binaryDir := range binaryDirs {
+		if binaryDir != expectedBinaryDir {
+			result = append(result, processGroupID)
+		}
+	}
+
+	slices.Sort(result)
+
+	return result
+}
+
+// getPodsOfProcessGroups returns the Pods of all process groups that are not marked for removal. Process groups without
+// a Pod are not part of the result.
+func getPodsOfProcessGroups(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (map[fdbv1beta2.ProcessGroupID]*corev1.Pod, error) {
+	pods := make(map[fdbv1beta2.ProcessGroupID]*corev1.Pod, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+
+			return nil, fmt.Errorf(
+				"could not get Pod of process group %s: %w",
+				processGroup.ProcessGroupID,
+				err,
+			)
+		}
+
+		pods[processGroup.ProcessGroupID] = pod
+	}
+
+	return pods, nil
+}
+
+// isCoordinatedUpgrade returns true if all processes of the cluster must be restarted at the same time, to upgrade the
+// cluster. The processes of all clusters, e.g. in a multi-region setup, are registered as pending upgrades and are
+// restarted with a single restart command, which reduces the number of recoveries.
+//
+// This is the case for version incompatible upgrades and for protocol compatible upgrades where the processes are
+// restarted in-place, which is the case if the main container image is pinned. The decision is based on the Pods and not
+// on the conditions of the process groups: Pods only become capable of starting the staged binary and never lose this
+// capability, so the decision doesn't change back and forth during an upgrade. Only the annotation that disables the
+// shared binary config, or a new Pod that is created capable, can change it.
+//
+// If the monitor supports the option to start the staged binary in the process configuration, all Pods are capable. For
+// older monitors the Pods must use the launcher that starts the staged binary. As long as a Pod doesn't use it, e.g. for
+// the first patch upgrade, the Pods are replaced with a rolling update and the processes are not restarted in-place.
+func isCoordinatedUpgrade(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pods map[fdbv1beta2.ProcessGroupID]*corev1.Pod,
+) bool {
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		return true
+	}
+
+	if !cluster.UpdatesSidecarInPlace() {
+		return false
+	}
+
+	if cluster.MonitorSupportsSharedBinaryConfig() {
+		return true
+	}
+
+	for _, pod := range pods {
+		if !internal.PodUsesSharedBinaryLauncher(pod) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // getProcessesReadyForRestart returns a slice of process addresses that can be restarted. If addresses are missing or not all processes
 // have the latest configuration this method will return a requeue struct with more details.
 func getProcessesReadyForRestart(
 	logger logr.Logger,
 	cluster *fdbv1beta2.FoundationDBCluster,
+	coordinatedUpgrade bool,
 	addressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress,
 	processesReadyForRestart map[fdbv1beta2.ProcessGroupID]time.Time,
 	processesPendingForRestart map[fdbv1beta2.ProcessGroupID]time.Time,
 ) ([]fdbv1beta2.ProcessAddress, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction, *requeue) {
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	allSynced := true
-	versionIncompatibleUpgrade := cluster.IsBeingUpgradedWithVersionIncompatibleVersion()
 	var missingAddress []fdbv1beta2.ProcessGroupID
 	updatesReadyForRestart := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{}
 	updatesPendingForRestart := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{}
@@ -344,9 +560,9 @@ func getProcessesReadyForRestart(
 		// of cluster.GetProcessCountsWithDefaults() + the number of process groups marked for removal.
 		if processGroup.IsMarkedForRemoval() {
 			markedForRemoval[processGroup.ProcessClass]++
-			// If we do a version incompatible upgrade we want to add the excluded processes to the list of processes
-			// that should be restarted, to make sure we restart all processes in the cluster.
-			if versionIncompatibleUpgrade && processGroup.IsExcluded() {
+			// If the cluster is upgraded in a coordinated way we want to add the excluded processes to the list of
+			// processes that should be restarted, to make sure we restart all processes in the cluster.
+			if coordinatedUpgrade && processGroup.IsExcluded() {
 				logger.Info(
 					"adding process group that is marked for exclusion to list of restarted processes",
 					"processGroupID",
@@ -416,9 +632,10 @@ func getProcessesReadyForRestart(
 		}
 	}
 
-	// Only if the cluster is upgraded with an incompatible version we have to make sure that all processes are ready to be restarted.
-	// In the case of a patch upgrade we will be recreating the Pods anyway without this bounce step.
-	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+	// Only if the cluster is upgraded with an incompatible version or the processes are restarted in-place for a patch
+	// upgrade we have to make sure that all processes are ready to be restarted. In the case of a patch upgrade where
+	// the Pods are replaced we will be recreating the Pods anyway without this bounce step.
+	if coordinatedUpgrade {
 		err := checkIfEnoughProcessesAreRunning(
 			logger,
 			cluster,

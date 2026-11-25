@@ -219,7 +219,7 @@ func (factory *Factory) createHaFdbClusterSpec(
 // Delete removes all Clusters associated FoundationDBClusters.
 func (haFDBCluster *HaFdbCluster) Delete(ctx context.Context) {
 	for _, cluster := range haFDBCluster.GetAllClusters() {
-		gomega.Expect(cluster.Destroy(ctx)).NotTo(gomega.HaveOccurred())
+		gomega.Expect(cluster.Delete(ctx)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -250,7 +250,7 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 	for _, cluster := range clusters {
 		curCluster := cluster.GetCluster(ctx)
 
-		generation := curCluster.ObjectMeta.Generation
+		generation := curCluster.Generation
 		// Only increase the expected generation if the cluster is not already upgraded.
 		if curCluster.Spec.Version != version {
 			generation++

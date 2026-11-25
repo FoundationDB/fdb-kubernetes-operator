@@ -24,8 +24,6 @@ import (
 	"context"
 	"strconv"
 
-	"k8s.io/utils/ptr"
-
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +62,7 @@ func (factory *Factory) InjectNetworkLoss(
 			},
 			Spec: chaosmesh.NetworkChaosSpec{
 				Action:   chaosmesh.LossAction,
-				Duration: ptr.To(ChaosDurationForever),
+				Duration: new(ChaosDurationForever),
 				PodSelector: chaosmesh.PodSelector{
 					Selector: source,
 					Mode:     chaosmesh.AllMode,
@@ -170,7 +168,7 @@ func (factory *Factory) injectPartitionBetween(
 			},
 			Spec: chaosmesh.NetworkChaosSpec{
 				Action:   chaosmesh.PartitionAction,
-				Duration: ptr.To(ChaosDurationForever),
+				Duration: new(ChaosDurationForever),
 				PodSelector: chaosmesh.PodSelector{
 					Selector: source,
 					Mode:     chaosmesh.AllMode,
@@ -217,7 +215,7 @@ func (factory *Factory) InjectNetworkLatency(
 			},
 			Spec: chaosmesh.NetworkChaosSpec{
 				Action:   chaosmesh.DelayAction,
-				Duration: ptr.To(ChaosDurationForever),
+				Duration: new(ChaosDurationForever),
 				PodSelector: chaosmesh.PodSelector{
 					Selector: source,
 					Mode:     chaosmesh.AllMode,

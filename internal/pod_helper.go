@@ -30,8 +30,6 @@ import (
 	"slices"
 	"strconv"
 
-	"k8s.io/utils/ptr"
-
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -104,7 +102,107 @@ func GetPodSpecHash(
 		}
 	}
 
+	// If the main container image is pinned, the settings that depend on the FDB version are not part of the hash. The
+	// sidecar image changes with every FDB version change and is updated in-place by the updateSidecarVersions
+	// reconciler. Whether the Pod is able to always start the binary of the sidecar is checked separately, see
+	// PodHasDesiredSpec.
+	if cluster.UsePinnedMainContainerImage() {
+		spec = withoutVersionDependentSettings(spec)
+	}
+
 	return GetJSONHash(spec)
+}
+
+// PodHasDesiredSpec returns true if the last applied spec hash of the Pod matches the provided hash of the desired spec.
+// If the main container image is pinned, the Pod must also be able to start the binary of the sidecar, if the desired
+// spec requires it. A Pod that is able to do this is also valid if the desired spec doesn't require it.
+func PodHasDesiredSpec(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+	specHash string,
+) bool {
+	if pod.Annotations[fdbv1beta2.LastSpecKey] != specHash {
+		return false
+	}
+
+	if UseSharedBinaryLauncher(cluster) && !PodUsesSharedBinaryLauncher(pod) {
+		return false
+	}
+
+	return true
+}
+
+// GetSpecDifferenceReason returns a message that describes why the Pod doesn't have the desired spec. This method should
+// only be used if PodHasDesiredSpec returned false for the Pod.
+func GetSpecDifferenceReason(pod *corev1.Pod, specHash string) string {
+	currentSpecHash := pod.Annotations[fdbv1beta2.LastSpecKey]
+	if currentSpecHash != specHash {
+		return fmt.Sprintf("specHash has changed from %s to %s", currentSpecHash, specHash)
+	}
+
+	return "the Pod doesn't start the binary of the sidecar but the main container image is pinned, the specHash is " +
+		"unchanged: " + specHash
+}
+
+// GetFullPodSpecHash builds the hash of the expected spec for a pod, including the sidecar image. This is the hash
+// that was used for all clusters before the main container image could be pinned.
+func GetFullPodSpecHash(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+) (string, error) {
+	spec, err := GetPodSpec(cluster, processGroup)
+	if err != nil {
+		return "", err
+	}
+
+	return GetJSONHash(spec)
+}
+
+// withoutVersionDependentSettings returns a copy of the provided spec without the settings that are changed
+// depending on the FDB version if the main container image is pinned. These are the image of the sidecar container,
+// the settings to always start the binary that was staged by the sidecar and the main container version of the sidecar.
+func withoutVersionDependentSettings(spec *corev1.PodSpec) *corev1.PodSpec {
+	result := spec.DeepCopy()
+	for idx := range result.Containers {
+		switch result.Containers[idx].Name {
+		case fdbv1beta2.SidecarContainerName:
+			result.Containers[idx].Image = ""
+			result.Containers[idx].Args = removeFlagWithValue(
+				result.Containers[idx].Args,
+				mainContainerVersionFlag,
+			)
+		case fdbv1beta2.MainContainerName:
+			result.Containers[idx].Args = removeFlagWithValue(
+				result.Containers[idx].Args,
+				versionFileFlag,
+			)
+		}
+	}
+
+	for idx := range result.Volumes {
+		if result.Volumes[idx].ConfigMap == nil {
+			continue
+		}
+
+		result.Volumes[idx].ConfigMap.Items = slices.DeleteFunc(
+			slices.Clone(result.Volumes[idx].ConfigMap.Items),
+			func(item corev1.KeyToPath) bool {
+				return item.Key == fdbv1beta2.SharedBinaryVersionKey
+			},
+		)
+	}
+
+	return result
+}
+
+// removeFlagWithValue returns the args without the provided flag and its value.
+func removeFlagWithValue(args []string, flag string) []string {
+	idx := slices.Index(args, flag)
+	if idx < 0 || idx+1 >= len(args) {
+		return args
+	}
+
+	return slices.Concat(args[:idx], args[idx+2:])
 }
 
 // GetJSONHash serializes an object to JSON and takes a hash of the resulting
@@ -176,7 +274,7 @@ func BuildOwnerReference(
 		Kind:       ownerType.Kind,
 		Name:       ownerMetadata.Name,
 		UID:        ownerMetadata.UID,
-		Controller: ptr.To(true),
+		Controller: new(true),
 	}}
 }
 
@@ -186,7 +284,7 @@ func GetSinglePodListOptions(
 	processGroupID fdbv1beta2.ProcessGroupID,
 ) []client.ListOption {
 	return []client.ListOption{
-		client.InNamespace(cluster.ObjectMeta.Namespace),
+		client.InNamespace(cluster.Namespace),
 		client.MatchingLabels(GetPodMatchLabels(cluster, "", string(processGroupID))),
 	}
 }
@@ -198,7 +296,7 @@ func GetPodListOptions(
 	id string,
 ) []client.ListOption {
 	return []client.ListOption{
-		client.InNamespace(cluster.ObjectMeta.Namespace),
+		client.InNamespace(cluster.Namespace),
 		client.MatchingLabels(GetPodMatchLabels(cluster, processClass, id)),
 	}
 }
@@ -253,7 +351,7 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 		return "", fmt.Errorf("failed to fetch public IP source from nil Pod")
 	}
 
-	source := pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
+	source := pod.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
 	if source == "" {
 		return fdbv1beta2.PublicIPSourcePod, nil
 	}
@@ -333,7 +431,7 @@ func GetIPFamily(pod *corev1.Pod) (int, error) {
 		return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("failed to fetch IP family from nil Pod")
 	}
 
-	ipFamilyValue, ok := pod.ObjectMeta.Annotations[fdbv1beta2.IPFamilyAnnotation]
+	ipFamilyValue, ok := pod.Annotations[fdbv1beta2.IPFamilyAnnotation]
 	if ipFamilyValue != "" && ok {
 		return parseIPFamily(ipFamilyValue)
 	}
@@ -383,10 +481,10 @@ func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (boo
 	}
 
 	// Ignore the fdbv1beta2.LastSpecKey, this value will be updated by replacing or recreating pods.
-	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]
+	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = pod.Annotations[fdbv1beta2.LastSpecKey]
 	// Don't change the annotation for the image type, this will require a pod update.
 	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(
-		GetImageTypeFromAnnotation(pod.ObjectMeta.Annotations),
+		GetImageTypeFromAnnotation(pod.Annotations),
 	)
 	// Don't change the IP family annotation, this will require a pod update.
 	ipFamily, err := GetIPFamily(pod)

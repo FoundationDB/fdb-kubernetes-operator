@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-    foundationdb.org/release: v2.36.0
+    foundationdb.org/release: v2.40.0
   name: foundationdbbackups.apps.foundationdb.org
 spec:
   group: apps.foundationdb.org
@@ -169,6 +169,11 @@ spec:
                       type: object
                     maxItems: 100
                     type: array
+                  monitorVersion:
+                    maxLength: 254
+                    minLength: 1
+                    pattern: (\d+)\.(\d+)\.(\d+)
+                    type: string
                   peerVerificationRules:
                     maxLength: 10000
                     type: string
@@ -4024,6 +4029,11 @@ spec:
                       type: object
                     maxItems: 100
                     type: array
+                  monitorVersion:
+                    maxLength: 254
+                    minLength: 1
+                    pattern: (\d+)\.(\d+)\.(\d+)
+                    type: string
                   peerVerificationRules:
                     maxLength: 10000
                     type: string

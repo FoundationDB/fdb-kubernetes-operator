@@ -776,7 +776,7 @@ protocol fdb00b071010000`,
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					Version: "6.3.25",
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseNonBlockingExcludes:  ptr.To(useNonBlockingExcludes),
+						UseNonBlockingExcludes:  new(useNonBlockingExcludes),
 						DatabaseInteractionMode: &interactionMode,
 					},
 				},
@@ -1011,7 +1011,7 @@ protocol fdb00b071010000`,
 						AccountName: "@test",
 						BackupName:  "test-backup",
 					},
-					SnapshotPeriodSeconds: ptr.To(60),
+					SnapshotPeriodSeconds: new(60),
 				},
 			}, []string{
 				"start",
@@ -1030,7 +1030,7 @@ protocol fdb00b071010000`,
 						AccountName: "@test",
 						BackupName:  "test-backup",
 					},
-					SnapshotPeriodSeconds: ptr.To(60),
+					SnapshotPeriodSeconds: new(60),
 					EncryptionKeyPath:     "/tmp/test",
 				},
 			}, []string{
@@ -1049,7 +1049,7 @@ protocol fdb00b071010000`,
 						AccountName: "@test",
 						BackupName:  "test-backup",
 					},
-					SnapshotPeriodSeconds: ptr.To(60),
+					SnapshotPeriodSeconds: new(60),
 				},
 			}, []string{
 				"start",
@@ -1066,7 +1066,7 @@ protocol fdb00b071010000`,
 						AccountName: "@test",
 						BackupName:  "test-backup",
 					},
-					SnapshotPeriodSeconds: ptr.To(60),
+					SnapshotPeriodSeconds: new(60),
 					EncryptionKeyPath:     "/tmp/test",
 				},
 			}, []string{
@@ -1086,7 +1086,7 @@ protocol fdb00b071010000`,
 						AccountName: "@test",
 						BackupName:  "test-backup",
 					},
-					SnapshotPeriodSeconds: ptr.To(60),
+					SnapshotPeriodSeconds: new(60),
 					BackupType:            ptr.To(fdbv1beta2.BackupTypePartitionedLog),
 				},
 			}, []string{
@@ -1105,7 +1105,7 @@ protocol fdb00b071010000`,
 						AccountName: "@test",
 						BackupName:  "test-backup",
 					},
-					SnapshotPeriodSeconds: ptr.To(60),
+					SnapshotPeriodSeconds: new(60),
 					BackupType:            ptr.To(fdbv1beta2.BackupTypePartitionedLog),
 				},
 			}, []string{
@@ -1125,7 +1125,7 @@ protocol fdb00b071010000`,
 						AccountName: "@test",
 						BackupName:  "test-backup",
 					},
-					SnapshotPeriodSeconds: ptr.To(60),
+					SnapshotPeriodSeconds: new(60),
 					BackupType:            ptr.To(fdbv1beta2.BackupTypeDefault),
 				},
 			}, []string{
@@ -1143,7 +1143,7 @@ protocol fdb00b071010000`,
 						AccountName: "@test",
 						BackupName:  "test-backup",
 					},
-					SnapshotPeriodSeconds: ptr.To(60),
+					SnapshotPeriodSeconds: new(60),
 					BackupMode:            ptr.To(fdbv1beta2.BackupModeContinuous),
 				},
 			}, []string{
@@ -1292,7 +1292,7 @@ protocol fdb00b071010000`,
 			}
 
 		},
-		Entry("when it is passed in", ptr.To(uint64(1234567890123)), "1234567890123"),
+		Entry("when it is passed in", new(uint64(1234567890123)), "1234567890123"),
 		Entry("when it is not passed in", nil, ""),
 	)
 
@@ -1413,7 +1413,7 @@ protocol fdb00b071010000`,
 				BeforeEach(func() {
 					newDatabase = true
 					configuration = &fdbv1beta2.DatabaseConfiguration{
-						PerpetualStorageWiggleLocality: ptr.To("; status details\n"),
+						PerpetualStorageWiggleLocality: new("; status details\n"),
 					}
 				})
 
@@ -1442,7 +1442,7 @@ protocol fdb00b071010000`,
 				BeforeEach(func() {
 					newDatabase = true
 					configuration = &fdbv1beta2.DatabaseConfiguration{
-						PerpetualStorageWiggleLocality: ptr.To("; status details\n"),
+						PerpetualStorageWiggleLocality: new("; status details\n"),
 					}
 				})
 

@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("[api] FoundationDBBackup", func() {
@@ -184,7 +183,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			}))
 
 			backup = createBackup()
-			backup.Spec.SnapshotPeriodSeconds = ptr.To(100000)
+			backup.Spec.SnapshotPeriodSeconds = new(100000)
 			result, err = backup.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())

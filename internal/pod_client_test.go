@@ -26,9 +26,11 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("pod_client", func() {
@@ -124,5 +126,46 @@ var _ = Describe("pod_client", func() {
 				Expect(req).To(BeNil())
 			})
 		})
+	})
+
+	When("building the request URL for the sidecar", func() {
+		DescribeTable(
+			"should build a valid URL",
+			func(podIP string, useTLS bool, expected string) {
+				client := &realFdbPodSidecarClient{
+					Pod: &corev1.Pod{
+						Status: corev1.PodStatus{PodIP: podIP},
+					},
+					useTLS: useTLS,
+					logger: logr.Discard(),
+				}
+
+				requestURL := client.getRequestURL("substitutions")
+				Expect(requestURL).To(Equal(expected))
+
+				parsed, err := url.Parse(requestURL)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parsed.Port()).To(Equal("8080"))
+			},
+			Entry(
+				"IPv4 without TLS",
+				"192.168.1.1",
+				false,
+				"http://192.168.1.1:8080/substitutions",
+			),
+			Entry("IPv4 with TLS", "192.168.1.1", true, "https://192.168.1.1:8080/substitutions"),
+			Entry(
+				"IPv6 without TLS",
+				"2402:f140:102e:c0c::8f8",
+				false,
+				"http://[2402:f140:102e:c0c::8f8]:8080/substitutions",
+			),
+			Entry(
+				"IPv6 with TLS",
+				"2402:f140:102e:c0c::8f8",
+				true,
+				"https://[2402:f140:102e:c0c::8f8]:8080/substitutions",
+			),
+		)
 	})
 })

@@ -2,6 +2,10 @@
 
 package v1beta2
 
+import (
+	apiv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+)
+
 // TaintReplacementOptionApplyConfiguration represents a declarative configuration of the TaintReplacementOption type for use
 // with apply.
 //
@@ -13,13 +17,17 @@ package v1beta2
 // durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint
 //
 // Setting durationInSeconds to the maximum of int64 will practically disable the taint key.
-// When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used.
+// When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key,
+// the exact matched key will be used if its ProcessClasses includes the process class.
 type TaintReplacementOptionApplyConfiguration struct {
 	// Tainted key
 	Key *string `json:"key,omitempty"`
 	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint;
 	// DurationInSeconds cannot be a negative number.
 	DurationInSeconds *int64 `json:"durationInSeconds,omitempty"`
+	// ProcessClasses restricts this option to the listed process classes.
+	// Omitted or empty means all classes.
+	ProcessClasses []apiv1beta2.ProcessClass `json:"processClasses,omitempty"`
 }
 
 // TaintReplacementOptionApplyConfiguration constructs a declarative configuration of the TaintReplacementOption type for use with
@@ -41,5 +49,15 @@ func (b *TaintReplacementOptionApplyConfiguration) WithKey(value string) *TaintR
 // If called multiple times, the DurationInSeconds field is set to the value of the last call.
 func (b *TaintReplacementOptionApplyConfiguration) WithDurationInSeconds(value int64) *TaintReplacementOptionApplyConfiguration {
 	b.DurationInSeconds = &value
+	return b
+}
+
+// WithProcessClasses adds the given value to the ProcessClasses field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the ProcessClasses field.
+func (b *TaintReplacementOptionApplyConfiguration) WithProcessClasses(values ...apiv1beta2.ProcessClass) *TaintReplacementOptionApplyConfiguration {
+	for i := range values {
+		b.ProcessClasses = append(b.ProcessClasses, values[i])
+	}
 	return b
 }

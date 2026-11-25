@@ -121,6 +121,10 @@ func (c updateStatus) reconcile(
 		}
 	}
 	clusterStatus.RunningVersion = version
+	// TODO: Populate the monitor version in the status in a follow-up release. The field was added to the CRD in this
+	// release. Writing it before the CRDs are updated, would make the status update fail with server-side apply (field
+	// not declared in schema) and silently drop the field otherwise.
+	// clusterStatus.MonitorVersion = cluster.GetMonitorVersionOrDefault()
 	// We update the running version of the cluster status here to make sure that the Pod Spec hash and other things
 	// are properly calculated based on the current observed running version. If we don't update the running version
 	// here, we could see a race condition where the updateStatus sub-reconciler runs for the first time after an upgrade
@@ -410,7 +414,10 @@ func checkAndSetProcessStatus(
 		}
 	}
 
-	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
+	// If the main container image is pinned, the processes are restarted in-place with the binary of the sidecar. This
+	// means that the processes of all Pods must be restarted and the mixed set of versions is not a valid state.
+	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress() &&
+		!cluster.PinnedImageDiffersFromVersion()
 	imageType := internal.GetImageType(pod)
 	for processNumber := 1; processNumber <= processCount; processNumber++ {
 		// If the process status is present under the process group ID take that information, otherwise check if there
@@ -523,7 +530,8 @@ func checkAndSetProcessStatus(
 			}
 
 			// If the `EmptyMonitorConf` is set, the commandline is by definition wrong since there should be no running processes.
-			if !(commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf) {
+			if commandLine != process.CommandLine || !versionMatch ||
+				cluster.Spec.Buggify.EmptyMonitorConf {
 				logger.Info("IncorrectProcess",
 					"expected", commandLine, "got", process.CommandLine,
 					"expectedVersion", cluster.Spec.Version,
@@ -671,7 +679,7 @@ func validateProcessGroups(
 		)
 
 		// This handles the case where the Pod has a DeletionTimestamp and should be deleted.
-		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !pod.DeletionTimestamp.IsZero() {
 			// If the ProcessGroup is marked for removal and is excluded, we can put the status into ResourcesTerminating.
 			if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
 				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true)
@@ -681,7 +689,7 @@ func validateProcessGroups(
 			// if a Pod is marked for terminating (e.g. node failure) but the process itself is still reporting to the
 			// cluster. We only set this condition if the Pod is in this state for GetFailedPodDuration(), the default
 			// here is 5 minutes.
-			if pod.ObjectMeta.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).
+			if pod.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).
 				Before(time.Now()) {
 				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true)
 				continue
@@ -704,7 +712,7 @@ func validateProcessGroups(
 			status.ImageTypes = append(status.ImageTypes, imageType)
 		}
 
-		if pod.ObjectMeta.DeletionTimestamp.IsZero() && status.HasListenIPsForAllPods {
+		if pod.DeletionTimestamp.IsZero() && status.HasListenIPsForAllPods {
 			hasPodIP := false
 			for _, container := range pod.Spec.Containers {
 				if container.Name == fdbv1beta2.SidecarContainerName ||
@@ -784,8 +792,27 @@ func validateProcessGroup(
 		return err
 	}
 
+	// If the main container image is pinned the sidecar image is no longer part of the hash. Pods that were created before
+	// the image was pinned still have the full hash as annotation. If the Pod matches the full hash, the Pod is not
+	// outdated and only the annotation must be updated, otherwise the Pod would be recreated.
+	if cluster.UsePinnedMainContainerImage() &&
+		specHash != pod.Annotations[fdbv1beta2.LastSpecKey] {
+		err = updateLastSpecKeyForPinnedImage(
+			ctx,
+			r,
+			cluster,
+			processGroupStatus,
+			pod,
+			specHash,
+			logger,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Check here if the Pod spec matches the desired Pod spec.
-	incorrectPodSpec := specHash != pod.Annotations[fdbv1beta2.LastSpecKey]
+	incorrectPodSpec := !internal.PodHasDesiredSpec(cluster, pod, specHash)
 	if !incorrectPodSpec {
 		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
 		if err != nil {
@@ -851,7 +878,7 @@ func validateProcessGroup(
 			synced = false
 		}
 	} else {
-		synced = pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash
+		synced = pod.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, !synced)
@@ -974,6 +1001,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 		hasExactMatch := hasExactMatchedTaintKey(
 			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions,
 			taint.Key,
+			processGroup.ProcessClass,
 		)
 		for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
 			taintConfiguredKeyString := ptr.Deref(taintConfiguredKey.Key, "")
@@ -989,9 +1017,14 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 				logger.Info("Taint is not properly set", "Taint", taint)
 				continue
 			}
-			// If a wildcard is specified as key, it will be used as default value, except there is an exact match defined for the taint key.
+			// Use the wildcard as the default unless an exact key matches this process class.
 			if (hasExactMatch && taint.Key != taintConfiguredKeyString) ||
 				(!hasExactMatch && taintConfiguredKeyString != "*") {
+				continue
+			}
+
+			if len(taintConfiguredKey.ProcessClasses) > 0 &&
+				!slices.Contains(taintConfiguredKey.ProcessClasses, processGroup.ProcessClass) {
 				continue
 			}
 
@@ -1004,11 +1037,11 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 					"TaintValue", taint.Value,
 					"TaintEffect", taint.Effect)
 				// Update nodeTaintDetectedTime here to make sure we are not hitting a nil pointer below.
-				nodeTaintDetectedTime = ptr.To(time.Now().Unix())
+				nodeTaintDetectedTime = new(time.Now().Unix())
 			}
 
 			// Use node taint's timestamp as the NodeTaintDetected condition's starting time.
-			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Time.Unix() < *nodeTaintDetectedTime {
+			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Unix() < *nodeTaintDetectedTime {
 				logger.Info("Update NodeTaintDetected condition",
 					"TaintKey", taint.Key,
 					"TaintValue", taint.Value,
@@ -1020,7 +1053,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 					taint.TimeAdded.Unix(),
 				)
 				// Update the current timestamp with the new value.
-				nodeTaintDetectedTime = ptr.To(taint.TimeAdded.Unix())
+				nodeTaintDetectedTime = new(taint.TimeAdded.Unix())
 			}
 
 			// If the process group already has the NodeTaintReplacing condition we can skip any further work.
@@ -1221,9 +1254,15 @@ func getRunningVersion(
 func hasExactMatchedTaintKey(
 	taintReplacementOptions []fdbv1beta2.TaintReplacementOption,
 	nodeTaintKey string,
+	processClass fdbv1beta2.ProcessClass,
 ) bool {
 	for _, configuredTaintKey := range taintReplacementOptions {
 		if configuredTaintKey.Key == nil {
+			continue
+		}
+
+		if len(configuredTaintKey.ProcessClasses) > 0 &&
+			!slices.Contains(configuredTaintKey.ProcessClasses, processClass) {
 			continue
 		}
 
@@ -1317,4 +1356,43 @@ func updateFaultDomains(
 			status.ProcessGroups[idx].Machine = fdbv1beta2.Machine(host)
 		}
 	}
+}
+
+// updateLastSpecKeyForPinnedImage updates the last applied spec annotation of the Pod to the provided hash, if the
+// annotation matches the hash of the full spec. The full spec includes the sidecar image, which is not part of the hash
+// if the main container image is pinned.
+func updateLastSpecKeyForPinnedImage(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroupStatus *fdbv1beta2.ProcessGroupStatus,
+	pod *corev1.Pod,
+	specHash string,
+	logger logr.Logger,
+) error {
+	fullSpecHash, err := internal.GetFullPodSpecHash(cluster, processGroupStatus)
+	if err != nil {
+		return err
+	}
+
+	if pod.Annotations[fdbv1beta2.LastSpecKey] != fullSpecHash {
+		return nil
+	}
+
+	logger.Info(
+		"Updating last applied spec annotation for pinned main container image",
+		"processGroupID", processGroupStatus.ProcessGroupID,
+		"currentSpecHash", fullSpecHash,
+		"desiredSpecHash", specHash,
+	)
+	updatedPod := pod.DeepCopy()
+	updatedPod.Annotations[fdbv1beta2.LastSpecKey] = specHash
+	err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, updatedPod)
+	if err != nil {
+		return err
+	}
+
+	pod.Annotations[fdbv1beta2.LastSpecKey] = specHash
+
+	return nil
 }

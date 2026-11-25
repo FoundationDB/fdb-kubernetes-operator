@@ -23,6 +23,8 @@ package internal
 import (
 	"fmt"
 	"maps"
+	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -194,9 +196,10 @@ func getContainers(podSpec *corev1.PodSpec) (*corev1.Container, *corev1.Containe
 	var sidecarContainer *corev1.Container
 
 	for index, container := range podSpec.Containers {
-		if container.Name == fdbv1beta2.MainContainerName {
+		switch container.Name {
+		case fdbv1beta2.MainContainerName:
 			mainContainer = &podSpec.Containers[index]
-		} else if container.Name == fdbv1beta2.SidecarContainerName {
+		case fdbv1beta2.SidecarContainerName:
 			sidecarContainer = &podSpec.Containers[index]
 		}
 	}
@@ -235,6 +238,13 @@ func configureContainersForUnifiedImages(
 				Name:  processGroup.ProcessClass.GetServersPerPodEnvName(),
 				Value: desiredServersPerPod,
 			},
+		)
+	}
+
+	if UseSharedBinaryLauncher(cluster) {
+		mainContainer.Args = append(
+			mainContainer.Args,
+			versionFileFlag, "/var/dynamic-conf/"+sharedBinaryVersionFile,
 		)
 	}
 
@@ -293,14 +303,28 @@ func configureContainersForUnifiedImages(
 	}
 
 	sidecarContainer.Image = sidecarImage
+	// The sidecar skips copying the binaries if the main container version is equal to the version of the sidecar. If the
+	// main container image is pinned, the version of the main container doesn't change with the FDB version.
+	mainContainerVersion := getMainContainerVersion(cluster)
+
 	sidecarContainer.Args = []string{
 		"--mode", "sidecar",
 		"--output-dir", "/var/fdb/shared-binaries",
-		"--main-container-version", desiredVersion,
+	}
+	// If the binary of the sidecar must always be used, the sidecar must always copy the binaries. This is the default
+	// if the flag is not set.
+	if !UseSharedBinaryLauncher(cluster) {
+		sidecarContainer.Args = append(
+			sidecarContainer.Args,
+			mainContainerVersionFlag,
+			mainContainerVersion,
+		)
+	}
+	sidecarContainer.Args = append(sidecarContainer.Args,
 		"--copy-binary", "fdbserver",
 		"--copy-binary", "fdbcli",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
-	}
+	)
 
 	addVolumeMountIfMissing(
 		sidecarContainer,
@@ -314,10 +338,11 @@ func configureContainersForUnifiedImages(
 	for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 		for _, pid := range crashObjs.Targets {
 			if pid == processGroup.ProcessGroupID || pid == "*" {
-				if crashObjs.ContainerName == mainContainer.Name {
+				switch crashObjs.ContainerName {
+				case mainContainer.Name:
 					mainContainer.Command = []string{"crash-loop"}
 					mainContainer.Args = []string{"crash-loop"}
-				} else if crashObjs.ContainerName == sidecarContainer.Name {
+				case sidecarContainer.Name:
 					sidecarContainer.Command = []string{"crash-loop"}
 					sidecarContainer.Args = []string{"crash-loop"}
 				}
@@ -336,7 +361,7 @@ func ensureSecurityContextIsPresent(container *corev1.Container) {
 	}
 
 	if container.SecurityContext.ReadOnlyRootFilesystem == nil {
-		container.SecurityContext.ReadOnlyRootFilesystem = ptr.To(true)
+		container.SecurityContext.ReadOnlyRootFilesystem = new(true)
 	}
 }
 
@@ -428,6 +453,13 @@ func configureVolumesForContainers(
 		)
 	}
 
+	if useUnifiedImage && UseSharedBinaryLauncher(cluster) {
+		configMapItems = append(
+			configMapItems,
+			corev1.KeyToPath{Key: fdbv1beta2.SharedBinaryVersionKey, Path: sharedBinaryVersionFile},
+		)
+	}
+
 	var mainVolumeSource corev1.VolumeSource
 	if processGroup.ProcessClass.IsStateful() {
 		mainVolumeSource.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
@@ -514,6 +546,138 @@ func configureNoSchedule(
 	}
 }
 
+// getPodVersion returns the FDB version that is used to select the images of a Pod. During a protocol compatible
+// upgrade this is the new version, otherwise the running version is used to ensure that the Pods are not updated
+// during a version incompatible upgrade.
+func getPodVersion(cluster *fdbv1beta2.FoundationDBCluster) string {
+	if cluster.VersionCompatibleUpgradeInProgress() {
+		return cluster.Spec.Version
+	}
+
+	return cluster.GetRunningVersion()
+}
+
+// getMainContainerVersion returns the FDB version that is used to select the image of the main container. If the image
+// is pinned, this is the monitor version. If the monitor version is changed to the same version as the version of the
+// cluster, e.g. to roll the pinned image forward together with an upgrade, the image is not pinned anymore and the
+// cluster is upgraded like a cluster without a pinned image. The image of the main container follows the Pod version,
+// which means that the Pods are replaced as part of the upgrade, instead of being updated in-place.
+func getMainContainerVersion(cluster *fdbv1beta2.FoundationDBCluster) string {
+	if !cluster.UsePinnedMainContainerImage() || cluster.MonitorVersionEqualsVersion() {
+		return getPodVersion(cluster)
+	}
+
+	return cluster.GetMonitorVersion()
+}
+
+// needsSharedBinary returns true if the main container image is pinned and the version of the Pod is a different patch
+// version of the pinned version. The monitor would use the binary of the main container if the versions are protocol
+// compatible. If the version is not protocol compatible with the pinned version the monitor already starts the staged
+// binary and if the versions are equal the binary of the main container is the desired one.
+func needsSharedBinary(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	if !cluster.UsePinnedMainContainerImage() {
+		return false
+	}
+
+	monitorVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetMonitorVersion())
+	if err != nil {
+		return false
+	}
+
+	podVersion, err := fdbv1beta2.ParseFdbVersion(getPodVersion(cluster))
+	if err != nil {
+		return false
+	}
+
+	return monitorVersion.IsProtocolCompatible(podVersion) && !monitorVersion.Equal(podVersion)
+}
+
+// UseSharedBinaryLauncher returns true if the Pods must be created in a way that the monitor in the main container
+// always starts the binary that was staged by the sidecar, see needsSharedBinary. This is done with a version file that
+// is never protocol compatible. Monitors that support the UseSharedBinary option in the process configuration are
+// configured with the option, see UseSharedBinaryConfig.
+func UseSharedBinaryLauncher(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	return needsSharedBinary(cluster) && !cluster.MonitorSupportsSharedBinaryConfig()
+}
+
+// SharedBinaryDirectory is the directory in the main container where the staged binaries of the sidecar are located. The
+// monitor starts the fdbserver binary from a subdirectory with the version name, if the staged binary must be used.
+const SharedBinaryDirectory = "/var/fdb/shared-binaries/bin"
+
+// GetSharedBinaryDirectory returns the directory the monitor starts the fdbserver binary from, if it uses the binary that
+// was staged by the sidecar for the provided version.
+func GetSharedBinaryDirectory(version string) string {
+	parsedVersion, err := fdbv1beta2.ParseFdbVersion(version)
+	if err != nil {
+		return path.Join(SharedBinaryDirectory, version)
+	}
+
+	return path.Join(SharedBinaryDirectory, parsedVersion.String())
+}
+
+// MonitorMustUseStagedBinary returns true if the monitors of the Pods must start the fdbserver binary that was staged by
+// the sidecar for the version of the cluster, because the main container image is pinned to a different version. This is
+// the case for all Pods that are restarted in-place.
+func MonitorMustUseStagedBinary(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	return cluster.UsePinnedMainContainerImage() && !cluster.MonitorVersionEqualsVersion()
+}
+
+// monitorStartsStagedBinary returns true if the monitor of the Pod starts the staged binary of the version of the cluster.
+// The monitor always starts the staged binary if its version is not protocol compatible with the version of the cluster.
+// Otherwise, the monitor must be configured to do so. This is used to simulate the behavior of the monitor in tests.
+func monitorStartsStagedBinary(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) bool {
+	if !MonitorMustUseStagedBinary(cluster) {
+		return false
+	}
+
+	monitorVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetMonitorVersion())
+	if err != nil {
+		return false
+	}
+
+	version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return false
+	}
+
+	return !monitorVersion.IsProtocolCompatible(version) ||
+		UseSharedBinaryConfig(cluster) ||
+		PodUsesSharedBinaryLauncher(pod)
+}
+
+// UseSharedBinaryConfig returns true if the process configuration must contain the UseSharedBinary option, to make the
+// monitor always start the binary that was staged by the sidecar, see needsSharedBinary.
+func UseSharedBinaryConfig(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	return needsSharedBinary(cluster) && cluster.MonitorSupportsSharedBinaryConfig()
+}
+
+const (
+	// versionFileFlag is the flag of the monitor to define the path to the file that contains the version of the
+	// monitor container.
+	versionFileFlag = "--version-file"
+
+	// mainContainerVersionFlag is the flag of the monitor that defines the version of the main container for the
+	// sidecar.
+	mainContainerVersionFlag = "--main-container-version"
+
+	// sharedBinaryVersionFile is the name of the file in the config-map volume that contains the SharedBinaryVersionKey.
+	sharedBinaryVersionFile = "shared-binary-version"
+)
+
+// PodUsesSharedBinaryLauncher returns true if the Pod was created with the settings to always start the binary that
+// was staged by the sidecar, see UseSharedBinaryLauncher.
+func PodUsesSharedBinaryLauncher(pod *corev1.Pod) bool {
+	for _, container := range pod.Spec.Containers {
+		if container.Name != fdbv1beta2.MainContainerName {
+			continue
+		}
+
+		return slices.Contains(container.Args, versionFileFlag)
+	}
+
+	return false
+}
+
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(
 	cluster *fdbv1beta2.FoundationDBCluster,
@@ -533,15 +697,15 @@ func GetPodSpec(
 		return nil, err
 	}
 
-	desiredVersion := cluster.GetRunningVersion()
-	if cluster.VersionCompatibleUpgradeInProgress() {
-		desiredVersion = cluster.Spec.Version
-	}
+	desiredVersion := getPodVersion(cluster)
+
+	// If the main container image is pinned, the image doesn't change with the FDB version.
+	mainContainerVersion := getMainContainerVersion(cluster)
 
 	image, err := GetImage(
 		mainContainer.Image,
 		cluster.Spec.MainContainer.ImageConfigs,
-		desiredVersion,
+		mainContainerVersion,
 		false,
 	)
 	if err != nil {
@@ -970,7 +1134,8 @@ func getEnvForMonitorConfigSubstitution(
 		faultDomainSource = "spec.nodeName"
 	}
 
-	if faultDomainKey == fdbv1beta2.NoneFaultDomainKey {
+	switch faultDomainKey {
+	case fdbv1beta2.NoneFaultDomainKey:
 		env = append(
 			env,
 			corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
@@ -983,7 +1148,7 @@ func getEnvForMonitorConfigSubstitution(
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 			}},
 		)
-	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
+	case "foundationdb.org/kubernetes-cluster":
 		env = append(
 			env,
 			corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
@@ -994,7 +1159,7 @@ func getEnvForMonitorConfigSubstitution(
 			env,
 			corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, Value: cluster.Spec.FaultDomain.Value},
 		)
-	} else {
+	default:
 		env = append(
 			env,
 			corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
@@ -1037,7 +1202,7 @@ func GetPvc(
 	}
 
 	pvc.ObjectMeta = GetPvcMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)
-	pvc.ObjectMeta.Name = processGroup.GetPvcName(cluster)
+	pvc.Name = processGroup.GetPvcName(cluster)
 
 	if pvc.Spec.AccessModes == nil {
 		pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
@@ -1057,10 +1222,10 @@ func GetPvc(
 		return nil, err
 	}
 
-	if pvc.ObjectMeta.Annotations == nil {
-		pvc.ObjectMeta.Annotations = make(map[string]string, 1)
+	if pvc.Annotations == nil {
+		pvc.Annotations = make(map[string]string, 1)
 	}
-	pvc.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = specHash
+	pvc.Annotations[fdbv1beta2.LastSpecKey] = specHash
 
 	return pvc, nil
 }
@@ -1096,7 +1261,7 @@ func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
 
 // GetBackupDeploymentName returns the name for the associated deployment for the FoundationDBBackup.
 func GetBackupDeploymentName(backup *fdbv1beta2.FoundationDBBackup) string {
-	return fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
+	return fmt.Sprintf("%s-backup-agents", backup.Name)
 }
 
 // GetBackupDeployment builds a deployment for backup agents for a cluster.
@@ -1108,23 +1273,23 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   backup.ObjectMeta.Namespace,
+			Namespace:   backup.Namespace,
 			Name:        GetBackupDeploymentName(backup),
 			Annotations: map[string]string{},
 			Labels:      map[string]string{},
 		},
 	}
 	deployment.Spec.Replicas = &agentCount
-	deployment.ObjectMeta.OwnerReferences = BuildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
+	deployment.OwnerReferences = BuildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
 
 	if backup.Spec.BackupDeploymentMetadata != nil {
-		maps.Copy(deployment.ObjectMeta.Labels, backup.Spec.BackupDeploymentMetadata.Labels)
+		maps.Copy(deployment.Labels, backup.Spec.BackupDeploymentMetadata.Labels)
 		maps.Copy(
-			deployment.ObjectMeta.Annotations,
+			deployment.Annotations,
 			backup.Spec.BackupDeploymentMetadata.Annotations,
 		)
 	}
-	deployment.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
+	deployment.Labels[fdbv1beta2.BackupDeploymentLabel] = string(backup.UID)
 
 	var podTemplate *corev1.PodTemplateSpec
 	if backup.Spec.PodTemplateSpec != nil {
@@ -1149,11 +1314,8 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}
 
 	if mainContainer == nil {
-		containers := []corev1.Container{
-			{
-				Name: fdbv1beta2.MainContainerName,
-			},
-		}
+		containers := make([]corev1.Container, 0, 1+len(podTemplate.Spec.Containers))
+		containers = append(containers, corev1.Container{Name: fdbv1beta2.MainContainerName})
 		containers = append(containers, podTemplate.Spec.Containers...)
 		mainContainer = &containers[0]
 		podTemplate.Spec.Containers = containers
@@ -1298,12 +1460,12 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		return nil, err
 	}
 
-	if podTemplate.ObjectMeta.Labels == nil {
-		podTemplate.ObjectMeta.Labels = make(map[string]string, 1)
+	if podTemplate.Labels == nil {
+		podTemplate.Labels = make(map[string]string, 1)
 	}
-	podTemplate.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentPodLabel] = deployment.ObjectMeta.Name
+	podTemplate.Labels[fdbv1beta2.BackupDeploymentPodLabel] = deployment.Name
 	deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
-		fdbv1beta2.BackupDeploymentPodLabel: deployment.ObjectMeta.Name,
+		fdbv1beta2.BackupDeploymentPodLabel: deployment.Name,
 	}}
 
 	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes,
@@ -1339,7 +1501,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		return nil, err
 	}
 
-	deployment.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = specHash
+	deployment.Annotations[fdbv1beta2.LastSpecKey] = specHash
 
 	return deployment, nil
 }

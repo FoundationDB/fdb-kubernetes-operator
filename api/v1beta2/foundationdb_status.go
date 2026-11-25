@@ -251,6 +251,17 @@ type FoundationDBStatusProcessRoleInfo struct {
 
 	// ReadLatencyStatistics provides statistics about this process's GRV latencies.
 	GRVLatencyStatistics FoundationDBStatusGRVStatistics `json:"grv_latency_statistics"`
+
+	// StorageMetadata provides metadata about the storage server, e.g. the storage engine
+	// this storage process is currently using. This is only populated for storage roles.
+	StorageMetadata FoundationDBStatusStorageMetadata `json:"storage_metadata,omitempty"`
+}
+
+// FoundationDBStatusStorageMetadata contains metadata about a storage server as
+// reported in the "storage_metadata" section of a storage role.
+type FoundationDBStatusStorageMetadata struct {
+	// StorageEngine defines the storage engine this storage process is currently using.
+	StorageEngine *StorageEngine `json:"storage_engine,omitempty"`
 }
 
 // FoundationDBStatusPerfStatistics models information about one dimension of a process's performance.

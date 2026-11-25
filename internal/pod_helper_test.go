@@ -200,6 +200,310 @@ var _ = Describe("pod_helper", func() {
 		),
 	)
 
+	When("calculating the pod spec hash", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var processGroup *fdbv1beta2.ProcessGroupStatus
+
+		BeforeEach(func() {
+			cluster = CreateDefaultCluster()
+			cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+			cluster.Spec.Version = "7.3.63"
+			cluster.Status.RunningVersion = "7.3.63"
+			Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).To(Succeed())
+			processGroup = GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1)
+		})
+
+		When("the main container image is not pinned", func() {
+			It("should change the hash if the sidecar image changes", func() {
+				oldHash, err := GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.Version = "7.3.64"
+				cluster.Status.RunningVersion = "7.3.64"
+				newHash, err := GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(newHash).NotTo(Equal(oldHash))
+			})
+
+			It("should be equal to the full hash", func() {
+				hash, err := GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+				fullHash, err := GetFullPodSpecHash(cluster, processGroup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(hash).To(Equal(fullHash))
+			})
+		})
+
+		When("the main container image is pinned", func() {
+			var unpinnedHash string
+
+			BeforeEach(func() {
+				var err error
+				unpinnedHash, err = GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.MainContainer.MonitorVersion = new("7.3.63")
+			})
+
+			It("should keep the full hash equal to the hash before the image was pinned", func() {
+				fullHash, err := GetFullPodSpecHash(cluster, processGroup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fullHash).To(Equal(unpinnedHash))
+			})
+
+			It("should not use the full hash", func() {
+				hash, err := GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(hash).NotTo(Equal(unpinnedHash))
+			})
+
+			It("should not change the hash if the version changes", func() {
+				oldHash, err := GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.Version = "7.4.6"
+				cluster.Status.RunningVersion = "7.4.6"
+				newHash, err := GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(newHash).To(Equal(oldHash))
+			})
+
+			It("should change the hash if the monitor version changes", func() {
+				oldHash, err := GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.MainContainer.MonitorVersion = new("7.4.6")
+				newHash, err := GetPodSpecHash(cluster, processGroup, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(newHash).NotTo(Equal(oldHash))
+			})
+
+			When("the cluster is upgraded to a different patch version", func() {
+				var capablePod *corev1.Pod
+				var nonCapablePod *corev1.Pod
+
+				BeforeEach(func() {
+					// Build the pods for the current version, before the upgrade starts.
+					nonCapablePod = &corev1.Pod{}
+					nonCapableSpec, err := GetPodSpec(cluster, processGroup)
+					Expect(err).NotTo(HaveOccurred())
+					nonCapablePod.Spec = *nonCapableSpec
+
+					cluster.Spec.Version = "7.3.64"
+					capablePod = &corev1.Pod{}
+					capableSpec, err := GetPodSpec(cluster, processGroup)
+					Expect(err).NotTo(HaveOccurred())
+					capablePod.Spec = *capableSpec
+				})
+
+				It("should not change the hash", func() {
+					Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+					hash, err := GetPodSpecHash(cluster, processGroup, nil)
+					Expect(err).NotTo(HaveOccurred())
+					oldHash, err := GetPodSpecHash(cluster, processGroup, &nonCapablePod.Spec)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(hash).To(Equal(oldHash))
+				})
+
+				It("should detect pods that use the shared binary launcher", func() {
+					Expect(PodUsesSharedBinaryLauncher(capablePod)).To(BeTrue())
+					Expect(PodUsesSharedBinaryLauncher(nonCapablePod)).To(BeFalse())
+				})
+
+				It("should require pods to use the shared binary launcher", func() {
+					hash, err := GetPodSpecHash(cluster, processGroup, nil)
+					Expect(err).NotTo(HaveOccurred())
+					for pod, expected := range map[*corev1.Pod]bool{capablePod: true, nonCapablePod: false} {
+						pod.Annotations = map[string]string{fdbv1beta2.LastSpecKey: hash}
+						Expect(PodHasDesiredSpec(cluster, pod, hash)).To(Equal(expected))
+					}
+				})
+
+				It("should not match if the hash is different", func() {
+					capablePod.Annotations = map[string]string{fdbv1beta2.LastSpecKey: "other"}
+					Expect(PodHasDesiredSpec(cluster, capablePod, "hash")).To(BeFalse())
+				})
+
+				When(
+					"the upgrade is done and the version is not compatible with the monitor version",
+					func() {
+						BeforeEach(func() {
+							cluster.Spec.Version = "7.4.6"
+							cluster.Status.RunningVersion = "7.4.6"
+						})
+
+						It("should accept pods that use the shared binary launcher", func() {
+							hash, err := GetPodSpecHash(cluster, processGroup, nil)
+							Expect(err).NotTo(HaveOccurred())
+							capablePod.Annotations = map[string]string{fdbv1beta2.LastSpecKey: hash}
+							nonCapablePod.Annotations = map[string]string{
+								fdbv1beta2.LastSpecKey: hash,
+							}
+
+							Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+							Expect(PodHasDesiredSpec(cluster, capablePod, hash)).To(BeTrue())
+							Expect(PodHasDesiredSpec(cluster, nonCapablePod, hash)).To(BeTrue())
+						})
+					},
+				)
+			})
+
+			When("the shared binary config is disabled after the Pods were created", func() {
+				var pod *corev1.Pod
+
+				BeforeEach(func() {
+					cluster.Spec.MainContainer.MonitorVersion = new("7.4.11")
+					cluster.Spec.Version = "7.4.12"
+					cluster.Status.RunningVersion = "7.4.11"
+					Expect(UseSharedBinaryLauncher(cluster)).To(BeFalse())
+
+					spec, err := GetPodSpec(cluster, processGroup)
+					Expect(err).NotTo(HaveOccurred())
+					hash, err := GetPodSpecHash(cluster, processGroup, spec)
+					Expect(err).NotTo(HaveOccurred())
+					pod = &corev1.Pod{}
+					pod.Spec = *spec
+					pod.Annotations = map[string]string{fdbv1beta2.LastSpecKey: hash}
+
+					cluster.Annotations = map[string]string{
+						fdbv1beta2.DisableSharedBinaryConfigAnnotation: "true",
+					}
+				})
+
+				It("should describe why the Pod doesn't have the desired spec", func() {
+					currentHash := pod.Annotations[fdbv1beta2.LastSpecKey]
+					Expect(GetSpecDifferenceReason(pod, "other")).To(
+						Equal("specHash has changed from " + currentHash + " to other"),
+					)
+					Expect(
+						GetSpecDifferenceReason(pod, currentHash),
+					).To(ContainSubstring("doesn't start the binary of the sidecar"))
+				})
+
+				It(
+					"should not change the hash, but require the Pods to use the version file",
+					func() {
+						Expect(UseSharedBinaryLauncher(cluster)).To(BeTrue())
+						hash, err := GetPodSpecHash(cluster, processGroup, nil)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(hash).To(Equal(pod.Annotations[fdbv1beta2.LastSpecKey]))
+						Expect(PodHasDesiredSpec(cluster, pod, hash)).To(BeFalse())
+					},
+				)
+			})
+
+			It("should not modify the provided spec", func() {
+				spec, err := GetPodSpec(cluster, processGroup)
+				Expect(err).NotTo(HaveOccurred())
+				image := spec.Containers[1].Image
+				Expect(image).NotTo(BeEmpty())
+
+				_, err = GetPodSpecHash(cluster, processGroup, spec)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(spec.Containers[1].Image).To(Equal(image))
+			})
+		})
+	})
+
+	DescribeTable("when getting the directory of the staged binary",
+		func(version string, expected string) {
+			Expect(GetSharedBinaryDirectory(version)).To(Equal(expected))
+		},
+		Entry("a version", "7.4.11", "/var/fdb/shared-binaries/bin/7.4.11"),
+		Entry("an invalid version", "invalid", "/var/fdb/shared-binaries/bin/invalid"),
+	)
+
+	DescribeTable(
+		"when checking which binary the monitor starts",
+		func(version string, monitorVersion *string, usesVersionFile bool, annotation string, expectedMustUse bool, expectedStarts bool) {
+			cluster := CreateDefaultCluster()
+			cluster.Spec.ImageType = new(fdbv1beta2.ImageTypeUnified)
+			cluster.Spec.Version = version
+			cluster.Status.RunningVersion = version
+			cluster.Spec.MainContainer.MonitorVersion = monitorVersion
+			if annotation != "" {
+				cluster.Annotations = map[string]string{
+					fdbv1beta2.DisableSharedBinaryConfigAnnotation: annotation,
+				}
+			}
+
+			pod := &corev1.Pod{}
+			if usesVersionFile {
+				pod.Spec.Containers = []corev1.Container{{
+					Name: fdbv1beta2.MainContainerName,
+					Args: []string{"--version-file", "/var/dynamic-conf/shared-binary-version"},
+				}}
+			}
+
+			Expect(MonitorMustUseStagedBinary(cluster)).To(Equal(expectedMustUse))
+			Expect(monitorStartsStagedBinary(cluster, pod)).To(Equal(expectedStarts))
+		},
+		Entry("the image is not pinned", "7.4.11", nil, false, "", false, false),
+		Entry(
+			"the version is the pinned version",
+			"7.4.10",
+			new("7.4.10"),
+			false,
+			"",
+			false,
+			false,
+		),
+		Entry(
+			"the version is not protocol compatible with the pinned version",
+			"7.4.5",
+			new("7.3.69"),
+			false,
+			"",
+			true,
+			true,
+		),
+		Entry(
+			"the monitor supports the config option",
+			"7.4.12",
+			new("7.4.11"),
+			false,
+			"",
+			true,
+			true,
+		),
+		Entry(
+			"the monitor doesn't support the config option and the Pod has no version file",
+			"7.4.5",
+			new("7.4.1"),
+			false,
+			"",
+			true,
+			false,
+		),
+		Entry(
+			"the monitor doesn't support the config option and the Pod has a version file",
+			"7.4.5",
+			new("7.4.1"),
+			true,
+			"",
+			true,
+			true,
+		),
+		Entry(
+			"the config option is disabled and the Pod has no version file",
+			"7.4.12",
+			new("7.4.11"),
+			false,
+			"true",
+			true,
+			false,
+		),
+		Entry(
+			"the config option is disabled and the Pod has a version file",
+			"7.4.12",
+			new("7.4.11"),
+			true,
+			"true",
+			true,
+			true,
+		),
+	)
+
 	When("merging labels", func() {
 		var metadata *metav1.ObjectMeta
 
@@ -423,8 +727,8 @@ var _ = Describe("pod_helper", func() {
 			result, err := podMetadataCorrect(tc.metadata, tc.pod)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(tc.expected))
-			Expect(tc.pod.ObjectMeta.Labels).To(Equal(tc.expectedMeta.Labels))
-			Expect(tc.pod.ObjectMeta.Annotations).To(Equal(tc.expectedMeta.Annotations))
+			Expect(tc.pod.Labels).To(Equal(tc.expectedMeta.Labels))
+			Expect(tc.pod.Annotations).To(Equal(tc.expectedMeta.Annotations))
 		},
 		Entry("Metadata matches with Pod metadata",
 			testCase{

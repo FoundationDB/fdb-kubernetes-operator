@@ -25,7 +25,6 @@ import (
 
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
 // InjectHTTPClientChaosWrongResultFdbMonitorConf  this method can be used to simulate a bad response from the operator to the sidecar. Currently this method returns as body the value "wrong"
@@ -44,14 +43,14 @@ func (factory *Factory) InjectHTTPClientChaosWrongResultFdbMonitorConf(
 			},
 			Spec: chaosmesh.HTTPChaosSpec{
 				Target:   chaosmesh.PodHttpResponse,
-				Duration: ptr.To(ChaosDurationForever),
+				Duration: new(ChaosDurationForever),
 				PodSelector: chaosmesh.PodSelector{
 					Selector: selector,
 					Mode:     chaosmesh.AllMode,
 				},
 				Port:   8080,
-				Method: ptr.To("GET"),
-				Path:   ptr.To("check_hash/fdbmonitor.conf"),
+				Method: new("GET"),
+				Path:   new("check_hash/fdbmonitor.conf"),
 				PodHttpChaosActions: chaosmesh.PodHttpChaosActions{
 					Replace: &chaosmesh.PodHttpChaosReplaceActions{
 						Body: []byte("wrong"),
@@ -62,7 +61,7 @@ func (factory *Factory) InjectHTTPClientChaosWrongResultFdbMonitorConf(
 					SecretNamespace: namespace,
 					CertName:        "tls.crt",
 					KeyName:         "tls.key",
-					CAName:          ptr.To("ca.pem"),
+					CAName:          new("ca.pem"),
 				},
 			},
 		})

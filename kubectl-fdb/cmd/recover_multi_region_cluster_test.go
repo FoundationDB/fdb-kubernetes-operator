@@ -21,11 +21,15 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilexec "k8s.io/client-go/util/exec"
 )
 
 var _ = Describe("[plugin] running the recover multi-region cluster command", func() {
@@ -137,4 +141,86 @@ var _ = Describe("[plugin] running the recover multi-region cluster command", fu
 			},
 		),
 	)
+})
+
+var _ = DescribeTable(
+	"[plugin] checking if an error is a container restart error",
+	func(err error, expected bool) {
+		Expect(isContainerRestartError(err)).To(Equal(expected))
+	},
+	Entry("nil error", nil, false),
+	Entry(
+		"exit code 137",
+		utilexec.CodeExitError{Err: errors.New("command terminated with exit code 137"), Code: 137},
+		true,
+	),
+	Entry(
+		"wrapped exit code 137",
+		fmt.Errorf("wrapped: %w", utilexec.CodeExitError{Err: errors.New("killed"), Code: 137}),
+		true,
+	),
+	Entry(
+		"other exit code",
+		utilexec.CodeExitError{Err: errors.New("command terminated with exit code 1"), Code: 1},
+		false,
+	),
+	Entry(
+		"container not found",
+		errors.New(`unable to upgrade connection: container not found ("foundationdb")`),
+		true,
+	),
+	Entry("unrelated error", errors.New("forbidden"), false),
+)
+
+var _ = Describe("[plugin] describing the container state of a pod", func() {
+	It("should report a crash-looping container", func() {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				ContainerStatuses: []corev1.ContainerStatus{
+					{
+						Name:         fdbv1beta2.MainContainerName,
+						RestartCount: 5,
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"},
+						},
+						LastTerminationState: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{
+								Reason:   "Error",
+								ExitCode: 137,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		description := describeContainerState(pod)
+		Expect(description).To(ContainSubstring("CrashLoopBackOff"))
+		Expect(description).To(ContainSubstring("restart count: 5"))
+		Expect(description).To(ContainSubstring("exit code: 137"))
+	})
+
+	It("should report a running container", func() {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				ContainerStatuses: []corev1.ContainerStatus{
+					{
+						Name:  fdbv1beta2.MainContainerName,
+						Ready: true,
+						State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}},
+					},
+				},
+			},
+		}
+
+		description := describeContainerState(pod)
+		Expect(description).To(ContainSubstring("running since"))
+		Expect(description).To(ContainSubstring("ready: true"))
+	})
+
+	It("should report a missing container status", func() {
+		Expect(describeContainerState(&corev1.Pod{})).To(ContainSubstring("no status found"))
+	})
 })

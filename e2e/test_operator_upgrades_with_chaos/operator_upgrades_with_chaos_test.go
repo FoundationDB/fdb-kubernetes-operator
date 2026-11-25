@@ -34,8 +34,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
@@ -63,7 +61,7 @@ func clusterSetup(ctx context.Context, beforeVersion string) {
 	fdbCluster = factory.CreateFdbCluster(ctx,
 		&fixtures.ClusterConfig{
 			DebugSymbols: false,
-			Version:      ptr.To(beforeVersion),
+			Version:      new(beforeVersion),
 		},
 	)
 
@@ -140,6 +138,11 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 	DescribeTable(
 		"with a partitioned pod which eventually gets replaced",
 		func(ctx SpecContext, beforeVersion string, targetVersion string) {
+			// For version compatible upgrades the test expects that the upgrade proceeds because the partitioned Pod is
+			// recreated. With a pinned main container image the upgrade is in-place and a Pod that cannot report its
+			// configuration blocks the restart, like for a version incompatible upgrade.
+			factory.SkipIfPodsAreNotRecreated(beforeVersion, targetVersion)
+
 			clusterSetup(ctx, beforeVersion)
 			Expect(fdbCluster.SetAutoReplacements(ctx, false, 5*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for too long

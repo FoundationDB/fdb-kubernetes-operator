@@ -54,7 +54,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	factory = fixtures.CreateFactory(testOptions)
 	config := fixtures.DefaultClusterConfig(false)
 	config.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
-	config.UseUnifiedImage = ptr.To(true)
+	config.UseUnifiedImage = new(true)
 
 	fdbCluster = factory.CreateFdbCluster(ctx,
 		config,
@@ -160,7 +160,7 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove(ctx)).NotTo(HaveOccurred())
 			// Make sure we reset the previous behaviour.
 			spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
+			spec.AutomationOptions.UseLocalitiesForExclusion = new(
 				useLocalitiesForExclusion,
 			)
 			fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
@@ -186,7 +186,7 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 		When("IP addresses are used for exclusion", func() {
 			BeforeEach(func(ctx SpecContext) {
 				spec := fdbCluster.GetCluster(ctx).Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
+				spec.AutomationOptions.UseLocalitiesForExclusion = new(false)
 				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 				Expect(fdbCluster.GetCluster(ctx).UseLocalitiesForExclusion()).To(BeFalse())
 			})
@@ -210,7 +210,7 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 				}
 
 				spec := cluster.Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
+				spec.AutomationOptions.UseLocalitiesForExclusion = new(true)
 				fdbCluster.UpdateClusterSpecWithSpec(ctx, spec)
 				Expect(fdbCluster.GetCluster(ctx).UseLocalitiesForExclusion()).To(BeTrue())
 			})

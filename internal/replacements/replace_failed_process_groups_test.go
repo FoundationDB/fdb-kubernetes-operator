@@ -24,7 +24,6 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("replace_failed_process_groups", func() {
@@ -54,7 +53,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 						Replacements: fdbv1beta2.AutomaticReplacementOptions{
-							FaultDomainBasedReplacements: ptr.To(true),
+							FaultDomainBasedReplacements: new(true),
 						},
 					},
 				},
@@ -69,7 +68,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 						Replacements: fdbv1beta2.AutomaticReplacementOptions{
-							FaultDomainBasedReplacements: ptr.To(true),
+							FaultDomainBasedReplacements: new(true),
 						},
 					},
 				},
@@ -86,7 +85,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 						Replacements: fdbv1beta2.AutomaticReplacementOptions{
-							FaultDomainBasedReplacements: ptr.To(true),
+							FaultDomainBasedReplacements: new(true),
 						},
 					},
 				},
@@ -103,7 +102,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 						Replacements: fdbv1beta2.AutomaticReplacementOptions{
-							FaultDomainBasedReplacements: ptr.To(true),
+							FaultDomainBasedReplacements: new(true),
 						},
 					},
 				},
